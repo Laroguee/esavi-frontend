@@ -5,6 +5,9 @@ import FormularioApertura from './features/forms/Fase1_Apertura/FormularioApertu
 import CaseDetail from './features/cases/CaseDetail';
 import MatrizRiesgo from './features/forms/Fase2_Riesgo/MatrizRiesgo';
 import AnexoVII_Clinico from './features/forms/Fase4_Investigacion/AnexoVII_Clinico';
+import AnexoV_PuestoVacuna from './features/forms/Fase4_Investigacion/AnexoV_PuestoVacuna';
+import AnexoVI_Domicilio from './features/forms/Fase4_Investigacion/AnexoVI_Domicilio';
+import DictamenCausalidad from './features/comittee/DictamenCausalidad';
 
 function App() {
   return (
@@ -18,7 +21,10 @@ function App() {
           
           {/* AQUÍ DEBE ESTAR LA RUTA DEL ANEXO CLÍNICO */}
           <Route path="anexo-clinico" element={<AnexoVII_Clinico />} />
-          
+          <Route path="anexo-puesto" element={<AnexoV_PuestoVacuna />} />
+          <Route path="anexo-domicilio" element={<AnexoVI_Domicilio />} />
+          <Route path="comite-causalidad" element={<DictamenCausalidad />} />
+
         </Route>
       </Routes>
     </BrowserRouter>

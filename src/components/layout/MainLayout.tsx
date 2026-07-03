@@ -1,17 +1,16 @@
-import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Select, MenuItem, FormControl } from '@mui/material';
+import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader } from '@mui/material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
-import GavelIcon from '@mui/icons-material/Gavel'; // Icono para el Comité
-import SearchIcon from '@mui/icons-material/Search'; // Icono para el ERR
+import SearchIcon from '@mui/icons-material/Search';
+import GavelIcon from '@mui/icons-material/Gavel';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
 
 const drawerWidth = 260;
 
 export default function MainLayout() {
   const navigate = useNavigate();
-  // Traemos el rol actual y la función para cambiarlo desde nuestra "memoria" (Zustand)
   const { currentRole, setRole } = useAuthStore();
 
   return (
@@ -25,11 +24,11 @@ export default function MainLayout() {
               Sistema Nacional ESAVI
             </Typography>
             <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
-              Vigilancia de Eventos Supuestamente Atribuibles a Vacunación
+              El Salvador
             </Typography>
           </Box>
 
-          {/* SELECTOR DE ROL SIMULADO (Ideal para tu presentación) */}
+          {/* SELECTOR DE ROLES ORGANIZADO POR NIVELES */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2" sx={{ color: 'white' }}>Simular Rol:</Typography>
             <FormControl size="small" variant="outlined">
@@ -37,17 +36,25 @@ export default function MainLayout() {
                 value={currentRole}
                 onChange={(e) => setRole(e.target.value as Role)}
                 sx={{ 
-                  color: 'white', 
+                  color: 'white', bgcolor: 'rgba(255,255,255,0.1)',
                   '.MuiOutlinedInput-notchedOutline': { borderColor: 'secondary.main' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
                   '.MuiSvgIcon-root': { color: 'secondary.main' }
                 }}
               >
-                <MenuItem value="REFERENTE_ESAVI">Referente ESAVI</MenuItem>
-                <MenuItem value="EQUIPO_COORDINADOR">Equipo Coordinador</MenuItem>
-                <MenuItem value="ERR_CAMPO">Equipo Respuesta Rápida (ERR)</MenuItem>
-                <MenuItem value="SECRETARIADO">Secretariado (Nivel Central)</MenuItem>
-                <MenuItem value="COMITE_EXTERNO">Comité Externo</MenuItem>
+                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL (Directivos)</ListSubheader>
+                <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Inst.</MenuItem>
+                <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiólogo Inst.</MenuItem>
+                <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Inst.</MenuItem>
+                
+                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL LOCAL (Equipo de Campo)</ListSubheader>
+                <MenuItem value="ESAVI_LOCAL">Referente ESAVI Local (Clínico)</MenuItem>
+                <MenuItem value="EPIDEMIO_LOCAL">Epidemiólogo Local</MenuItem>
+                <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
+
+                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL CENTRAL / EXTERNO</ListSubheader>
+                <MenuItem value="SECRETARIADO">Secretariado (SRS)</MenuItem>
+                <MenuItem value="COMITE_EXTERNO">Comité Evaluador Externo</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -55,18 +62,10 @@ export default function MainLayout() {
       </AppBar>
 
       {/* MENÚ LATERAL INTELIGENTE */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
-        }}
-      >
+      <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' } }}>
         <Toolbar /> 
         <Box sx={{ overflow: 'auto', mt: 2 }}>
           <List>
-            {/* TODOS ven el Dashboard */}
             <ListItem disablePadding>
               <ListItemButton onClick={() => navigate('/')}>
                 <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
@@ -74,8 +73,8 @@ export default function MainLayout() {
               </ListItemButton>
             </ListItem>
 
-            {/* SOLO EL REFERENTE ESAVI puede notificar un caso nuevo (Fase 1) */}
-            {currentRole === 'REFERENTE_ESAVI' && (
+            {/* REGLA: SOLO EL ESAVI INSTITUCIONAL CREA EL CASO */}
+            {currentRole === 'ESAVI_INSTITUCIONAL' && (
               <ListItem disablePadding>
                 <ListItemButton onClick={() => navigate('/nuevo-caso')}>
                   <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
@@ -84,40 +83,35 @@ export default function MainLayout() {
               </ListItem>
             )}
 
-            {/* SOLO EL ERR ve el módulo de investigación (Fase 4) */}
-            {currentRole === 'ERR_CAMPO' && (
+            {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
+            {currentRole.includes('LOCAL') && (
               <ListItem disablePadding>
                 <ListItemButton>
                   <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
-                  <ListItemText primary="Trabajo de Campo (Fase 4)" />
+                  <ListItemText primary="Mi Trabajo de Campo" />
                 </ListItemButton>
               </ListItem>
             )}
 
-            {/* SOLO EL COMITE ve el módulo de Causalidad (Fase 6) */}
-            {currentRole === 'COMITE_EXTERNO' && (
-              <ListItem disablePadding>
-                <ListItemButton>
-                  <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
-                  <ListItemText primary="Actas de Causalidad (Fase 6)" />
-                </ListItemButton>
-              </ListItem>
-            )}
+           {currentRole === 'COMITE_EXTERNO' && (
+           <ListItem disablePadding>
+             <ListItemButton onClick={() => navigate('/comite-causalidad')}>
+               <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
+               <ListItemText primary="Dictámenes Causalidad" />
+             </ListItemButton>
+           </ListItem>
+         )}
           </List>
         </Box>
       </Drawer>
 
-      {/* CONTENIDO DINÁMICO */}
+      {/* CONTENIDO PRINCIPAL */}
       <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
         <Toolbar /> 
-        {/* Un pequeño letrero para que sepas en qué rol estás */}
         <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold' }}>
-          VISTA ACTUAL: {currentRole.replace('_', ' ')}
+          PERFIL ACTIVO: {currentRole.replace(/_/g, ' ')}
         </Typography>
-        
-        <Box sx={{ mt: 2 }}>
-          <Outlet /> 
-        </Box>
+        <Box sx={{ mt: 2 }}><Outlet /></Box>
       </Box>
     </Box>
   );
