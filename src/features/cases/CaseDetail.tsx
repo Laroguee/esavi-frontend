@@ -2,6 +2,7 @@ import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 
 const fases = [
   'Fase 1: Notificación',
@@ -20,7 +21,7 @@ export default function CaseDetail() {
   const faseActual = 3; // Simulación: Estamos en la Fase 4 (Investigación)
 
   return (
-    <Box sx={{ maxWidth: 1000, margin: 'auto' }}>
+    <Box sx={{ maxWidth: 1000, margin: 'auto', pb: 8 }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2 }}>
         Volver a la Bandeja
       </Button>
@@ -28,9 +29,9 @@ export default function CaseDetail() {
       {/* CABECERA DEL EXPEDIENTE */}
       <Paper elevation={3} sx={{ p: 4, mb: 4, borderLeft: '6px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={7}>
             <Typography variant="h5" color="primary" fontWeight="bold">
-              Expediente ESAVI: {id}
+              Expediente {id}
             </Typography>
             <Typography variant="subtitle1" color="text.secondary">
               Paciente: Juan Pérez | Vacuna: COVID-19 Pfizer (Lote: A123)
@@ -39,11 +40,36 @@ export default function CaseDetail() {
               Establecimiento: Unidad de Salud Barrios (MINSAL)
             </Typography>
           </Grid>
-          <Grid item xs={12} md={4} sx={{ textAlign: 'right' }}>
-            <Typography variant="overline" color="secondary" fontWeight="bold">
+          
+          <Grid item xs={12} md={5} sx={{ textAlign: 'right' }}>
+            <Typography variant="overline" color="secondary" fontWeight="bold" display="block">
               ESTADO ACTUAL
             </Typography>
-            <Typography variant="h6">En Trabajo de Campo (Fase 4)</Typography>
+            <Typography variant="h6" display="block" gutterBottom>
+              En Trabajo de Campo (Fase 4)
+            </Typography>
+            
+            {/* BOTONES DE CONSULTA DE DOCUMENTOS PREVIOS */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', mt: 2 }}>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                startIcon={<VisibilityIcon />}
+                onClick={() => console.log('Navegando a ver-notificacion')}
+                sx={{ width: '220px' }}
+              >
+                Ver Notificación Inicial
+              </Button>
+              <Button 
+                variant="outlined" 
+                size="small" 
+                startIcon={<VisibilityIcon />}
+                onClick={() => console.log('Navegando a ver-apertura')}
+                sx={{ width: '220px' }}
+              >
+                Ver Datos de Apertura
+              </Button>
+            </Box>
           </Grid>
         </Grid>
       </Paper>
@@ -60,27 +86,25 @@ export default function CaseDetail() {
         </Stepper>
       </Paper>
 
-      {/* ÁREA DE ACCIÓN (Muestra botones según el Rol Exacto) */}
+     {/* ÁREA DE ACCIÓN (Muestra botones según el Rol Exacto) */}
       <Paper elevation={3} sx={{ p: 4, bgcolor: '#f8f9fa' }}>
         <Typography variant="h6" color="primary" gutterBottom>
           Acciones Disponibles para: {currentRole.replace(/_/g, ' ')}
         </Typography>
         <Divider sx={{ mb: 3 }} />
 
-        {/* REGLA 1: EQUIPO DE CAMPO (Muestra solo su anexo específico) */}
         {currentRole === 'ESAVI_LOCAL' ? (
           <Button variant="contained" color="secondary" onClick={() => navigate('/anexo-clinico')}>
             Llenar Anexo VII (Clínico)
           </Button>
-        )  : currentRole === 'INMUNO_LOCAL' ? (
-       <Button variant="contained" color="secondary" onClick={() => navigate('/anexo-puesto')}>
-         Llenar Anexo V (Puesto Vacuna)
-       </Button>
-       ) : currentRole === 'EPIDEMIO_LOCAL' ? (
-       <Button variant="contained" color="secondary" onClick={() => navigate('/anexo-domicilio')}>
-         Llenar Anexo VI (Domiciliario)
-       </Button>
-
+        ) : currentRole === 'INMUNO_LOCAL' ? (
+          <Button variant="contained" color="secondary" onClick={() => navigate('/anexo-puesto')}>
+            Llenar Anexo V (Puesto Vacuna)
+          </Button>
+        ) : currentRole === 'EPIDEMIO_LOCAL' ? (
+          <Button variant="contained" color="secondary" onClick={() => navigate('/anexo-domicilio')}>
+            Llenar Anexo VI (Domiciliario)
+          </Button>
         ) : currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL' || currentRole === 'INMUNO_INSTITUCIONAL' ? (
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="contained" color="primary" onClick={() => navigate('/matriz-riesgo')}>
@@ -90,7 +114,6 @@ export default function CaseDetail() {
               Asignar Equipo ERR (Fase 3)
             </Button>
           </Box>
-
         ) : currentRole === 'SECRETARIADO' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box>
@@ -101,12 +124,11 @@ export default function CaseDetail() {
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" color="error">¿Falta Información? Devolver a:</Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button variant="outlined" color="error" size="small">Devolver a Médico Clínico</Button>
+              <Button variant="outlined" color="error" size="small">Devolver a Ref. ESAVI Local (Clínico)</Button>
               <Button variant="outlined" color="error" size="small">Devolver a Inmunizaciones</Button>
               <Button variant="outlined" color="error" size="small">Devolver a Epidemiólogo (Campo)</Button>
             </Box>
           </Box>
-
         ) : (
           <Typography color="text.secondary">
             No tienes acciones pendientes en esta fase.

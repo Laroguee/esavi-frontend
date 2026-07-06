@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import { useNavigate } from 'react-router-dom';
 
@@ -43,9 +43,22 @@ export default function MatrizRiesgo() {
 
   const puntajeTotal = subtotalEvento + subtotalPersona + subtotalVacuna;
 
+  // 1. FUNCIÓN PARA EVALUAR EL RIESGO SEGÚN EL PUNTAJE
+  const obtenerNivelRiesgo = (puntaje: number) => {
+    if (puntaje >= 21) {
+      return { etiqueta: 'RIESGO NACIONAL', color: 'error' as const }; // Rojo
+    } else if (puntaje >= 11) {
+      return { etiqueta: 'RIESGO REGIONAL', color: 'warning' as const }; // Amarillo/Naranja
+    } else {
+      return { etiqueta: 'RIESGO LOCAL', color: 'success' as const }; // Verde
+    }
+  };
+
+  const riesgoActual = obtenerNivelRiesgo(puntajeTotal);
+
   const onSubmit = (data: any) => {
     console.log("Matriz guardada:", data);
-    alert(`Matriz guardada. Puntaje Total: ${puntajeTotal}`);
+    alert(`Matriz guardada. Puntaje Total: ${puntajeTotal} (${riesgoActual.etiqueta})`);
     navigate(-1);
   };
 
@@ -89,18 +102,30 @@ export default function MatrizRiesgo() {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ pb: 10 }}>
       
-      {/* BARRA SUPERIOR FLOTANTE (Para ver el puntaje siempre) */}
+      {/* BARRA SUPERIOR FLOTANTE */}
       <Paper elevation={4} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 64, zIndex: 100, borderBottom: '4px solid', borderColor: 'secondary.main' }}>
         <Typography variant="h5" color="primary" fontWeight="bold">
           Matriz de Riesgo ESAVI
         </Typography>
+        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <Typography variant="h6">Puntaje Total: <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em' }}>{puntajeTotal}</span></Typography>
-         <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar y Volver</Button>)
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6">Puntaje Total:</Typography>
+            <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', marginRight: '8px' }}>
+              {puntajeTotal}
+            </span>
+            {/* 2. AQUÍ AGREGAMOS EL CHIP DINÁMICO */}
+            <Chip 
+              label={riesgoActual.etiqueta} 
+              color={riesgoActual.color} 
+              sx={{ fontWeight: 'bold', fontSize: '1rem', height: '32px' }} 
+            />
+          </Box>
+          
+          <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar y Volver</Button>
           <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large">
             Guardar Evaluación
           </Button>
-
         </Box>
       </Paper>
 
