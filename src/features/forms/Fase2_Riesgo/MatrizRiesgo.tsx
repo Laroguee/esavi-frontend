@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import { useNavigate } from 'react-router-dom';
 
@@ -46,11 +46,33 @@ export default function MatrizRiesgo() {
   // 1. FUNCIÓN PARA EVALUAR EL RIESGO SEGÚN EL PUNTAJE
   const obtenerNivelRiesgo = (puntaje: number) => {
     if (puntaje >= 21) {
-      return { etiqueta: 'RIESGO NACIONAL', color: 'error' as const }; // Rojo
+      return { 
+        etiqueta: 'RIESGO CRÍTICO', 
+        nivelRespuesta: 'NACIONAL',
+        color: 'error' as const, 
+        mensaje: 'Respuesta NACIONAL inmediata. Involucre al Nivel Central y elabore Reporte de Situación.' 
+      };
     } else if (puntaje >= 11) {
-      return { etiqueta: 'RIESGO REGIONAL', color: 'warning' as const }; // Amarillo/Naranja
+      return { 
+        etiqueta: 'RIESGO ALTO', 
+        nivelRespuesta: 'REGIONAL',
+        color: 'warning' as const, 
+        mensaje: 'Respuesta REGIONAL. Defina plan de captura y notifique a la Jefatura Regional.' 
+      };
+    } else if (puntaje >= 5) { // <- NUEVO NIVEL MEDIO AGREGADO AQUÍ
+      return { 
+        etiqueta: 'RIESGO MEDIO', 
+        nivelRespuesta: 'DEPARTAMENTAL',
+        color: 'warning' as const, 
+        mensaje: 'Respuesta DEPARTAMENTAL. La investigación y coordinación del caso se delega a la Jefatura Departamental correspondiente.' 
+      };
     } else {
-      return { etiqueta: 'RIESGO LOCAL', color: 'success' as const }; // Verde
+      return { 
+        etiqueta: 'RIESGO BAJO', 
+        nivelRespuesta: 'LOCAL',
+        color: 'success' as const, 
+        mensaje: 'Respuesta LOCAL. Defina plan de investigación a nivel local e informe resultados.' 
+      };
     }
   };
 
@@ -58,7 +80,7 @@ export default function MatrizRiesgo() {
 
   const onSubmit = (data: any) => {
     console.log("Matriz guardada:", data);
-    alert(`Matriz guardada. Puntaje Total: ${puntajeTotal} (${riesgoActual.etiqueta})`);
+    alert(`Matriz guardada. Puntaje Total: ${puntajeTotal} (${riesgoActual.nivelRespuesta})`);
     navigate(-1);
   };
 
@@ -99,34 +121,50 @@ export default function MatrizRiesgo() {
     { val: 3, label: 'Sí' }
   ];
 
+ 
+
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ pb: 10 }}>
       
       {/* BARRA SUPERIOR FLOTANTE */}
-      <Paper elevation={4} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 64, zIndex: 100, borderBottom: '4px solid', borderColor: 'secondary.main' }}>
-        <Typography variant="h5" color="primary" fontWeight="bold">
-          Matriz de Riesgo ESAVI
-        </Typography>
+      <Paper elevation={4} sx={{ p: 2, mb: 3, position: 'sticky', top: 64, zIndex: 100, borderBottom: '4px solid', borderColor: 'secondary.main' }}>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6">Puntaje Total:</Typography>
-            <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', marginRight: '8px' }}>
-              {puntajeTotal}
-            </span>
-            {/* 2. AQUÍ AGREGAMOS EL CHIP DINÁMICO */}
-            <Chip 
-              label={riesgoActual.etiqueta} 
-              color={riesgoActual.color} 
-              sx={{ fontWeight: 'bold', fontSize: '1rem', height: '32px' }} 
-            />
-          </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" color="primary" fontWeight="bold">
+            Matriz de Riesgo ESAVI
+          </Typography>
           
-          <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar y Volver</Button>
-          <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large">
-            Guardar Evaluación
-          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6">Puntaje Total:</Typography>
+              <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', marginRight: '8px' }}>
+                {puntajeTotal}
+              </span>
+              <Chip 
+                label={riesgoActual.etiqueta} 
+                color={riesgoActual.color} 
+                sx={{ fontWeight: 'bold', fontSize: '1rem', height: '32px' }} 
+              />
+            </Box>
+            
+            <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar y Volver</Button>
+            <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large">
+              Guardar Evaluación
+            </Button>
+          </Box>
         </Box>
+
+        {/* 2. ALERT DINÁMICO DE RESPUESTA */}
+        <Alert 
+          severity={riesgoActual.color === 'error' ? 'error' : riesgoActual.color === 'warning' ? 'warning' : 'success'} 
+          sx={{ 
+            fontWeight: 'bold', 
+            bgcolor: riesgoActual.nivelRespuesta === 'DEPARTAMENTAL' ? '#fffde7' : undefined // Fondo personalizado para Medio
+          }}
+        >
+          Nivel de Respuesta: {riesgoActual.nivelRespuesta} ({riesgoActual.etiqueta}). {riesgoActual.mensaje}
+        </Alert>
+
       </Paper>
 
       {/* DIMENSIÓN 1: EVENTO (40%) */}

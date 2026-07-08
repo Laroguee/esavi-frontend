@@ -11,11 +11,12 @@ const drawerWidth = 260;
 
 export default function MainLayout() {
   const navigate = useNavigate();
+  // Enganchamos el componente al estado global. Al llamar setRole, React re-renderiza toda la app.
   const { currentRole, setRole } = useAuthStore();
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      {/* BARRA SUPERIOR */}
+      {/* ================= BARRA SUPERIOR ================= */}
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
           <HealthAndSafetyIcon sx={{ mr: 2, fontSize: 32 }} />
@@ -28,7 +29,7 @@ export default function MainLayout() {
             </Typography>
           </Box>
 
-          {/* SELECTOR DE ROLES ORGANIZADO POR NIVELES */}
+          {/* SELECTOR DINÁMICO DE ROLES */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="body2" sx={{ color: 'white' }}>Simular Rol:</Typography>
             <FormControl size="small" variant="outlined">
@@ -42,15 +43,14 @@ export default function MainLayout() {
                   '.MuiSvgIcon-root': { color: 'secondary.main' }
                 }}
               >
-                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL (Directivos)</ListSubheader>
-                <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Inst.</MenuItem>
-                <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiólogo Inst.</MenuItem>
-                <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Inst.</MenuItem>
+                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL</ListSubheader>
+                <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Institucional</MenuItem>
                 
-                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL LOCAL (Equipo de Campo)</ListSubheader>
+                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL LOCAL (Campo)</ListSubheader>
                 <MenuItem value="ESAVI_LOCAL">Referente ESAVI Local (Clínico)</MenuItem>
                 <MenuItem value="EPIDEMIO_LOCAL">Epidemiólogo Local</MenuItem>
                 <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
+                <MenuItem value="ERR">Equipo Respuesta Rápida (General)</MenuItem>
 
                 <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL CENTRAL / EXTERNO</ListSubheader>
                 <MenuItem value="SECRETARIADO">Secretariado (SRS)</MenuItem>
@@ -61,7 +61,7 @@ export default function MainLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* MENÚ LATERAL INTELIGENTE */}
+      {/* ================= MENÚ LATERAL ================= */}
       <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' } }}>
         <Toolbar /> 
         <Box sx={{ overflow: 'auto', mt: 2 }}>
@@ -76,15 +76,15 @@ export default function MainLayout() {
             {/* REGLA: SOLO EL ESAVI INSTITUCIONAL CREA EL CASO */}
             {currentRole === 'ESAVI_INSTITUCIONAL' && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/nuevo-caso')}>
+                <ListItemButton onClick={() => navigate('/notificacion-inicial')}>
                   <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Notificar ESAVI (Fase 1)" />
                 </ListItemButton>
               </ListItem>
             )}
 
-            {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
-            {currentRole.includes('LOCAL') && (
+            {/* REGLA: LOS LOCALES (O EL ERR) VEN EL BOTÓN DE CAMPO */}
+            {(currentRole.includes('LOCAL') || currentRole === 'ERR') && (
               <ListItem disablePadding>
                 <ListItemButton>
                   <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
@@ -93,19 +93,20 @@ export default function MainLayout() {
               </ListItem>
             )}
 
-           {currentRole === 'COMITE_EXTERNO' && (
-           <ListItem disablePadding>
-             <ListItemButton onClick={() => navigate('/comite-causalidad')}>
-               <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
-               <ListItemText primary="Dictámenes Causalidad" />
-             </ListItemButton>
-           </ListItem>
-         )}
+            {/* REGLA: EL COMITÉ VE LOS DICTÁMENES */}
+            {currentRole === 'COMITE_EXTERNO' && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/comite-causalidad')}>
+                  <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
+                  <ListItemText primary="Dictámenes Causalidad" />
+                </ListItemButton>
+              </ListItem>
+            )}
           </List>
         </Box>
       </Drawer>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* ================= CONTENIDO PRINCIPAL ================= */}
       <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
         <Toolbar /> 
         <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold' }}>
