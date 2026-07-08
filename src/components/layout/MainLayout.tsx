@@ -11,7 +11,6 @@ const drawerWidth = 260;
 
 export default function MainLayout() {
   const navigate = useNavigate();
-  // Enganchamos el componente al estado global. Al llamar setRole, React re-renderiza toda la app.
   const { currentRole, setRole } = useAuthStore();
 
   return (
@@ -45,12 +44,13 @@ export default function MainLayout() {
               >
                 <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL</ListSubheader>
                 <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Institucional</MenuItem>
+                <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiólogo Institucional</MenuItem>
+                <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Institucional</MenuItem>
                 
                 <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL LOCAL (Campo)</ListSubheader>
                 <MenuItem value="ESAVI_LOCAL">Referente ESAVI Local (Clínico)</MenuItem>
                 <MenuItem value="EPIDEMIO_LOCAL">Epidemiólogo Local</MenuItem>
                 <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
-                <MenuItem value="ERR">Equipo Respuesta Rápida (General)</MenuItem>
 
                 <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL CENTRAL / EXTERNO</ListSubheader>
                 <MenuItem value="SECRETARIADO">Secretariado (SRS)</MenuItem>
@@ -83,10 +83,10 @@ export default function MainLayout() {
               </ListItem>
             )}
 
-            {/* REGLA: LOS LOCALES (O EL ERR) VEN EL BOTÓN DE CAMPO */}
-            {(currentRole.includes('LOCAL') || currentRole === 'ERR') && (
+            {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
+            {currentRole.includes('LOCAL') && (
               <ListItem disablePadding>
-                <ListItemButton>
+                <ListItemButton onClick={() => navigate('/')}>
                   <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Mi Trabajo de Campo" />
                 </ListItemButton>
