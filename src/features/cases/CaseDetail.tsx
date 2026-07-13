@@ -125,7 +125,7 @@ export default function CaseDetail() {
       </Typography>
 
       {/* ================= TARJETA 1: JEFATURAS (Fase 2 y 3) ================= */}
-      <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
+      <Card  elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
             <AssignmentIcon color="primary" />
@@ -201,7 +201,7 @@ export default function CaseDetail() {
       </Card>
 
       {/* ================= TARJETA 3: SECRETARIADO Y COMITÉ (Fases 5 y 6) ================= */}
-      <Card elevation={2} sx={{ borderRadius: 2 }}>
+      <Card  elevation={2} sx={{ borderRadius: 2 }}>
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
             <FactCheckIcon sx={{ color: '#2e7d32' }} />

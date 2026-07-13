@@ -14,6 +14,7 @@ import AnexoIII_Logistica from './features/forms/Fase4_Investigacion/AnexoIII_Lo
 import CierreYDictamen from './features/comittee/CierreYDictamen';
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import TrabajoCampo from './features/cases/TrabajoCampo';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="asignar-equipo/:id" element={<AsignacionERR />} />
             <Route path="anexo-logistica/:id" element={<AnexoIII_Logistica />} />
             <Route path="dictamen/:id" element={<CierreYDictamen />} />
+            <Route path="trabajo-campo" element={<TrabajoCampo />} />
           </Route>
         </Route> {/* <-- Esta es la etiqueta de cierre que faltaba */}
       </Routes>

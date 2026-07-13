@@ -7,6 +7,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import GavelIcon from '@mui/icons-material/Gavel';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
 
+
 const drawerWidth = 260;
 
 export default function MainLayout() {
@@ -86,7 +87,7 @@ export default function MainLayout() {
             {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
             {currentRole.includes('LOCAL') && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/')}>
+                <ListItemButton onClick={() => navigate('/trabajo-campo')}>
                   <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Mi Trabajo de Campo" />
                 </ListItemButton>
@@ -112,7 +113,10 @@ export default function MainLayout() {
         <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold' }}>
           PERFIL ACTIVO: {currentRole.replace(/_/g, ' ')}
         </Typography>
-        <Box sx={{ mt: 2 }}><Outlet /></Box>
+        <Box sx={{ mt: 2 }}>
+       
+       <Outlet />
+     </Box>
       </Box>
     </Box>
   );

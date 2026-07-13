@@ -1,13 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// 1. Tipos de Roles Exactos
 export type Role = 
   | 'ESAVI_LOCAL' | 'INMUNO_LOCAL' | 'EPIDEMIO_LOCAL' 
   | 'INMUNO_INSTITUCIONAL' | 'EPIDEMIO_INSTITUCIONAL' | 'ESAVI_INSTITUCIONAL' 
   | 'SECRETARIADO' | 'COMITE_EXTERNO' | 'ERR';
 
-// 2. Base de Datos Simulada de Usuarios
 const MOCK_USERS = [
   { email: 'medico.ss@minsal.gob.sv', password: 'Clinico2026', role: 'ESAVI_LOCAL' as Role, name: 'Médico Clínico' },
   { email: 'inmuno.puesto@minsal.gob.sv', password: 'Inmuno2026', role: 'INMUNO_LOCAL' as Role, name: 'Personal de Enfermería' },
@@ -25,25 +23,25 @@ interface AuthState {
   userEmail: string | null;
   userName: string | null;
   logisticaCompletada: boolean;
+  casoAprobadoParaComite: boolean; // <-- La variable que faltaba
   
-  // FUNCIONES OBLIGATORIAS
   login: (email: string, pass: string) => boolean;
   logout: () => void;
   setRole: (role: Role) => void;
   setLogisticaCompletada: (estado: boolean) => void;
+  setCasoAprobadoParaComite: (estado: boolean) => void; // <-- La función que faltaba
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      // Estado Inicial
       isAuthenticated: false,
       currentRole: null,
       userEmail: null,
       userName: null,
       logisticaCompletada: false,
+      casoAprobadoParaComite: false,
 
-      // Acción de INICIO DE SESIÓN
       login: (email: string, pass: string) => {
         const user = MOCK_USERS.find(u => u.email === email && u.password === pass);
         if (user) {
@@ -53,28 +51,26 @@ export const useAuthStore = create<AuthState>()(
             userEmail: user.email,
             userName: user.name
           });
-          return true; // Éxito
+          return true;
         }
-        return false; // Falló
+        return false;
       },
 
-      // Acción de CERRAR SESIÓN
       logout: () => set({ 
         isAuthenticated: false, 
         currentRole: null, 
         userEmail: null, 
         userName: null,
-        logisticaCompletada: false 
+        logisticaCompletada: false,
+        casoAprobadoParaComite: false
       }),
       
-      // Acción para SIMULAR CAMBIO DE ROL (Para la demo)
       setRole: (role: Role) => set({ currentRole: role }), 
-      
-      // Acción para LOGÍSTICA DE CAMPO
       setLogisticaCompletada: (estado) => set({ logisticaCompletada: estado }),
+      setCasoAprobadoParaComite: (estado) => set({ casoAprobadoParaComite: estado }),
     }),
     {
-      name: 'esavi-auth-storage', // Nombre para guardar en el localStorage del navegador
+      name: 'esavi-auth-storage',
     }
   )
 );

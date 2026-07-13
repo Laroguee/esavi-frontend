@@ -38,6 +38,7 @@ export default function Dashboard() {
           Bandeja de Entrada
         </Typography>
         <Button 
+          id="btn-nueva-notificacion"
           variant="contained" 
           color="secondary" 
           size="large"
