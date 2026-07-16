@@ -1,4 +1,4 @@
-import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader } from '@mui/material';
+import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, Divider } from '@mui/material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -67,42 +67,49 @@ export default function MainLayout() {
         <Toolbar /> 
         <Box sx={{ overflow: 'auto', mt: 2 }}>
           <List>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => navigate('/')}>
-                <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
-                <ListItemText primary="Bandeja de Casos" />
-              </ListItemButton>
-            </ListItem>
 
-            {/* REGLA: SOLO EL ESAVI INSTITUCIONAL CREA EL CASO */}
-            {currentRole === 'ESAVI_INSTITUCIONAL' && (
+            {/* REGLA: BANDEJA CENTRAL (Solo Nivel Central e Institucional) */}
+            {['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL', 'SECRETARIADO'].includes(currentRole as string) && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/notificacion-inicial')}>
-                  <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
-                  <ListItemText primary="Notificar ESAVI (Fase 1)" />
+                <ListItemButton onClick={() => navigate('/')}>
+                  <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
+                  <ListItemText primary="Bandeja Central" />
                 </ListItemButton>
               </ListItem>
             )}
 
-            {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
-            {currentRole.includes('LOCAL') && (
+            {/* REGLA: BANDEJA DEL COMITÉ EXTERNO (Exclusivo) */}
+            {currentRole === 'COMITE_EXTERNO' && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/bandeja-comite')}>
+                  <ListItemIcon><GavelIcon color="primary" /></ListItemIcon>
+                  <ListItemText primary="Bandeja del Comité" />
+                </ListItemButton>
+              </ListItem>
+            )}
+
+            {/* REGLA: TRABAJO DE CAMPO (Solo Nivel Local) */}
+            {['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string) && (
               <ListItem disablePadding>
                 <ListItemButton onClick={() => navigate('/trabajo-campo')}>
-                  <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
+                  <ListItemIcon><SearchIcon color="primary" /></ListItemIcon>
                   <ListItemText primary="Mi Trabajo de Campo" />
                 </ListItemButton>
               </ListItem>
             )}
 
-            {/* REGLA: EL COMITÉ VE LOS DICTÁMENES */}
-            {currentRole === 'COMITE_EXTERNO' && (
+            <Divider sx={{ my: 1 }} />
+
+            {/* REGLA: NOTIFICAR ESAVI (Solo ESAVI Local o ESAVI Institucional) */}
+            {['ESAVI_LOCAL', 'ESAVI_INSTITUCIONAL'].includes(currentRole as string) && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/comite-causalidad')}>
-                  <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
-                  <ListItemText primary="Dictámenes Causalidad" />
+                <ListItemButton onClick={() => navigate('/notificacion-inicial')}>
+                  <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
+                  <ListItemText primary="Registrar Notificación" />
                 </ListItemButton>
               </ListItem>
             )}
+
           </List>
         </Box>
       </Drawer>

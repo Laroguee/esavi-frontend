@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { useNavigate } from 'react-router-dom';
 
@@ -36,11 +35,22 @@ export default function FormularioApertura() {
     navigate('/caso/' + data.idUnico);
   };
 
+  // Función auxiliar pura para arreglar el traslape de fechas y horas
+  const getDateTimeSx = (hasValue: boolean) => ({
+    '& input::-webkit-datetime-edit': {
+      color: hasValue ? 'text.primary' : 'transparent',
+    },
+    '& input:focus::-webkit-datetime-edit': {
+      color: 'text.primary',
+    },
+  });
+
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ maxWidth: 1000, margin: 'auto', pb: 8, pt: 2 }}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ maxWidth: 1000, margin: 'auto', pb: 8, pt: 4 }}>
       
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+      {/* CABECERA */}
+      <Box sx={{ mb: 5, textAlign: 'center' }}>
+        <Typography variant="h4" color="primary" sx={{ fontWeight: '800', mb: 1 }}>
           Oficializar Notificación ESAVI
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -48,76 +58,135 @@ export default function FormularioApertura() {
         </Typography>
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 4, mb: 4, borderTop: '4px solid', borderColor: 'primary.main' }}>
-        <Typography variant="h6" color="primary" sx={{ mb: 3, fontWeight: 'bold' }}>
-          Identificación Oficial del Expediente
-        </Typography>
+      {/* SECCIÓN 1: Identificación Oficial */}
+      <Paper elevation={2} sx={{ mb: 4, borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 1.5, px: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            Identificación Oficial del Expediente
+          </Typography>
+        </Box>
+        <Box sx={{ p: 4 }}>
+          <Grid container spacing={3}>
+            {/* Fila 1: Suma 12 */}
+            <Grid item xs={12} md={6}>
+              <Controller name="idUnico" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  fullWidth 
+                  label="ID Único Generado por el Sistema" 
+                  disabled 
+                  variant="filled" 
+                  InputLabelProps={{ shrink: true }} 
+                />
+              )}/>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Controller name="fechaNotificacion" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  fullWidth 
+                  type="date" 
+                  label="Fecha de Oficialización" 
+                  required 
+                  InputLabelProps={{ shrink: true }}
+                  sx={getDateTimeSx(!!field.value)}
+                />
+              )}/>
+            </Grid>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Controller name="idUnico" control={control} render={({ field }) => (
-                <TextField {...field} fullWidth label="ID Único Generado por el Sistema" disabled variant="filled" InputLabelProps={{ shrink: true }} />
-              )}
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Controller name="fechaNotificacion" control={control} render={({ field }) => (
-                <TextField {...field} fullWidth type="date" label="Fecha de Oficialización" InputLabelProps={{ shrink: true }} required />
-              )}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Controller name="institucion" control={control} render={({ field }) => (
-                <TextField {...field} select fullWidth label="Institución Receptora" InputLabelProps={{ shrink: true }} required>
+            {/* Fila 2: Suma 12 */}
+            <Grid item xs={12} md={4}>
+              <Controller name="institucion" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  select 
+                  fullWidth 
+                  label="Institución Receptora" 
+                  required
+                  sx={{ minWidth: 160 }}
+                >
                   <MenuItem value="MINSAL">MINSAL</MenuItem>
                   <MenuItem value="ISSS">ISSS</MenuItem>
                   <MenuItem value="SANIDAD_MILITAR">Sanidad Militar</MenuItem>
                 </TextField>
-              )}
-            />
+              )}/>
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <Controller name="establecimiento" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  fullWidth 
+                  label="Nombre del Establecimiento que asume el caso" 
+                  required 
+                />
+              )}/>
+            </Grid>
           </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Controller name="establecimiento" control={control} render={({ field }) => (
-                <TextField {...field} fullWidth label="Nombre del Establecimiento que asume el caso" InputLabelProps={{ shrink: true }} required />
-              )}
-            />
-          </Grid>
-        </Grid>
+        </Box>
       </Paper>
 
-      <Paper variant="outlined" sx={{ p: 4, mb: 4, borderTop: '4px solid', borderColor: 'secondary.main' }}>
-        <Typography variant="h6" color="primary" sx={{ mb: 3, fontWeight: 'bold' }}>
-          Convocatoria Inicial al Equipo Coordinador
-        </Typography>
-        
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Controller name="tipoReunion" control={control} render={({ field }) => (
-                <TextField {...field} select fullWidth label="Tipo de Reunión" InputLabelProps={{ shrink: true }} required>
+      {/* SECCIÓN 2: Convocatoria */}
+      <Paper elevation={2} sx={{ mb: 4, borderRadius: 2, overflow: 'hidden' }}>
+        <Box sx={{ bgcolor: 'secondary.main', color: 'white', py: 1.5, px: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            Convocatoria Inicial al Equipo Coordinador
+          </Typography>
+        </Box>
+        <Box sx={{ p: 4 }}>
+          <Grid container spacing={3}>
+            {/* Fila 1: Suma 12 */}
+            <Grid item xs={12} md={6}>
+              <Controller name="tipoReunion" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  select 
+                  fullWidth 
+                  label="Tipo de Reunión" 
+                  required
+                  sx={{ minWidth: 160 }}
+                >
                   <MenuItem value="Virtual">Virtual (Teams/Zoom)</MenuItem>
                   <MenuItem value="Presencial">Presencial</MenuItem>
                 </TextField>
-              )}
-            />
-          </Grid>
+              )}/>
+            </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Controller name="fechaReunion" control={control} render={({ field }) => (
-                 <TextField {...field} fullWidth type="datetime-local" label="Fecha y Hora Propuesta" InputLabelProps={{ shrink: true }} required />
-              )}
-            />
+            <Grid item xs={12} md={6}>
+              <Controller name="fechaReunion" control={control} render={({ field }) => (
+                <TextField 
+                  {...field} 
+                  fullWidth 
+                  type="datetime-local" 
+                  label="Fecha y Hora Propuesta" 
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  sx={getDateTimeSx(!!field.value)}
+                />
+              )}/>
+            </Grid>
           </Grid>
-        </Grid>
+        </Box>
       </Paper>
 
+      {/* BOTONES DE ACCIÓN */}
+      <Divider sx={{ mb: 3 }} />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-        <Button variant="outlined" color="primary" size="large" onClick={() => navigate(-1)}>
+        <Button 
+          variant="outlined" 
+          color="inherit" 
+          size="large" 
+          onClick={() => navigate(-1)}
+        >
           Cancelar
         </Button>
-        <Button type="submit" variant="contained" color="secondary" size="large" startIcon={<SendIcon />}>
+        <Button 
+          type="submit" 
+          variant="contained" 
+          color="secondary" 
+          size="large" 
+          startIcon={<SendIcon />}
+          sx={{ px: 4, py: 1.5, fontWeight: 'bold' }}
+        >
           Oficializar Expediente
         </Button>
       </Box>

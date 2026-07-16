@@ -15,6 +15,7 @@ import CierreYDictamen from './features/comittee/CierreYDictamen';
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import TrabajoCampo from './features/cases/TrabajoCampo';
+import BandejaComite from './features/comittee/BandejaComite';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="anexo-logistica/:id" element={<AnexoIII_Logistica />} />
             <Route path="dictamen/:id" element={<CierreYDictamen />} />
             <Route path="trabajo-campo" element={<TrabajoCampo />} />
+            <Route path="bandeja-comite" element={<BandejaComite />} />
           </Route>
         </Route> {/* <-- Esta es la etiqueta de cierre que faltaba */}
       </Routes>
