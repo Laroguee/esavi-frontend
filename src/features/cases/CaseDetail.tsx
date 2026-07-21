@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
-import GavelIcon from '@mui/icons-material/Gavel';
 import SearchIcon from '@mui/icons-material/Search';
+import HistoryIcon from '@mui/icons-material/History';
+import GestorEvidencias from '../cases/GestorEvidencias';
 
 const fases = [
   'Fase 1: Notificación',
@@ -16,6 +17,15 @@ const fases = [
   'Fase 4: Investigación',
   'Fase 5: Control Calidad',
   'Fase 6: Dictamen'
+];
+
+// --- MOCK DE HISTORIAL DE CAMBIOS ---
+const mockHistorial = [
+  { id: 1, fecha: "15/07/2026 09:15 AM", usuario: "Dra. Carmen Pineda", rol: "Epidemiólogo Local", accion: "Completó y guardó el Anexo VI - Investigación Domiciliaria." },
+  { id: 2, fecha: "14/07/2026 14:30 PM", usuario: "Lic. Tomás Díaz", rol: "Inmunizaciones Local", accion: "Completó y guardó el Anexo V - Guía del Puesto de Vacunación." },
+  { id: 3, fecha: "14/07/2026 10:00 AM", usuario: "Dr. Roberto Méndez", rol: "Referente ESAVI Local", accion: "Completó y guardó el Anexo VII - Evaluación Clínica." },
+  { id: 4, fecha: "13/07/2026 16:45 PM", usuario: "Lic. Tomás Díaz", rol: "Inmunizaciones Local", accion: "Completó y guardó el Anexo III - Checklist de Logística de Campo." },
+  { id: 5, fecha: "12/07/2026 11:20 AM", usuario: "Dr. Alfredo Solis", rol: "Referente ESAVI Institucional", accion: "Realizó la asignación del Equipo de Respuesta Rápida (Fase 3)." },
 ];
 
 export default function CaseDetail() {
@@ -27,18 +37,42 @@ export default function CaseDetail() {
   const [openNotif, setOpenNotif] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
 
+  // --- ESTADO PARA PESTAÑAS (TABS) ---
+  const [tabIndex, setTabIndex] = useState(0);
+
   // --- MOCK DE ESTADOS PARA LA UI Y ASIGNACIÓN ---
   const isAperturado = true;
   const isClinicoLlenado = true; // Simulamos que el médico ya llenó su parte
   const isFase4Completa = isClinicoLlenado && logisticaCompletada; 
-  const faseActual = isFase4Completa ? 4 : 3; 
-
+  
   // SIMULACIÓN DE ASIGNACIÓN: ¿Está el usuario local logueado asignado al ERR de este caso?
   const isUserAssignedToERR = true; // Cambia a false para probar el bloqueo
 
+  // =====================================================================
+  // MISIÓN 1: LÓGICA DINÁMICA DEL STEPPER
+  // =====================================================================
+  const casoDB = {
+    estadoGeneral: "EN_INVESTIGACION" // Mock: "NOTIFICADO", "APERTURADO", "EN_INVESTIGACION", "EN_COMITE", "DICTAMINADO", "CERRADO"
+  };
+
+  const getActiveStepIndex = (estado: string): number => {
+    const mapeoFases: Record<string, number> = {
+      "NOTIFICADO": 0,
+      "APERTURADO": 1,
+      "EN_INVESTIGACION": 2,
+      "EN_COMITE": 3,
+      "DICTAMINADO": 4,
+      "CERRADO": 4
+    };
+    return mapeoFases[estado] ?? 0;
+  };
+
+  const faseActual = getActiveStepIndex(casoDB.estadoGeneral);
+  // =====================================================================
+
   // --- EVALUACIÓN DE ROLES ---
-  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole);
-  const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole);
+  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
+  const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string);
   const isEsaviLocal = currentRole === 'ESAVI_LOCAL';
   const isInmunoLocal = currentRole === 'INMUNO_LOCAL';
   const isEpidemioLocal = currentRole === 'EPIDEMIO_LOCAL';
@@ -120,159 +154,153 @@ export default function CaseDetail() {
         ))}
       </Stepper>
 
-      <Typography variant="h5" color="primary" fontWeight="bold" sx={{ mb: 3 }}>
-        Gestión del Expediente
-      </Typography>
+      {/* ================= TABS PRINCIPALES ================= */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabIndex} onChange={(e, val) => setTabIndex(val)} aria-label="expediente tabs">
+          <Tab label="Gestión del Expediente" />
+          <Tab label="Gestor de Evidencias" />
+          <Tab label="Historial de Cambios" iconPosition="start" icon={<HistoryIcon fontSize="small" />} />
+        </Tabs>
+      </Box>
 
-      {/* ================= TARJETA 1: JEFATURAS (Fase 2 y 3) ================= */}
-      <Card  elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
-        <CardContent sx={{ p: 0 }}>
-          <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
-            <AssignmentIcon color="primary" />
-            <Typography variant="subtitle1" fontWeight="bold" color="primary">Evaluación y Asignación (Fases 2 y 3)</Typography>
-          </Box>
-          <Box sx={{ p: 2 }}>
-            <ActionRow 
-              title="Matriz de Valoración de Riesgo (Fase 2)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" 
-              onClick={() => navigate('/matriz-riesgo')} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas Institucionales."
-            />
-            <ActionRow 
-              title="Asignación Equipo de Respuesta Rápida (Fase 3)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Asignar Equipo" 
-              onClick={() => navigate('/asignar-equipo/' + id)} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas Institucionales."
-            />
-          </Box>
-        </CardContent>
-      </Card>
+      {/* TAB 0: GESTIÓN DEL EXPEDIENTE */}
+      {tabIndex === 0 && (
+        <Box>
+          {/* TARJETA 1: JEFATURAS (Fase 2 y 3) */}
+          <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
+            <CardContent sx={{ p: 0 }}>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
+                <AssignmentIcon color="primary" />
+                <Typography variant="subtitle1" fontWeight="bold" color="primary">Evaluación y Asignación (Fases 2 y 3)</Typography>
+              </Box>
+              <Box sx={{ p: 2 }}>
+                <ActionRow title="Matriz de Riesgo (Fase 2)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" onClick={() => navigate('/matriz-riesgo')} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas." />
+                <ActionRow title="Asignación Equipo ERR (Fase 3)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Asignar Equipo" onClick={() => navigate('/asignar-equipo/' + id)} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas." />
+              </Box>
+            </CardContent>
+          </Card>
 
-      {/* ================= TARJETA 2: TRABAJO DE CAMPO (Fase 4) ================= */}
-      <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
-        <CardContent sx={{ p: 0 }}>
-          <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <SearchIcon color="secondary" />
-              <Typography variant="subtitle1" fontWeight="bold" color="secondary.main">Investigación de Campo (Fase 4)</Typography>
+          {/* TARJETA 2: TRABAJO DE CAMPO (Fase 4) */}
+          <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
+            <CardContent sx={{ p: 0 }}>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SearchIcon color="secondary" />
+                  <Typography variant="subtitle1" fontWeight="bold" color="secondary.main">Investigación de Campo (Fase 4)</Typography>
+                </Box>
+                {/* ETIQUETA DINÁMICA DE ASIGNACIÓN AL ERR */}
+                {isLocalOperativo && isUserAssignedToERR && <Chip label="Asignado como Investigador ERR" color="secondary" size="small" sx={{ fontWeight: 'bold' }} />}
+              </Box>
+              
+              <Box sx={{ p: 2 }}>
+                {!logisticaCompletada && isUserAssignedToERR && (isInmunoLocal || isEpidemioLocal) && (
+                  <Alert severity="warning" sx={{ mb: 2, fontWeight: 'bold' }}>Debe completar la Logística de Campo (Anexo III) antes de proceder a la investigación en terreno.</Alert>
+                )}
+
+                <ActionRow title="Checklist Logística (Anexo III)" chipStatus={logisticaCompletada ? 'Completado' : 'Pendiente'} btnText="Completar Logística" onClick={() => navigate('/anexo-logistica/' + id)} disabled={!(isInmunoLocal || isEpidemioLocal) || !isUserAssignedToERR} tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Equipo de Campo."} />
+                <ActionRow title="Evaluación Clínica (Anexo VII)" chipStatus={isClinicoLlenado ? 'Completado' : 'Pendiente'} btnText="Llenar Clínico" onClick={() => navigate('/anexo-clinico')} disabled={!isEsaviLocal || !isUserAssignedToERR} tooltipText={!isUserAssignedToERR ? "No asignado." : "Solo Médico Clínico."} />
+                <ActionRow title="Puesto Vacunación (Anexo V)" chipStatus={logisticaCompletada ? 'Pendiente' : 'Bloqueado'} btnText="Llenar Anexo V" onClick={() => navigate('/anexo-puesto')} disabled={!isInmunoLocal || !logisticaCompletada || !isUserAssignedToERR} tooltipText={!isInmunoLocal ? "Solo Inmunizaciones." : "Debe completar Logística (Anexo III)."} />
+                <ActionRow title="Inv. Domiciliaria (Anexo VI)" chipStatus={logisticaCompletada ? 'Pendiente' : 'Bloqueado'} btnText="Llenar Anexo VI" onClick={() => navigate('/anexo-domicilio')} disabled={!isEpidemioLocal || !logisticaCompletada || !isUserAssignedToERR} tooltipText={!isEpidemioLocal ? "Solo Epidemiólogo." : "Debe completar Logística (Anexo III)."} />
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* TARJETA 3: SECRETARIADO Y COMITÉ (Fases 5 y 6) */}
+          <Card elevation={2} sx={{ borderRadius: 2 }}>
+            <CardContent sx={{ p: 0 }}>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
+                <FactCheckIcon sx={{ color: '#2e7d32' }} />
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
+              </Box>
+              <Box sx={{ p: 2 }}>
+                <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 4 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
+                <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
+
+      {/* TAB 1: GESTOR DE EVIDENCIAS */}
+      {tabIndex === 1 && (
+        <Box>
+          <GestorEvidencias caseId={id || 'ESAVI-000'} />
+        </Box>
+      )}
+
+      {/* TAB 2: HISTORIAL DE CAMBIOS (BITÁCORA) */}
+      {tabIndex === 2 && (
+        <Box>
+          <Paper elevation={2} sx={{ borderRadius: 2 }}>
+            <Box sx={{ bgcolor: '#f4f6f8', p: 2, borderBottom: '1px solid #e0e0e0' }}>
+              <Typography variant="subtitle1" fontWeight="bold" color="primary">Bitácora de Auditoría del Expediente</Typography>
             </Box>
-            {/* ETIQUETA DINÁMICA DE ASIGNACIÓN AL ERR */}
-            {isLocalOperativo && isUserAssignedToERR && (
-              <Chip label="Asignado como Investigador ERR" color="secondary" size="small" sx={{ fontWeight: 'bold' }} />
-            )}
-          </Box>
-          
-          <Box sx={{ p: 2 }}>
-            {/* ALERTA DE ASIGNACIÓN */}
-            {isLocalOperativo && !isUserAssignedToERR && (
-              <Alert severity="error" sx={{ mb: 2, fontWeight: 'bold' }}>
-                No está asignado como parte del Equipo de Respuesta Rápida para este caso.
-              </Alert>
-            )}
+            <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+              {mockHistorial.map((registro, index) => (
+                <Box key={registro.id}>
+                  <ListItem alignItems="flex-start" sx={{ py: 2 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                        <HistoryIcon />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body1" fontWeight="bold" color="text.primary">
+                          {registro.accion}
+                        </Typography>
+                      }
+                      secondary={
+                        <Box sx={{ mt: 0.5 }}>
+                          <Typography component="span" variant="body2" color="text.primary" fontWeight="medium">
+                            {registro.usuario}
+                          </Typography>
+                          {" — " + registro.rol}
+                          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {registro.fecha}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                  {index < mockHistorial.length - 1 && <Divider variant="inset" component="li" />}
+                </Box>
+              ))}
+            </List>
+          </Paper>
+        </Box>
+      )}
 
-            {/* ALERTA DE LOGÍSTICA */}
-            {isLocalOperativo && isUserAssignedToERR && !logisticaCompletada && (isInmunoLocal || isEpidemioLocal) && (
-              <Alert severity="warning" sx={{ mb: 2, fontWeight: 'bold' }}>
-                Debe completar la Logística de Campo (Anexo III) antes de proceder a la investigación en terreno.
-              </Alert>
-            )}
-
-            <ActionRow 
-              title="Checklist de Logística y Seguridad (Anexo III)" chipStatus={logisticaCompletada ? 'Completado' : 'Pendiente'} btnText="Completar Logística" 
-              onClick={() => navigate('/anexo-logistica/' + id)} disabled={!(isInmunoLocal || isEpidemioLocal) || !isUserAssignedToERR}
-              tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Acceso exclusivo para Equipo de Campo (Inmunizaciones o Epidemiología)."}
-            />
-            
-            <ActionRow 
-              title="Evaluación Clínica de ESAVI (Anexo VII)" chipStatus={isClinicoLlenado ? 'Completado' : 'Pendiente'} btnText="Llenar Anexo Clínico" 
-              onClick={() => navigate('/anexo-clinico')} disabled={!isEsaviLocal || !isUserAssignedToERR}
-              tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Acceso exclusivo para el Médico Clínico (Referente ESAVI Local)."}
-            />
-
-            <ActionRow 
-              title="Guía del Puesto de Vacunación (Anexo V)" chipStatus={logisticaCompletada ? 'Pendiente' : 'Bloqueado'} btnText="Llenar Anexo V" 
-              onClick={() => navigate('/anexo-puesto')} disabled={!isInmunoLocal || !logisticaCompletada || !isUserAssignedToERR}
-              tooltipText={!isInmunoLocal ? "Acceso exclusivo para Personal de Inmunizaciones." : !isUserAssignedToERR ? "No está asignado a este caso." : "Debe completar primero el Checklist de Logística (Anexo III)."}
-            />
-
-            <ActionRow 
-              title="Investigación Domiciliaria (Anexo VI)" chipStatus={logisticaCompletada ? 'Pendiente' : 'Bloqueado'} btnText="Llenar Anexo VI" 
-              onClick={() => navigate('/anexo-domicilio')} disabled={!isEpidemioLocal || !logisticaCompletada || !isUserAssignedToERR}
-              tooltipText={!isEpidemioLocal ? "Acceso exclusivo para el Epidemiólogo de Campo." : !isUserAssignedToERR ? "No está asignado a este caso." : "Debe completar primero el Checklist de Logística (Anexo III)."}
-            />
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* ================= TARJETA 3: SECRETARIADO Y COMITÉ (Fases 5 y 6) ================= */}
-      <Card  elevation={2} sx={{ borderRadius: 2 }}>
-        <CardContent sx={{ p: 0 }}>
-          <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
-            <FactCheckIcon sx={{ color: '#2e7d32' }} />
-            <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
-          </Box>
-          <Box sx={{ p: 2 }}>
-            <ActionRow 
-              title="Control de Calidad de Anexos (Fase 5)" chipStatus={isFase4Completa ? 'Pendiente' : 'Bloqueado'} btnText="Revisar y Aprobar" color="success"
-              onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Acceso exclusivo para el Secretariado Técnico (SRS)."
-            />
-            <ActionRow 
-              title="Acta Oficial de Causalidad (Fase 6)" chipStatus={isFase4Completa ? 'Pendiente' : 'Bloqueado'} btnText="Emitir Dictamen" color="primary"
-              onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Acceso exclusivo para el Comité Externo de Expertos."
-            />
-          </Box>
-        </CardContent>
-      </Card>
-
-    {/* ================= MODALES (DIALOGS) DE SOLO LECTURA ================= */}
-      
-      {/* 1. Modal Notificación Inicial */}
+      {/* MODALES READ-ONLY */}
       <Dialog open={openNotif} onClose={() => setOpenNotif(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>
-          Notificación Inicial - ESAVI (Fase 1)
-        </DialogTitle> {/* <---- CORRECCIÓN AQUÍ */}
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>Notificación Inicial - ESAVI (Fase 1)</DialogTitle>
         <DialogContent>
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos del Paciente</Typography>
               <ReadOnlyField label="Nombre Completo" value="Juan Pérez López" />
-              <ReadOnlyField label="Edad / Sexo" value="34 años / Masculino" />
               <ReadOnlyField label="DUI" value="04567892-1" />
             </Grid>
             <Grid item xs={12} md={6}>
-              <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos de la Vacuna y Evento</Typography>
-              <ReadOnlyField label="Vacuna y Lote" value="COVID-19 Pfizer (Lote: A123)" />
-              <ReadOnlyField label="Fecha y Hora de Vacunación" value="01/07/2026 10:00 AM" />
-              <ReadOnlyField label="Inicio de Síntomas" value="01/07/2026 10:15 AM" />
-              <ReadOnlyField label="Descripción del Evento" value="Paciente presenta rash generalizado y dificultad para respirar 15 minutos posterior a la administración. Trasladado a emergencia." />
+              <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos Evento</Typography>
+              <ReadOnlyField label="Vacuna" value="COVID-19 Pfizer" />
+              <ReadOnlyField label="Inicio Síntomas" value="01/07/2026 10:15 AM" />
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-          <Button onClick={() => setOpenNotif(false)} variant="contained" color="primary">Cerrar</Button>
-        </DialogActions>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}><Button onClick={() => setOpenNotif(false)} variant="contained" color="primary">Cerrar</Button></DialogActions>
       </Dialog>
 
-      {/* 2. Modal Datos de Apertura */}
       <Dialog open={openApertura} onClose={() => setOpenApertura(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 2 }}>
-          Datos de Apertura y Triaje (Fase 2)
-        </DialogTitle> {/* <---- CORRECCIÓN AQUÍ */}
+        <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 2 }}>Datos de Apertura y Triaje (Fase 2)</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2}>
-             <Grid item xs={12}>
-              <ReadOnlyField label="Fecha de Oficialización" value="02/07/2026" />
-              <ReadOnlyField label="Institución que asume" value="MINSAL - Unidad de Salud Barrios" />
-              <ReadOnlyField label="Reunión Equipo Coordinador" value="Virtual - 02/07/2026 14:00 hrs" />
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>Resultado de Matriz de Riesgo</Typography>
-              <Alert severity="warning" sx={{ fontWeight: 'bold' }}>
-                Riesgo Calculado: ALTO (7 puntos) - Respuesta REGIONAL.
-              </Alert>
-             </Grid>
-          </Grid>
+          <ReadOnlyField label="Fecha Oficialización" value="02/07/2026" />
+          <ReadOnlyField label="Institución" value="MINSAL - U.S. Barrios" />
+          <Alert severity="warning" sx={{ mt: 2, fontWeight: 'bold' }}>Riesgo Calculado: ALTO (7 puntos) - Respuesta REGIONAL.</Alert>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-          <Button onClick={() => setOpenApertura(false)} variant="contained" color="secondary">Cerrar</Button>
-        </DialogActions>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}><Button onClick={() => setOpenApertura(false)} variant="contained" color="secondary">Cerrar</Button></DialogActions>
       </Dialog>
 
     </Box>
   );
-} 
+}

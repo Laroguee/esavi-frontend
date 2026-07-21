@@ -11,6 +11,102 @@ import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import PregnantWomanIcon from '@mui/icons-material/PregnantWoman';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate } from 'react-router-dom';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+// =======================================================
+// ESQUEMA ESTRICTO DE ZOD (Evaluación Clínica)
+// =======================================================
+const anexoVIISchema = z.object({
+  fechaInicioLlenado: z.string().optional(),
+  fuentes_historiaClinica: z.boolean().optional(),
+  fuentes_entrevistaVacunado: z.boolean().optional(),
+  fuentes_entrevistaSalud: z.boolean().optional(),
+  fuentes_registrosVac: z.boolean().optional(),
+  fuentes_autopsia: z.boolean().optional(),
+  fuentes_autopsiaVerbal: z.boolean().optional(),
+  fuentes_comunitaria: z.boolean().optional(),
+  fuentes_otro: z.string().optional(),
+  idUnico: z.string().optional(),
+  lugarVacunacion: z.string().optional(),
+  lugarVacunacionOtro: z.string().optional(),
+  direccionVacunacion: z.string().optional(),
+  eq_farma_nombre: z.string().optional(), eq_farma_cargo: z.string().optional(), eq_farma_correo: z.string().optional(), eq_farma_tel: z.string().optional(),
+  eq_inmuno_nombre: z.string().optional(), eq_inmuno_cargo: z.string().optional(), eq_inmuno_correo: z.string().optional(), eq_inmuno_tel: z.string().optional(),
+  eq_epi_nombre: z.string().optional(), eq_epi_cargo: z.string().optional(), eq_epi_correo: z.string().optional(), eq_epi_tel: z.string().optional(),
+  fechaHospitalizacion: z.string().optional(),
+  fechaInicioInvestigacion: z.string().optional(),
+  estadoPaciente: z.string().optional(),
+  fechaMuerte: z.string().optional(),
+  horaMuerte: z.string().optional(),
+  seRealizoAutopsia: z.string().optional(),
+  fechaPrevistaAutopsia: z.string().optional(),
+  razonNoAutopsia: z.string().optional(),
+  razonNoAutopsiaOtro: z.string().optional(),
+  datosNecropsia: z.string().optional(),
+  hosp30Dias: z.string().optional(),
+  obs_hosp30Dias: z.string().optional(),
+  antFamiliares: z.string().optional(),
+  obs_antFamiliares: z.string().optional(),
+  embarazada: z.string().optional(),
+  
+  // Regla estricta 2: Semanas de gestación entre 1 y 42
+  semGestacion: z.string().optional().refine((val) => {
+    if (!val) return true; // Permitir vacío si no aplica
+    const num = Number(val);
+    return num >= 1 && num <= 42;
+  }, { message: "Debe ser un número entre 1 y 42" }),
+
+  metGestacion: z.string().optional(),
+  metGestacionOtro: z.string().optional(),
+  factorRiesgoObs: z.string().optional(),
+  exp_factorRiesgoObs: z.string().optional(),
+  parto: z.string().optional(),
+  nacimiento: z.string().optional(),
+
+  // Regla estricta 3: Peso al nacer menor o igual a 6000
+  pesoNacer: z.string().optional().refine((val) => {
+    if (!val) return true; // Permitir vacío
+    return Number(val) <= 6000;
+  }, { message: "El peso no puede exceder los 6000 gramos" }),
+
+  desenlaceEmbarazo: z.string().optional(),
+  afeccionRecienNacido: z.string().optional(),
+  amamantando: z.string().optional(),
+  recibioAtencionMedica: z.string().optional(),
+  fuenteC_examen: z.boolean().optional(),
+  fuenteC_docs: z.boolean().optional(),
+  fuenteC_autopsia: z.boolean().optional(),
+  fuenteC_otro: z.string().optional(),
+  institucionDiferente: z.string().optional(),
+  instInicial: z.string().optional(),
+  medicoInicial: z.string().optional(),
+  contactoInicial: z.string().optional(),
+  instDefinitiva: z.string().optional(),
+  medicoDefinitivo: z.string().optional(),
+  contactoDefinitivo: z.string().optional(),
+  contactoConoceDetalles: z.string().optional(),
+  sospechaMaltrato: z.string().optional(),
+  exp_sospechaMaltrato: z.string().optional(),
+  violenciaIntrafamiliar: z.string().optional(),
+  exp_violenciaIntrafamiliar: z.string().optional(),
+  otrosAntSociales: z.string().optional(),
+  familiarContacto: z.string().optional(),
+  signosCronologicos: z.string().optional(),
+  resumenParaclinico: z.string().optional(),
+  diagnosticoFinal: z.string().optional()
+}).superRefine((data, ctx) => {
+  // Regla estricta 1: Validación condicional de fallecimiento
+  if (data.estadoPaciente === 'Fallecido' && (!data.fechaMuerte || data.fechaMuerte.trim() === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "La fecha de defunción es obligatoria si el paciente falleció",
+      path: ["fechaMuerte"]
+    });
+  }
+});
+
+type AnexoVIIFormValues = z.infer<typeof anexoVIISchema>;
 
 // Pestañas
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
@@ -24,7 +120,8 @@ export default function AnexoVII_Clinico() {
   const [tabIndex, setTabIndex] = useState(0);
   const [esMujerFertil, setEsMujerFertil] = useState(false);
 
-  const { control, handleSubmit, watch } = useForm({
+  const { control, handleSubmit, watch } = useForm<AnexoVIIFormValues>({
+    resolver: zodResolver(anexoVIISchema),
     defaultValues: {
       fechaInicioLlenado: '', 
       fuentes_historiaClinica: false, fuentes_entrevistaVacunado: false, fuentes_entrevistaSalud: false, fuentes_registrosVac: false, fuentes_autopsia: false, fuentes_autopsiaVerbal: false, fuentes_comunitaria: false, fuentes_otro: '',
@@ -47,11 +144,37 @@ export default function AnexoVII_Clinico() {
   const desenlace = watch('desenlaceEmbarazo');
   const instDiferente = watch('institucionDiferente');
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: AnexoVIIFormValues) => {
     console.log("Anexo Guardado:", data);
     alert("Anexo VII Guardado Exitosamente.");
     navigate(-1);
   };
+
+  const RenderEquipoRow = ({ prefix, titulo }: { prefix: string, titulo: string }) => (
+    <TableRow>
+      <TableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>{titulo}</TableCell>
+      <TableCell>
+        <Controller name={`${prefix}_nombre` as any} control={control} render={({ field, fieldState }) => (
+          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+        )}/>
+      </TableCell>
+      <TableCell>
+        <Controller name={`${prefix}_cargo` as any} control={control} render={({ field, fieldState }) => (
+          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+        )}/>
+      </TableCell>
+      <TableCell>
+        <Controller name={`${prefix}_correo` as any} control={control} render={({ field, fieldState }) => (
+          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+        )}/>
+      </TableCell>
+      <TableCell>
+        <Controller name={`${prefix}_tel` as any} control={control} render={({ field, fieldState }) => (
+          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+        )}/>
+      </TableCell>
+    </TableRow>
+  );
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>
@@ -79,8 +202,8 @@ export default function AnexoVII_Clinico() {
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Fecha inicio llenado de ficha</Typography>
-                <Controller name="fechaInicioLlenado" control={control} render={({ field }) => (
-                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />
+                <Controller name="fechaInicioLlenado" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )}/>
               </Grid>
               <Grid item xs={12} md={8}>
@@ -94,7 +217,11 @@ export default function AnexoVII_Clinico() {
                     <Grid item xs={12} sm={4}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
                     <Grid item xs={12} sm={4}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
                     <Grid item xs={12} sm={4}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
-                    <Grid item xs={12} sm={8}><Controller name="fuentes_otro" control={control} render={({ field }) => <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" />} /></Grid>
+                    <Grid item xs={12} sm={8}>
+                      <Controller name="fuentes_otro" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      )} />
+                    </Grid>
                   </Grid>
                 </Paper>
               </Grid>
@@ -105,12 +232,14 @@ export default function AnexoVII_Clinico() {
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Número de identificación del ESAVI</Typography>
-                <Controller name="idUnico" control={control} render={({ field }) => <TextField {...field} fullWidth disabled size="small" variant="filled" />} />
+                <Controller name="idUnico" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth disabled size="small" variant="filled" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Lugar de Vacunación</Typography>
-                <Controller name="lugarVacunacion" control={control} render={({ field }) => (
-                  <TextField {...field} select fullWidth size="small">
+                <Controller name="lugarVacunacion" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
                     <MenuItem value="Intramural">Intramural – Puesto fijo en establecimiento de salud</MenuItem>
                     <MenuItem value="Extramuros Movil">Extramuros – puesto Móvil</MenuItem>
                     <MenuItem value="Extramural Semi">Extramural – semi móvil</MenuItem>
@@ -124,11 +253,15 @@ export default function AnexoVII_Clinico() {
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Si eligió 'Otro'</Typography>
-                <Controller name="lugarVacunacionOtro" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                <Controller name="lugarVacunacionOtro" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Dirección completa del lugar de vacunación</Typography>
-                <Controller name="direccionVacunacion" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                <Controller name="direccionVacunacion" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
             </Grid>
 
@@ -147,27 +280,9 @@ export default function AnexoVII_Clinico() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>Farmacovigilancia</TableCell>
-                    <TableCell><Controller name="eq_farma_nombre" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_farma_cargo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_farma_correo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_farma_tel" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>Inmunizaciones</TableCell>
-                    <TableCell><Controller name="eq_inmuno_nombre" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_inmuno_cargo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_inmuno_correo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_inmuno_tel" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>Epidemiología</TableCell>
-                    <TableCell><Controller name="eq_epi_nombre" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_epi_cargo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_epi_correo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                    <TableCell><Controller name="eq_epi_tel" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" variant="standard" />}/></TableCell>
-                  </TableRow>
+                  <RenderEquipoRow prefix="eq_farma" titulo="Farmacovigilancia" />
+                  <RenderEquipoRow prefix="eq_inmuno" titulo="Inmunizaciones" />
+                  <RenderEquipoRow prefix="eq_epi" titulo="Epidemiología" />
                 </TableBody>
               </Table>
             </TableContainer>
@@ -175,16 +290,20 @@ export default function AnexoVII_Clinico() {
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Fecha de hospitalización</Typography>
-                <Controller name="fechaHospitalizacion" control={control} render={({ field }) => <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />} />
+                <Controller name="fechaHospitalizacion" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Fecha inicio investigación</Typography>
-                <Controller name="fechaInicioInvestigacion" control={control} render={({ field }) => <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />} />
+                <Controller name="fechaInicioInvestigacion" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Estado de la persona al investigar</Typography>
-                <Controller name="estadoPaciente" control={control} render={({ field }) => (
-                  <TextField {...field} select fullWidth size="small">
+                <Controller name="estadoPaciente" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
                     <MenuItem value="Fallecido">Fallecido</MenuItem>
                     <MenuItem value="No recuperado">No recuperado/no resuelto</MenuItem>
                     <MenuItem value="En recuperacion">En recuperación/resolviendo</MenuItem>
@@ -203,24 +322,30 @@ export default function AnexoVII_Clinico() {
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Fecha de muerte</Typography>
-                    <Controller name="fechaMuerte" control={control} render={({ field }) => <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />} />
+                    <Controller name="fechaMuerte" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Hora de muerte (24 hrs)</Typography>
-                    <Controller name="horaMuerte" control={control} render={({ field }) => <TextField {...field} fullWidth type="time" size="small" InputLabelProps={{ shrink: true }} />} />
+                    <Controller name="horaMuerte" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth type="time" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>¿Se realizó autopsia?</Typography>
-                    <Controller name="seRealizoAutopsia" control={control} render={({ field }) => (
-                      <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem></TextField>
+                    <Controller name="seRealizoAutopsia" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                        <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem>
+                      </TextField>
                     )}/>
                   </Grid>
                   
                   {hizoAutopsia === 'NO' && (
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Razón por la que no se practicó</Typography>
-                      <Controller name="razonNoAutopsia" control={control} render={({ field }) => (
-                        <TextField {...field} select fullWidth size="small">
+                      <Controller name="razonNoAutopsia" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
                           <MenuItem value="Negativa familiar">Negativa de la familia</MenuItem>
                           <MenuItem value="No solicitada">La persona que notificó o trató no lo solicitó</MenuItem>
                           <MenuItem value="No disponible">Los servicios de autopsia no estaban disponibles</MenuItem>
@@ -233,18 +358,24 @@ export default function AnexoVII_Clinico() {
                   {razonAutopsia === 'Otra' && hizoAutopsia === 'NO' && (
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Especifique la otra razón</Typography>
-                      <Controller name="razonNoAutopsiaOtro" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                      <Controller name="razonNoAutopsiaOtro" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      )} />
                     </Grid>
                   )}
 
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Fecha prevista autopsia (pasada/prevista)</Typography>
-                    <Controller name="fechaPrevistaAutopsia" control={control} render={({ field }) => <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />} />
+                    <Controller name="fechaPrevistaAutopsia" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
 
                   <Grid item xs={12}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Registre los datos de la necropsia</Typography>
-                    <Controller name="datosNecropsia" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" multiline rows={2} />} />
+                    <Controller name="datosNecropsia" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth size="small" multiline rows={2} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
                 </Grid>
               </Paper>
@@ -262,24 +393,32 @@ export default function AnexoVII_Clinico() {
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Hosp. en 30 días previos</Typography>
-                <Controller name="hosp30Dias" control={control} render={({ field }) => (
-                  <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>
+                <Controller name="hosp30Dias" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                    <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                  </TextField>
                 )}/>
               </Grid>
               <Grid item xs={12} md={8}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Observaciones</Typography>
-                <Controller name="obs_hosp30Dias" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                <Controller name="obs_hosp30Dias" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
               
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Otra enf. familiar o alergia</Typography>
-                <Controller name="antFamiliares" control={control} render={({ field }) => (
-                  <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>
+                <Controller name="antFamiliares" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                    <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                  </TextField>
                 )}/>
               </Grid>
               <Grid item xs={12} md={8}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>Observaciones</Typography>
-                <Controller name="obs_antFamiliares" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                <Controller name="obs_antFamiliares" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )} />
               </Grid>
             </Grid>
 
@@ -294,16 +433,22 @@ export default function AnexoVII_Clinico() {
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>¿Embarazada al vacunar?</Typography>
-                    <Controller name="embarazada" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>}/>
+                    <Controller name="embarazada" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                        <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                      </TextField>
+                    )}/>
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Semanas de gestación (1-42)</Typography>
-                    <Controller name="semGestacion" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" type="number" />} />
+                    <Controller name="semGestacion" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth size="small" type="number" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Método de cálculo</Typography>
-                    <Controller name="metGestacion" control={control} render={({ field }) => (
-                      <TextField {...field} select fullWidth size="small">
+                    <Controller name="metGestacion" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
                         <MenuItem value="Examen">Examen físico</MenuItem>
                         <MenuItem value="FUR Confiable">Fecha última menstruación-confiable</MenuItem>
                         <MenuItem value="FUR No Confiable">Fecha última menstruación-no confiable</MenuItem>
@@ -317,34 +462,54 @@ export default function AnexoVII_Clinico() {
 
                   <Grid item xs={12} md={4}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>¿Factor riesgo obstétrico?</Typography>
-                    <Controller name="factorRiesgoObs" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>}/>
+                    <Controller name="factorRiesgoObs" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                        <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                      </TextField>
+                    )}/>
                   </Grid>
                   <Grid item xs={12} md={8}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Explique cuál fue</Typography>
-                    <Controller name="exp_factorRiesgoObs" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                    <Controller name="exp_factorRiesgoObs" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
                   
                   <Grid item xs={12} md={3}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>El parto fue</Typography>
-                    <Controller name="parto" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="Normal">Normal</MenuItem><MenuItem value="Cesarea">Cesárea</MenuItem><MenuItem value="Instrumentado">Instrumentado</MenuItem><MenuItem value="Complicaciones">Con complicaciones</MenuItem><MenuItem value="No aplica">No aplica</MenuItem></TextField>}/>
+                    <Controller name="parto" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                        <MenuItem value="Normal">Normal</MenuItem><MenuItem value="Cesarea">Cesárea</MenuItem><MenuItem value="Instrumentado">Instrumentado</MenuItem><MenuItem value="Complicaciones">Con complicaciones</MenuItem><MenuItem value="No aplica">No aplica</MenuItem>
+                      </TextField>
+                    )}/>
                   </Grid>
                   <Grid item xs={12} md={3}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>El nacimiento fue</Typography>
-                    <Controller name="nacimiento" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="Prematuro">Prematuro</MenuItem><MenuItem value="Termino">A Término</MenuItem><MenuItem value="Postermino">Postérmino</MenuItem><MenuItem value="No aplica">No Aplica</MenuItem></TextField>}/>
+                    <Controller name="nacimiento" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                        <MenuItem value="Prematuro">Prematuro</MenuItem><MenuItem value="Termino">A Término</MenuItem><MenuItem value="Postermino">Postérmino</MenuItem><MenuItem value="No aplica">No Aplica</MenuItem>
+                      </TextField>
+                    )}/>
                   </Grid>
                   <Grid item xs={12} md={3}>
                    <Typography variant="body2" fontWeight="bold" gutterBottom>{"Peso al Nacer (<=6000g)"}</Typography> 
-                    <Controller name="pesoNacer" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" type="number" />} />
+                    <Controller name="pesoNacer" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} fullWidth size="small" type="number" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    )} />
                   </Grid>
                   <Grid item xs={12} md={3}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>¿Amamantando al vacunar?</Typography>
-                    <Controller name="amamantando" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>}/>
+                    <Controller name="amamantando" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                        <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                      </TextField>
+                    )}/>
                   </Grid>
 
                   <Grid item xs={12} md={6}>
                     <Typography variant="body2" fontWeight="bold" gutterBottom>Desenlace del embarazo</Typography>
-                    <Controller name="desenlaceEmbarazo" control={control} render={({ field }) => (
-                      <TextField {...field} select fullWidth size="small">
+                    <Controller name="desenlaceEmbarazo" control={control} render={({ field, fieldState }) => (
+                      <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
                         <MenuItem value="Sano">Nacido vivo sano</MenuItem>
                         <MenuItem value="Afeccion">Nacido vivo con afección médica al nacer</MenuItem>
                         <MenuItem value="Muerte Temprana">Muerte neonatal temprana</MenuItem>
@@ -359,7 +524,9 @@ export default function AnexoVII_Clinico() {
                   {desenlace === 'Afeccion' && (
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Describa la afección médica del recién nacido</Typography>
-                      <Controller name="afeccionRecienNacido" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                      <Controller name="afeccionRecienNacido" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      )} />
                     </Grid>
                   )}
                 </Grid>
@@ -380,8 +547,10 @@ export default function AnexoVII_Clinico() {
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>¿Atención médica para ESAVI?</Typography>
-                <Controller name="recibioAtencionMedica" control={control} render={({ field }) => (
-                  <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>
+                <Controller name="recibioAtencionMedica" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                    <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                  </TextField>
                 )}/>
               </Grid>
               <Grid item xs={12} md={8}>
@@ -391,15 +560,21 @@ export default function AnexoVII_Clinico() {
                     <Grid item xs={12} sm={4}><Controller name="fuenteC_examen" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Examen por investigador</Typography>} />} /></Grid>
                     <Grid item xs={12} sm={4}><Controller name="fuenteC_docs" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Documentos</Typography>} />} /></Grid>
                     <Grid item xs={12} sm={4}><Controller name="fuenteC_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Autopsia Verbal</Typography>} />} /></Grid>
-                    <Grid item xs={12} sm={8}><Controller name="fuenteC_otro" control={control} render={({ field }) => <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" sx={{ mt: 0.5 }} />} /></Grid>
+                    <Grid item xs={12} sm={8}>
+                      <Controller name="fuenteC_otro" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" sx={{ mt: 0.5 }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      )} />
+                    </Grid>
                   </Grid>
                 </Paper>
               </Grid>
 
               <Grid item xs={12}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>¿La institución inicial es DIFERENTE a la definitiva?</Typography>
-                <Controller name="institucionDiferente" control={control} render={({ field }) => (
-                  <TextField {...field} select sx={{ width: '200px' }} size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem></TextField>
+                <Controller name="institucionDiferente" control={control} render={({ field, fieldState }) => (
+                  <TextField {...field} select sx={{ width: '200px' }} size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                    <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem>
+                  </TextField>
                 )}/>
               </Grid>
 
@@ -409,29 +584,29 @@ export default function AnexoVII_Clinico() {
                     <Grid item xs={12} md={instDiferente === 'SI' ? 4 : 6}>
                       <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>Institución Inicial</Typography>
                       <Typography variant="body2" fontWeight="bold">Nombre Institución</Typography>
-                      <Controller name="instInicial" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }}/>} />
+                      <Controller name="instInicial" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }} error={!!fieldState.error} helperText={fieldState.error?.message}/>} />
                       <Typography variant="body2" fontWeight="bold">Médico</Typography>
-                      <Controller name="medicoInicial" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }}/>} />
+                      <Controller name="medicoInicial" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }} error={!!fieldState.error} helperText={fieldState.error?.message}/>} />
                       <Typography variant="body2" fontWeight="bold">Contacto (Tel/Email)</Typography>
-                      <Controller name="contactoInicial" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                      <Controller name="contactoInicial" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
                     
                     {instDiferente === 'SI' && (
                       <Grid item xs={12} md={4}>
                         <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>Institución Definitiva</Typography>
                         <Typography variant="body2" fontWeight="bold">Nombre Institución</Typography>
-                        <Controller name="instDefinitiva" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }}/>} />
+                        <Controller name="instDefinitiva" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }} error={!!fieldState.error} helperText={fieldState.error?.message}/>} />
                         <Typography variant="body2" fontWeight="bold">Médico</Typography>
-                        <Controller name="medicoDefinitivo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }}/>} />
+                        <Controller name="medicoDefinitivo" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" sx={{ mb: 1 }} error={!!fieldState.error} helperText={fieldState.error?.message}/>} />
                         <Typography variant="body2" fontWeight="bold">Contacto (Tel/Email)</Typography>
-                        <Controller name="contactoDefinitivo" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                        <Controller name="contactoDefinitivo" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                       </Grid>
                     )}
 
                     <Grid item xs={12} md={instDiferente === 'SI' ? 4 : 6}>
                       <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>Referencia Familiar</Typography>
                       <Typography variant="body2" fontWeight="bold">Familiar/Persona con detalles clínicos</Typography>
-                      <Controller name="contactoConoceDetalles" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" multiline rows={4} placeholder="Nombre e información de contacto..." />} />
+                      <Controller name="contactoConoceDetalles" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" multiline rows={4} placeholder="Nombre e información de contacto..." error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
                   </Grid>
                 </Paper>
@@ -444,25 +619,33 @@ export default function AnexoVII_Clinico() {
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={4}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Menor 5 años: ¿Sospecha de maltrato?</Typography>
-                      <Controller name="sospechaMaltrato" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>}/>
+                      <Controller name="sospechaMaltrato" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                          <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                        </TextField>
+                      )}/>
                     </Grid>
                     <Grid item xs={12} md={8}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Explique (si aplica)</Typography>
-                      <Controller name="exp_sospechaMaltrato" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                      <Controller name="exp_sospechaMaltrato" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
 
                     <Grid item xs={12} md={4}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Adolesc/Adulto: ¿Violencia intrafamiliar?</Typography>
-                      <Controller name="violenciaIntrafamiliar" control={control} render={({ field }) => <TextField {...field} select fullWidth size="small"><MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem></TextField>}/>
+                      <Controller name="violenciaIntrafamiliar" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} select fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message}>
+                          <MenuItem value="SI">SI</MenuItem><MenuItem value="NO">NO</MenuItem><MenuItem value="NO SABE">NO SABE</MenuItem>
+                        </TextField>
+                      )}/>
                     </Grid>
                     <Grid item xs={12} md={8}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Explique (si aplica)</Typography>
-                      <Controller name="exp_violenciaIntrafamiliar" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" />} />
+                      <Controller name="exp_violenciaIntrafamiliar" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
 
                     <Grid item xs={12}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Otros antecedentes sociales relevantes del caso</Typography>
-                      <Controller name="otrosAntSociales" control={control} render={({ field }) => <TextField {...field} fullWidth size="small" multiline rows={2} />} />
+                      <Controller name="otrosAntSociales" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" multiline rows={2} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
                   </Grid>
                 </Paper>
@@ -475,22 +658,22 @@ export default function AnexoVII_Clinico() {
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Signos y síntomas en orden cronológico desde la vacunación:</Typography>
-                      <Controller name="signosCronologicos" control={control} render={({ field }) => (
-                        <TextField {...field} fullWidth size="small" multiline rows={3} placeholder="Detalle cronológico..." />
+                      <Controller name="signosCronologicos" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" multiline rows={3} placeholder="Detalle cronológico..." error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </Grid>
                     
                     <Grid item xs={12}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Resumen completo clínico y paraclínico (exámenes y gabinete):</Typography>
-                      <Controller name="resumenParaclinico" control={control} render={({ field }) => (
-                        <TextField {...field} fullWidth size="small" multiline rows={3} placeholder="Resaltando lo más relevante..." />
+                      <Controller name="resumenParaclinico" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" multiline rows={3} placeholder="Resaltando lo más relevante..." error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </Grid>
 
                     <Grid item xs={12}>
                       <Typography variant="body2" fontWeight="bold" gutterBottom>Diagnóstico final o presuntivo:</Typography>
-                      <Controller name="diagnosticoFinal" control={control} render={({ field }) => (
-                        <TextField {...field} fullWidth size="small" variant="outlined" sx={{ bgcolor: '#fffde7' }} />
+                      <Controller name="diagnosticoFinal" control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" variant="outlined" sx={{ bgcolor: '#fffde7' }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </Grid>
                   </Grid>

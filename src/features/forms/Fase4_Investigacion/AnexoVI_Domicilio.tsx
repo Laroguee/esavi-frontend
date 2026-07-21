@@ -8,14 +8,149 @@ import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate } from 'react-router-dom';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+// =======================================================
+// ESQUEMA ESTRICTO DE ZOD
+// =======================================================
+const anexoVISchema = z.object({
+  idUnico: z.string().optional(),
+  
+  // Regla de Fecha: No puede ser en el futuro
+  fechaVisita: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const selectedDate = new Date(val);
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    return selectedDate <= now;
+  }, { message: "La fecha no puede ser en el futuro" }),
+  
+  horaInicio: z.string().optional(),
+  horaFin: z.string().optional(),
+
+  // FASE I: Observación Comunidad (Tabla 4) - Límite de 500 caracteres
+  fase1_nota_1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_5: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_6: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_7: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_8: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_9: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_10: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  fase1_nota_11: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+
+  // Variables heredadas (mantenidas por regla estricta)
+  obs_acceso: z.string().optional(), nota_acceso: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_ambiental: z.string().optional(), nota_ambiental: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_infra: z.string().optional(), nota_infra: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_socioEco: z.string().optional(), nota_socioEco: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_recursosSalud: z.string().optional(), nota_recursosSalud: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_costumbres: z.string().optional(), nota_costumbres: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_comercio: z.string().optional(), nota_comercio: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_drogas: z.string().optional(), nota_drogas: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_percepcionVacuna: z.string().optional(), nota_percepcionVacuna: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_rumores: z.string().optional(), nota_rumores: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  obs_seguridad: z.string().optional(), nota_seguridad: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+
+  entrevista_evolucion: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_antecedentes: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_vacunacion: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_laboral: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_extraLaboral: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_exposicion: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_casosAdicionales: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+
+  dom_vivienda: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_higiene: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_familiar: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_ambiental: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_acceso: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_evidencia: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_almacenMedicina: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  dom_percepcionFamilia: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+
+  // FASE II: Entrevista a Persona Afectada (Límite de 500 caracteres)
+  entrevista_a1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_a2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_a3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_a4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_a5: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_a6: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_b1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_b2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_b3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_b4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_b5: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_c1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_c2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_c3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_c4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_d1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_d2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_d3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_d4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_d5: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_d6: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_e1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_e2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_e3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_e4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_f1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_f2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_f3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_g1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_g2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_g3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_g4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  entrevista_g5: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+
+  // FASE II: Observación Domicilio (Tabla 5) - Límite de 500 caracteres
+  domicilio_obs_1: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_2: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_3: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_4: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_5: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_6: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_7: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+  domicilio_obs_8: z.string().max(500, "Máximo 500 caracteres permitidos").optional(),
+}).superRefine((data, ctx) => {
+  // Lógica cruzada para forzar el detalle si se detectó exposición/riesgo (mantenido por precaución para campos legados)
+  const validateRisk = (selectVal: string | undefined, textVal: string | undefined, fieldName: string) => {
+    if ((selectVal === 'Riesgo Detectado' || selectVal === 'Sí' || selectVal === 'SI') && (!textVal || textVal.trim() === '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Debe describir el riesgo o antecedente identificado",
+        path: [fieldName]
+      });
+    }
+  };
+
+  validateRisk(data.obs_acceso, data.nota_acceso, 'nota_acceso');
+  validateRisk(data.obs_ambiental, data.nota_ambiental, 'nota_ambiental');
+  validateRisk(data.obs_infra, data.nota_infra, 'nota_infra');
+  validateRisk(data.obs_socioEco, data.nota_socioEco, 'nota_socioEco');
+  validateRisk(data.obs_recursosSalud, data.nota_recursosSalud, 'nota_recursosSalud');
+  validateRisk(data.obs_costumbres, data.nota_costumbres, 'nota_costumbres');
+  validateRisk(data.obs_comercio, data.nota_comercio, 'nota_comercio');
+  validateRisk(data.obs_drogas, data.nota_drogas, 'nota_drogas');
+  validateRisk(data.obs_percepcionVacuna, data.nota_percepcionVacuna, 'nota_percepcionVacuna');
+  validateRisk(data.obs_rumores, data.nota_rumores, 'nota_rumores');
+  validateRisk(data.obs_seguridad, data.nota_seguridad, 'nota_seguridad');
+});
+
+type AnexoVIFormValues = z.infer<typeof anexoVISchema>;
 
 export default function AnexoVI_Domicilio() {
   const navigate = useNavigate();
 
-  const { control, handleSubmit } = useForm({
+  const { control, handleSubmit } = useForm<AnexoVIFormValues>({
+    resolver: zodResolver(anexoVISchema),
     defaultValues: {
-      // Encabezado
-      idUnico: 'ESAVI-MINSAL-2025-001', fechaVisita: '', horaInicio: '', horaFin: '',
+      // Encabezado Automático
+      idUnico: 'ESAVI-MINSAL-2025-001', horaInicio: '', horaFin: '', fechaVisita: '',
       
       // FASE I: Observación Comunidad (Tabla 4)
       fase1_nota_1: '', fase1_nota_2: '', fase1_nota_3: '', fase1_nota_4: '', fase1_nota_5: '', 
@@ -32,11 +167,19 @@ export default function AnexoVI_Domicilio() {
 
       // FASE II: Observación Domicilio (Tabla 5)
       domicilio_obs_1: '', domicilio_obs_2: '', domicilio_obs_3: '', domicilio_obs_4: '', 
-      domicilio_obs_5: '', domicilio_obs_6: '', domicilio_obs_7: '', domicilio_obs_8: ''
+      domicilio_obs_5: '', domicilio_obs_6: '', domicilio_obs_7: '', domicilio_obs_8: '',
+
+      // Heredados (Mantenidos)
+      obs_acceso: '', nota_acceso: '', obs_ambiental: '', nota_ambiental: '', obs_infra: '', nota_infra: '',
+      obs_socioEco: '', nota_socioEco: '', obs_recursosSalud: '', nota_recursosSalud: '', obs_costumbres: '', nota_costumbres: '',
+      obs_comercio: '', nota_comercio: '', obs_drogas: '', nota_drogas: '', obs_percepcionVacuna: '', nota_percepcionVacuna: '',
+      obs_rumores: '', nota_rumores: '', obs_seguridad: '', nota_seguridad: '',
+      entrevista_evolucion: '', entrevista_antecedentes: '', entrevista_vacunacion: '', entrevista_laboral: '', entrevista_extraLaboral: '', entrevista_exposicion: '', entrevista_casosAdicionales: '',
+      dom_vivienda: '', dom_higiene: '', dom_familiar: '', dom_ambiental: '', dom_acceso: '', dom_evidencia: '', dom_almacenMedicina: '', dom_percepcionFamilia: ''
     }
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: AnexoVIFormValues) => {
     console.log("Anexo VI Guardado:", data);
     alert("Guía Domiciliaria (Anexo VI) guardada exitosamente.");
     navigate(-1);
@@ -68,14 +211,16 @@ export default function AnexoVI_Domicilio() {
     { num: 8, elem: 'Percepción de la familia sobre la vacunación', desc: 'Actitudes, temores, experiencias previas, confianza en el sistema de salud.' }
   ];
 
-  // Componente de ayuda para renderizar TextFields de entrevista de forma limpia
+  // Componente de ayuda para renderizar TextFields de entrevista de forma limpia con Zod Error
   const EntrevistaField = ({ name, label }: { name: string, label: string }) => (
-    <Controller name={name as any} control={control} render={({ field }) => (
+    <Controller name={name as any} control={control} render={({ field, fieldState }) => (
       <TextField 
         {...field} fullWidth size="small" sx={{ mb: 3 }} 
         label={label} 
         InputLabelProps={{ shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } }} 
-        multiline minRows={1} 
+        multiline minRows={1}
+        error={!!fieldState.error}
+        helperText={fieldState.error?.message}
       />
     )}/>
   );
@@ -94,10 +239,10 @@ export default function AnexoVI_Domicilio() {
       <Paper elevation={2} sx={{ p: 4, mb: 3, borderTop: '4px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Controller name="idUnico" control={control} render={({ field }) => <TextField {...field} fullWidth label="ID ESAVI" disabled variant="filled" InputLabelProps={{ shrink: true }} />} />
+            <Controller name="idUnico" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth label="ID ESAVI" disabled variant="filled" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
           </Grid>
           <Grid item xs={12} md={6}>
-             <Controller name="fechaVisita" control={control} render={({ field }) => <TextField {...field} fullWidth type="date" label="Fecha de la visita" InputLabelProps={{ shrink: true }} focused />} />
+             <Controller name="fechaVisita" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="date" label="Fecha de la visita" InputLabelProps={{ shrink: true }} focused error={!!fieldState.error} helperText={fieldState.error?.message} />} />
           </Grid>
         </Grid>
       </Paper>
@@ -125,8 +270,8 @@ export default function AnexoVI_Domicilio() {
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>{row.cat}</TableCell>
                     <TableCell sx={{ fontSize: '0.875rem' }}>{row.desc}</TableCell>
                     <TableCell>
-                      <Controller name={`fase1_nota_${row.num}` as any} control={control} render={({ field }) => (
-                        <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" />
+                      <Controller name={`fase1_nota_${row.num}` as any} control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </TableCell>
                   </TableRow>
@@ -225,8 +370,8 @@ export default function AnexoVI_Domicilio() {
                     <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>{row.elem}</TableCell>
                     <TableCell sx={{ fontSize: '0.875rem' }}>{row.desc}</TableCell>
                     <TableCell>
-                      <Controller name={`domicilio_obs_${row.num}` as any} control={control} render={({ field }) => (
-                        <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" />
+                      <Controller name={`domicilio_obs_${row.num}` as any} control={control} render={({ field, fieldState }) => (
+                        <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </TableCell>
                   </TableRow>
@@ -249,11 +394,11 @@ export default function AnexoVI_Domicilio() {
           <Grid container spacing={4} sx={{ mb: 4 }}>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Hora de inicio de la visita</Typography>
-              <Controller name="horaInicio" control={control} render={({ field }) => <TextField {...field} fullWidth type="time" InputLabelProps={{ shrink: true }} />} />
+              <Controller name="horaInicio" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="time" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
             </Grid>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Hora de finalización de la visita</Typography>
-              <Controller name="horaFin" control={control} render={({ field }) => <TextField {...field} fullWidth type="time" InputLabelProps={{ shrink: true }} />} />
+              <Controller name="horaFin" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="time" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
             </Grid>
           </Grid>
 

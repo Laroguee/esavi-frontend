@@ -3,11 +3,39 @@ import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import { useNavigate } from 'react-router-dom';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+// =======================================================
+// ESQUEMA ESTRICTO DE ZOD
+// =======================================================
+const aperturaSchema = z.object({
+  idUnico: z.string().min(1, "Campo obligatorio"),
+  fechaNotificacion: z.string().min(1, "La fecha de oficialización es obligatoria"),
+  institucion: z.string().min(1, "Campo obligatorio"),
+  establecimiento: z.string().min(5, "El nombre del establecimiento debe tener al menos 5 caracteres"),
+  tipoReunion: z.string().min(1, "Campo obligatorio"),
+  fechaReunion: z.string().min(1, "Campo obligatorio").refine((val) => {
+    // Validamos que la fecha ingresada no sea menor a la fecha/hora actual
+    if (!val) return false;
+    const fechaIngresada = new Date(val).getTime();
+    const ahora = new Date().getTime();
+    // Damos un margen de tolerancia de 1 minuto por si llenan la hora exacta actual
+    return fechaIngresada >= (ahora - 60000); 
+  }, {
+    message: "La fecha y hora de la reunión no puede ser en el pasado"
+  }),
+});
+
+// Inferimos los tipos TypeScript a partir del esquema
+type AperturaFormValues = z.infer<typeof aperturaSchema>;
 
 export default function FormularioApertura() {
   const navigate = useNavigate();
 
-  const { control, handleSubmit, watch, setValue } = useForm({
+  // Inyectamos el resolver de Zod a React-Hook-Form
+  const { control, handleSubmit, watch, setValue } = useForm<AperturaFormValues>({
+    resolver: zodResolver(aperturaSchema),
     defaultValues: {
       idUnico: '',
       fechaNotificacion: '',
@@ -27,7 +55,7 @@ export default function FormularioApertura() {
     setValue('idUnico', nuevoID); 
   }, [institucionSeleccionada, setValue]);
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: AperturaFormValues) => {
     console.log("Datos Apertura:", data);
     alert(`Expediente Oficial ${data.idUnico} creado exitosamente.`);
     
@@ -69,7 +97,7 @@ export default function FormularioApertura() {
           <Grid container spacing={3}>
             {/* Fila 1: Suma 12 */}
             <Grid item xs={12} md={6}>
-              <Controller name="idUnico" control={control} render={({ field }) => (
+              <Controller name="idUnico" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
                   fullWidth 
@@ -77,11 +105,13 @@ export default function FormularioApertura() {
                   disabled 
                   variant="filled" 
                   InputLabelProps={{ shrink: true }} 
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 />
               )}/>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Controller name="fechaNotificacion" control={control} render={({ field }) => (
+              <Controller name="fechaNotificacion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
                   fullWidth 
@@ -90,13 +120,15 @@ export default function FormularioApertura() {
                   required 
                   InputLabelProps={{ shrink: true }}
                   sx={getDateTimeSx(!!field.value)}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 />
               )}/>
             </Grid>
 
             {/* Fila 2: Suma 12 */}
             <Grid item xs={12} md={4}>
-              <Controller name="institucion" control={control} render={({ field }) => (
+              <Controller name="institucion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
                   select 
@@ -104,6 +136,8 @@ export default function FormularioApertura() {
                   label="Institución Receptora" 
                   required
                   sx={{ minWidth: 160 }}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 >
                   <MenuItem value="MINSAL">MINSAL</MenuItem>
                   <MenuItem value="ISSS">ISSS</MenuItem>
@@ -112,12 +146,14 @@ export default function FormularioApertura() {
               )}/>
             </Grid>
             <Grid item xs={12} md={8}>
-              <Controller name="establecimiento" control={control} render={({ field }) => (
+              <Controller name="establecimiento" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
                   fullWidth 
                   label="Nombre del Establecimiento que asume el caso" 
                   required 
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 />
               )}/>
             </Grid>
@@ -136,7 +172,7 @@ export default function FormularioApertura() {
           <Grid container spacing={3}>
             {/* Fila 1: Suma 12 */}
             <Grid item xs={12} md={6}>
-              <Controller name="tipoReunion" control={control} render={({ field }) => (
+              <Controller name="tipoReunion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
                   select 
@@ -144,6 +180,8 @@ export default function FormularioApertura() {
                   label="Tipo de Reunión" 
                   required
                   sx={{ minWidth: 160 }}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 >
                   <MenuItem value="Virtual">Virtual (Teams/Zoom)</MenuItem>
                   <MenuItem value="Presencial">Presencial</MenuItem>
@@ -152,7 +190,7 @@ export default function FormularioApertura() {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Controller name="fechaReunion" control={control} render={({ field }) => (
+              <Controller name="fechaReunion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
                   fullWidth 
@@ -161,6 +199,8 @@ export default function FormularioApertura() {
                   required
                   InputLabelProps={{ shrink: true }}
                   sx={getDateTimeSx(!!field.value)}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
                 />
               )}/>
             </Grid>

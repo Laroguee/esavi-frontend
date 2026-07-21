@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
-import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, TextField, MenuItem, InputAdornment } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SearchIcon from '@mui/icons-material/Search';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -12,13 +13,22 @@ const mockPendientes = [
 ];
 
 const mockCasos = [
-  { id: 'ESAVI-MINSAL-2025-001', paciente: 'Juan Pérez', vacuna: 'COVID-19', fase: 'Fase 2: Riesgo', fecha: dayjs().subtract(2, 'hour').toISOString() },
-  { id: 'ESAVI-ISSS-2025-002', paciente: 'María López', vacuna: 'Influenza', fase: 'Fase 4: Investigación', fecha: dayjs().subtract(23, 'hour').toISOString() },
+  { id: 'ESAVI-MINSAL-2025-001', paciente: 'Juan Pérez', vacuna: 'COVID-19', fase: 'Fase 2: Riesgo', riesgo: 'Alto', fecha: dayjs().subtract(2, 'hour').toISOString() },
+  { id: 'ESAVI-ISSS-2025-002', paciente: 'María López', vacuna: 'Influenza', fase: 'Fase 4: Investigación', riesgo: 'Medio', fecha: dayjs().subtract(23, 'hour').toISOString() },
+  { id: 'ESAVI-MINSAL-2025-003', paciente: 'Carlos Ruiz', vacuna: 'DPT', fase: 'Fase 5: Control Calidad', riesgo: 'Bajo', fecha: dayjs().subtract(10, 'hour').toISOString() },
+  { id: 'ESAVI-ISSS-2025-004', paciente: 'Laura Méndez', vacuna: 'COVID-19', fase: 'Fase 6: Dictamen', riesgo: 'Crítico', fecha: dayjs().subtract(30, 'hour').toISOString() },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentRole } = useAuthStore();
+
+  // =========================================================================
+  // ESTADOS PARA FILTROS DE BÚSQUEDA
+  // =========================================================================
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [filtroRiesgo, setFiltroRiesgo] = useState('Todos');
 
   // =========================================================================
   // CONTROL DE ACCESO (RBAC - Redirección Automática)
@@ -43,6 +53,20 @@ export default function Dashboard() {
     if (horas > 20) return { label: `Por vencer (${horas}h)`, color: 'warning', rowColor: '#fff8e1' };
     return { label: `A tiempo (${horas}h)`, color: 'success', rowColor: 'inherit' };
   };
+
+  // =========================================================================
+  // LÓGICA DE FILTRADO (FRONTEND)
+  // =========================================================================
+  const casosFiltrados = mockCasos.filter((caso) => {
+    const matchesSearch = 
+      caso.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      caso.paciente.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesEstado = filtroEstado === 'Todos' || caso.fase === filtroEstado;
+    const matchesRiesgo = filtroRiesgo === 'Todos' || caso.riesgo === filtroRiesgo;
+
+    return matchesSearch && matchesEstado && matchesRiesgo;
+  });
 
   return (
     <Box sx={{ maxWidth: 1200, margin: 'auto' }}>
@@ -85,8 +109,69 @@ export default function Dashboard() {
         </Table>
       </TableContainer>
 
-      {/* TABLA 2: OFICIALES */}
+      {/* =========================================================================
+          BARRA DE HERRAMIENTAS: BÚSQUEDA Y FILTROS
+      ========================================================================= */}
       <Typography variant="h6" color="primary" sx={{ mb: 2, fontWeight: 'bold' }}>📂 Casos Oficializados Activos</Typography>
+      
+      <Paper elevation={2} sx={{ p: 2, mb: 3, bgcolor: '#f4f6f8' }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Buscar por ID de Caso o Nombre del Paciente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+                sx: { bgcolor: 'white' }
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Fase del Caso"
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              sx={{ bgcolor: 'white' }}
+            >
+              <MenuItem value="Todos">Todos los Estados</MenuItem>
+              <MenuItem value="Fase 2: Riesgo">Fase 2: Evaluación Riesgo</MenuItem>
+              <MenuItem value="Fase 3: Asignación ERR">Fase 3: Asignación</MenuItem>
+              <MenuItem value="Fase 4: Investigación">Fase 4: Investigación</MenuItem>
+              <MenuItem value="Fase 5: Control Calidad">Fase 5: Control Calidad</MenuItem>
+              <MenuItem value="Fase 6: Dictamen">Fase 6: Comité Causalidad</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Nivel de Riesgo"
+              value={filtroRiesgo}
+              onChange={(e) => setFiltroRiesgo(e.target.value)}
+              sx={{ bgcolor: 'white' }}
+            >
+              <MenuItem value="Todos">Todos los Riesgos</MenuItem>
+              <MenuItem value="Bajo">Riesgo Bajo (Local)</MenuItem>
+              <MenuItem value="Medio">Riesgo Medio (Dept.)</MenuItem>
+              <MenuItem value="Alto">Riesgo Alto (Regional)</MenuItem>
+              <MenuItem value="Crítico">Riesgo Crítico (Nacional)</MenuItem>
+            </TextField>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* TABLA 2: OFICIALES (Aplica el filtro: casosFiltrados) */}
       <TableContainer component={Paper} elevation={2}>
         <Table>
           <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
@@ -94,21 +179,41 @@ export default function Dashboard() {
               <TableCell sx={{ fontWeight: 'bold' }}>ID Caso</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Paciente</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Fase Actual</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Nivel de Riesgo</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Tiempo SLA</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {mockCasos.map((caso) => {
-              const sla = getSLAStatus(caso.fecha);
-              return (
-                <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: sla.rowColor, cursor: 'pointer' }}>
-                  <TableCell>{caso.id}</TableCell>
-                  <TableCell>{caso.paciente}</TableCell>
-                  <TableCell><Chip label={caso.fase} size="small" /></TableCell>
-                  <TableCell><Chip icon={<AccessTimeIcon />} label={sla.label} color={sla.color as any} size="small" /></TableCell>
-                </TableRow>
-              );
-            })}
+            {casosFiltrados.length > 0 ? (
+              casosFiltrados.map((caso) => {
+                const sla = getSLAStatus(caso.fecha);
+                return (
+                  <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: sla.rowColor, cursor: 'pointer' }}>
+                    <TableCell>{caso.id}</TableCell>
+                    <TableCell>{caso.paciente}</TableCell>
+                    <TableCell><Chip label={caso.fase} size="small" /></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold" color={
+                        caso.riesgo === 'Crítico' ? 'error.main' :
+                        caso.riesgo === 'Alto' ? 'warning.main' :
+                        caso.riesgo === 'Medio' ? 'info.main' : 'success.main'
+                      }>
+                        {caso.riesgo}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Chip icon={<AccessTimeIcon />} label={sla.label} color={sla.color as any} size="small" /></TableCell>
+                  </TableRow>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No se encontraron expedientes que coincidan con los criterios de búsqueda.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
