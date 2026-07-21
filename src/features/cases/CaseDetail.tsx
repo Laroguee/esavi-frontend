@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText } from '@mui/material';
+import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import GavelIcon from '@mui/icons-material/Gavel';
 import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
 import GestorEvidencias from '../cases/GestorEvidencias';
@@ -36,6 +37,10 @@ export default function CaseDetail() {
   // --- ESTADOS PARA MODALES (Read-Only) ---
   const [openNotif, setOpenNotif] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
+
+  // --- NUEVOS ESTADOS PARA MODAL DE RECHAZO ---
+  const [openRechazoModal, setOpenRechazoModal] = useState(false);
+  const [motivoRechazo, setMotivoRechazo] = useState('');
 
   // --- ESTADO PARA PESTAÑAS (TABS) ---
   const [tabIndex, setTabIndex] = useState(0);
@@ -213,8 +218,29 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 4 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
-                <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
+                <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
+                <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 6 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
+                
+                {/* BOTONES DE DEVOLUCIÓN (NUEVA LÓGICA DE MODAL) */}
+                {isSecretariado && (
+                  <Box sx={{ mt: 2 }}>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="subtitle2" color="error" sx={{ mb: 1 }}>¿Falta Información? Devolver a:</Typography>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      {/* CAMBIO AQUÍ: Se abre el modal al hacer clic */}
+                      <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
+                        Devolver a Ref. ESAVI Local (Clínico)
+                      </Button>
+                      <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
+                        Devolver a Inmunizaciones
+                      </Button>
+                      <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
+                        Devolver a Epidemiólogo (Campo)
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+
               </Box>
             </CardContent>
           </Card>
@@ -299,6 +325,45 @@ export default function CaseDetail() {
           <Alert severity="warning" sx={{ mt: 2, fontWeight: 'bold' }}>Riesgo Calculado: ALTO (7 puntos) - Respuesta REGIONAL.</Alert>
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}><Button onClick={() => setOpenApertura(false)} variant="contained" color="secondary">Cerrar</Button></DialogActions>
+      </Dialog>
+
+      {/* =====================================================================
+          NUEVO MODAL: DEVOLUCIÓN DE EXPEDIENTE (FASE 5)
+      ===================================================================== */}
+      <Dialog open={openRechazoModal} onClose={() => setOpenRechazoModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', mb: 2 }}>
+          Motivo de Devolución del Expediente
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            El caso regresará al investigador local y su estado cambiará a "EN INVESTIGACIÓN" hasta que se subsanen las observaciones.
+          </Alert>
+          <TextField 
+            fullWidth 
+            multiline 
+            rows={4} 
+            label="Observaciones de Devolución" 
+            placeholder="Especifique qué información falta o debe ser corregida..."
+            value={motivoRechazo}
+            onChange={(e) => setMotivoRechazo(e.target.value)}
+            required
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setOpenRechazoModal(false)} variant="outlined" color="inherit">Cancelar</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            disabled={motivoRechazo.trim() === ''}
+            onClick={() => {
+              alert(`Expediente devuelto por el siguiente motivo: ${motivoRechazo}`);
+              setMotivoRechazo('');
+              setOpenRechazoModal(false);
+            }}
+          >
+            Confirmar Devolución
+          </Button>
+        </DialogActions>
       </Dialog>
 
     </Box>
