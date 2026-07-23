@@ -22,7 +22,7 @@ import ModuloAdministracion from './features/administration/ModuloAdministracion
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/esavi-frontend">
       <Routes>
         {/* RUTA PÚBLICA */}
         <Route path="/login" element={<Login />} />
