@@ -51,8 +51,8 @@ export default function AsignacionERR() {
         </Typography>
 
         <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Componente de Farmacovigilancia (Clínico)</Typography>
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Farmacovigilancia (Clínico)</Typography>
             <Controller name="farmacovigilancia" control={control} render={({ field }) => (
               <TextField {...field} select fullWidth size="small" label="Seleccione Referente Clínico" required>
                 {personalFarma.map((nombre) => (
@@ -62,8 +62,8 @@ export default function AsignacionERR() {
             )}/>
           </Grid>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Componente de Inmunizaciones (Puesto de Vacunación)</Typography>
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Inmunizaciones (Puesto de Vacunación)</Typography>
             <Controller name="inmunizaciones" control={control} render={({ field }) => (
               <TextField {...field} select fullWidth size="small" label="Seleccione Referente de Inmunizaciones" required>
                 {personalInmuno.map((nombre) => (
@@ -73,8 +73,8 @@ export default function AsignacionERR() {
             )}/>
           </Grid>
 
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Componente de Epidemiología (Trabajo de Campo)</Typography>
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Epidemiología (Trabajo de Campo)</Typography>
             <Controller name="epidemiologia" control={control} render={({ field }) => (
               <TextField {...field} select fullWidth size="small" label="Seleccione Referente Epidemiológico" required>
                 {personalEpi.map((nombre) => (
@@ -84,9 +84,9 @@ export default function AsignacionERR() {
             )}/>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Instrucciones especiales para el equipo</Typography>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Instrucciones especiales para el equipo</Typography>
             <Controller name="instrucciones" control={control} render={({ field }) => (
               <TextField 
                 {...field} 

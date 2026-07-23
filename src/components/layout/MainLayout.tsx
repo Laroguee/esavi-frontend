@@ -113,15 +113,17 @@ export default function MainLayout() {
               anchorEl={anchorElNotif}
               open={openNotifMenu}
               onClose={handleCloseNotif}
-              PaperProps={{
-                elevation: 3,
-                sx: { width: 350, maxHeight: 400, mt: 1.5, overflowY: 'auto' }
+              slotProps={{
+                paper: {
+                  elevation: 3,
+                  sx: { width: 350, maxHeight: 400, mt: 1.5, overflowY: 'auto' }
+                }
               }}
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
               <Box sx={{ px: 2, py: 1.5, bgcolor: '#f4f6f8', borderBottom: '1px solid #e0e0e0' }}>
-                <Typography variant="subtitle1" color="primary" fontWeight="bold">Notificaciones Recientes</Typography>
+                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Notificaciones Recientes</Typography>
               </Box>
               
               {notificaciones.map((notif) => (

@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, Checkbox, FormControlLabel, FormGroup } from '@mui/material';
+import { Box, Paper, Typography, TextField, Button, Checkbox, FormControlLabel, FormGroup } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -18,7 +18,8 @@ const checklistOficial = [
 export default function AnexoIII_Logistica() {
   const { id } = useParams();
   const navigate = useNavigate();
-const { setLogisticaCompletada } = useAuthStore();
+  const { setLogisticaCompletada } = useAuthStore();
+  
   const { control, handleSubmit } = useForm({
     defaultValues: {
       chk_1: false, chk_2: false, chk_3: false, chk_4: false,
@@ -74,7 +75,7 @@ const { setLogisticaCompletada } = useAuthStore();
           ))}
         </FormGroup>
 
-        <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Observaciones de seguridad y transporte</Typography>
+        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Observaciones de seguridad y transporte</Typography>
         <Controller name="observaciones" control={control} render={({ field }) => (
           <TextField 
             {...field} 

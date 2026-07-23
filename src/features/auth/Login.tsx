@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Card, CardContent, Typography, TextField, Button, Alert, InputAdornment } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, Alert } from '@mui/material';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
@@ -8,19 +8,25 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 
 // ¡AQUÍ ESTÁ LA MAGIA DEL DEFAULT!
+
+type LoginFormData = {
+  email: string;
+  password: string;
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const loginFn = useAuthStore((state) => state.login);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { control, handleSubmit } = useForm({
+  const { control, handleSubmit } = useForm<LoginFormData>({
     defaultValues: {
       email: '',
       password: ''
     }
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: LoginFormData) => {
     setErrorMsg(null); 
     const isSuccess = loginFn(data.email, data.password);
     
@@ -59,7 +65,7 @@ export default function Login() {
           
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <HealthAndSafetyIcon sx={{ fontSize: 60, color: 'secondary.main', mb: 1 }} />
-            <Typography variant="h5" color="primary" fontWeight="bold">
+            <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
               Sistema de Notificación ESAVI
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -83,9 +89,7 @@ export default function Login() {
                   {...field}
                   fullWidth label="Correo Institucional" variant="outlined" margin="normal"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
-                  InputProps={{
-                    startAdornment: (<InputAdornment position="start"><EmailIcon color="action" /></InputAdornment>),
-                  }}
+                  startDecorator={<EmailIcon color="action" />}
                 />
               )}
             />
@@ -99,9 +103,7 @@ export default function Login() {
                   {...field}
                   fullWidth type="password" label="Contraseña" variant="outlined" margin="normal" sx={{ mb: 4 }}
                   error={!!fieldState.error} helperText={fieldState.error?.message}
-                  InputProps={{
-                    startAdornment: (<InputAdornment position="start"><LockIcon color="action" /></InputAdornment>),
-                  }}
+                  startDecorator={<LockIcon color="action" />}
                 />
               )}
             />

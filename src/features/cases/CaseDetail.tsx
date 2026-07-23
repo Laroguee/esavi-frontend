@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem } from '@mui/material';
+import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
@@ -7,7 +7,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
-import GavelIcon from '@mui/icons-material/Gavel';
 import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
 import SendIcon from '@mui/icons-material/Send';
@@ -55,7 +54,6 @@ export default function CaseDetail() {
   // --- MOCK DE ESTADOS PARA LA UI Y ASIGNACIÓN ---
   const isAperturado = true;
   const isClinicoLlenado = true; // Simulamos que el médico ya llenó su parte
-  const isFase4Completa = isClinicoLlenado && logisticaCompletada; 
   const isUserAssignedToERR = true; // Cambia a false para probar el bloqueo
 
   // =====================================================================
@@ -94,7 +92,7 @@ export default function CaseDetail() {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5, borderBottom: '1px solid #f0f0f0' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="body2" fontWeight="medium">{title}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{title}</Typography>
           {getChip()}
         </Box>
         <Tooltip title={disabled ? tooltipText : ''} placement="left" arrow disableHoverListener={!disabled}>
@@ -111,8 +109,8 @@ export default function CaseDetail() {
   // --- COMPONENTE INTERNO: FILA DE DATOS SOLO LECTURA ---
   const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
     <Box sx={{ mb: 1.5 }}>
-      <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
-      <Typography variant="body2" fontWeight="medium">{value}</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{value}</Typography>
     </Box>
   );
 
@@ -149,15 +147,15 @@ export default function CaseDetail() {
       {/* ================= CABECERA DEL EXPEDIENTE ================= */}
       <Paper elevation={3} sx={{ p: 4, mb: 4, borderLeft: '6px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={7}>
-            <Typography variant="h5" color="primary" fontWeight="bold">Expediente {casoActual.id}</Typography>
+          <Grid size={{ xs: 12, md: 7 }}>
+            <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>Expediente {casoActual.id}</Typography>
             <Typography variant="subtitle1" color="text.secondary">Paciente: {casoActual.paciente} | Vacuna: {casoActual.vacuna}</Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>Establecimiento: {casoActual.establecimiento}</Typography>
           </Grid>
           
-          <Grid item xs={12} md={5} sx={{ textAlign: 'right' }}>
-            <Typography variant="overline" color="secondary" fontWeight="bold" display="block">ESTADO ACTUAL</Typography>
-            <Typography variant="h6" display="block" gutterBottom color={casoActual.estadoFlujo !== 'NORMAL' ? "error.main" : "text.primary"}>
+          <Grid size={{ xs: 12, md: 5 }} sx={{ textAlign: 'right' }}>
+            <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold', display: 'block' }}>ESTADO ACTUAL</Typography>
+            <Typography variant="h6" sx={{ display: 'block', mb: 1 }} color={casoActual.estadoFlujo !== 'NORMAL' ? "error.main" : "text.primary"}>
               {casoActual.estadoFlujo !== 'NORMAL' ? "Devuelto por Observaciones" : casoActual.fase}
             </Typography>
             
@@ -184,7 +182,7 @@ export default function CaseDetail() {
 
       {/* ================= TABS PRINCIPALES ================= */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabIndex} onChange={(e, val) => setTabIndex(val)} aria-label="expediente tabs">
+        <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} aria-label="expediente tabs">
           <Tab label="Gestión del Expediente" />
           <Tab label="Gestor de Evidencias" />
           <Tab label="Historial de Cambios" iconPosition="start" icon={<HistoryIcon fontSize="small" />} />
@@ -199,7 +197,7 @@ export default function CaseDetail() {
             <CardContent sx={{ p: 0 }}>
               <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
                 <AssignmentIcon color="primary" />
-                <Typography variant="subtitle1" fontWeight="bold" color="primary">Evaluación y Asignación (Fases 2 y 3)</Typography>
+                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
                 <ActionRow title="Matriz de Riesgo (Fase 2)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" onClick={() => navigate('/matriz-riesgo')} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas." />
@@ -214,7 +212,7 @@ export default function CaseDetail() {
               <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <SearchIcon color="secondary" />
-                  <Typography variant="subtitle1" fontWeight="bold" color="secondary.main">Investigación de Campo (Fase 4)</Typography>
+                  <Typography variant="subtitle1" color="secondary.main" sx={{ fontWeight: 'bold' }}>Investigación de Campo (Fase 4)</Typography>
                 </Box>
                 {/* ETIQUETA DINÁMICA DE ASIGNACIÓN AL ERR */}
                 {isLocalOperativo && isUserAssignedToERR && <Chip label="Asignado como Investigador ERR" color="secondary" size="small" sx={{ fontWeight: 'bold' }} />}
@@ -225,7 +223,6 @@ export default function CaseDetail() {
                   <Alert severity="warning" sx={{ mb: 2, fontWeight: 'bold' }}>Debe completar la Logística de Campo (Anexo III) antes de proceder a la investigación en terreno.</Alert>
                 )}
 
-                {/* MODIFICACIÓN SOLICITADA: Solo ESAVI LOCAL puede llenar Anexo III */}
                 <ActionRow 
                   title="Checklist Logística (Anexo III)" 
                   chipStatus={casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'Corrección' : (logisticaCompletada ? 'Completado' : 'Pendiente')} 
@@ -235,7 +232,6 @@ export default function CaseDetail() {
                   tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Referente ESAVI Local."} 
                   color={casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'error' : 'secondary'}
                 />
-                
                 <ActionRow 
                   title="Evaluación Clínica (Anexo VII)" 
                   chipStatus={casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'Corrección' : (isClinicoLlenado ? 'Completado' : 'Pendiente')} 
@@ -272,13 +268,12 @@ export default function CaseDetail() {
             <CardContent sx={{ p: 0 }}>
               <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
                 <FactCheckIcon sx={{ color: '#2e7d32' }} />
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
                 <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 4 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
                 <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
                 
-                {/* BOTONES DE DEVOLUCIÓN (CONECTADOS AL STORE) */}
                 {isSecretariado && (
                   <Box sx={{ mt: 2 }}>
                     <Divider sx={{ my: 1 }} />
@@ -289,7 +284,6 @@ export default function CaseDetail() {
                     </Box>
                   </Box>
                 )}
-
               </Box>
             </CardContent>
           </Card>
@@ -308,7 +302,7 @@ export default function CaseDetail() {
         <Box>
           <Paper elevation={2} sx={{ borderRadius: 2 }}>
             <Box sx={{ bgcolor: '#f4f6f8', p: 2, borderBottom: '1px solid #e0e0e0' }}>
-              <Typography variant="subtitle1" fontWeight="bold" color="primary">Bitácora de Auditoría del Expediente</Typography>
+              <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Bitácora de Auditoría del Expediente</Typography>
             </Box>
             <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
               {mockHistorial.map((registro, index) => (
@@ -321,17 +315,17 @@ export default function CaseDetail() {
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <Typography variant="body1" fontWeight="bold" color="text.primary">
+                        <Typography variant="body1" color="text.primary" sx={{ fontWeight: 'bold' }}>
                           {registro.accion}
                         </Typography>
                       }
                       secondary={
                         <Box sx={{ mt: 0.5 }}>
-                          <Typography component="span" variant="body2" color="text.primary" fontWeight="medium">
+                          <Typography component="span" variant="body2" color="text.primary" sx={{ fontWeight: 'medium' }}>
                             {registro.usuario}
                           </Typography>
                           {" — " + registro.rol}
-                          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                             {registro.fecha}
                           </Typography>
                         </Box>
@@ -351,13 +345,13 @@ export default function CaseDetail() {
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>Notificación Inicial - ESAVI (Fase 1)</DialogTitle>
         <DialogContent>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos del Paciente</Typography>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1, fontWeight: 'bold' }}>Datos del Paciente</Typography>
               <ReadOnlyField label="Nombre Completo" value={casoActual.paciente} />
               <ReadOnlyField label="DUI" value="04567892-1" />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos Evento</Typography>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1, fontWeight: 'bold' }}>Datos Evento</Typography>
               <ReadOnlyField label="Vacuna" value={casoActual.vacuna} />
               <ReadOnlyField label="Inicio Síntomas" value="01/07/2026 10:15 AM" />
             </Grid>
@@ -378,7 +372,7 @@ export default function CaseDetail() {
 
       {/* =====================================================================
           NUEVO MODAL: DEVOLUCIÓN DE EXPEDIENTE AL STORE
-      ===================================================================== */}
+      ==================================================================== */}
       <Dialog open={openRechazoModal} onClose={() => setOpenRechazoModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', mb: 2 }}>
           Devolver Expediente a ESAVI Institucional

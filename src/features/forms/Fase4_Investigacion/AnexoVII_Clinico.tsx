@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { 
   Box, Paper, Typography, Grid, TextField, Button, MenuItem, FormControlLabel, Switch, 
-  Collapse, Divider, Checkbox, FormGroup, FormLabel, Tabs, Tab, 
+  Collapse, Divider, Checkbox, FormLabel, Tabs, Tab, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow 
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
@@ -50,9 +50,8 @@ const anexoVIISchema = z.object({
   obs_antFamiliares: z.string().optional(),
   embarazada: z.string().optional(),
   
-  // Regla estricta 2: Semanas de gestación entre 1 y 42
   semGestacion: z.string().optional().refine((val) => {
-    if (!val) return true; // Permitir vacío si no aplica
+    if (!val) return true; 
     const num = Number(val);
     return num >= 1 && num <= 42;
   }, { message: "Debe ser un número entre 1 y 42" }),
@@ -64,9 +63,8 @@ const anexoVIISchema = z.object({
   parto: z.string().optional(),
   nacimiento: z.string().optional(),
 
-  // Regla estricta 3: Peso al nacer menor o igual a 6000
   pesoNacer: z.string().optional().refine((val) => {
-    if (!val) return true; // Permitir vacío
+    if (!val) return true; 
     return Number(val) <= 6000;
   }, { message: "El peso no puede exceder los 6000 gramos" }),
 
@@ -96,7 +94,6 @@ const anexoVIISchema = z.object({
   resumenParaclinico: z.string().optional(),
   diagnosticoFinal: z.string().optional()
 }).superRefine((data, ctx) => {
-  // Regla estricta 1: Validación condicional de fallecimiento
   if (data.estadoPaciente === 'Fallecido' && (!data.fechaMuerte || data.fechaMuerte.trim() === '')) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -108,7 +105,6 @@ const anexoVIISchema = z.object({
 
 type AnexoVIIFormValues = z.infer<typeof anexoVIISchema>;
 
-// Pestañas
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -187,7 +183,8 @@ export default function AnexoVII_Clinico() {
       </Box>
 
       <Paper elevation={3} sx={{ borderRadius: 2 }}>
-        <Tabs value={tabIndex} onChange={(e, val) => setTabIndex(val)} indicatorColor="secondary" textColor="primary" variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fafafa' }}>
+        {/* CORRECCIÓN: Se reemplazó (e, val) por (_, val) */}
+        <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} indicatorColor="secondary" textColor="primary" variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fafafa' }}>
           <Tab icon={<AssignmentIcon />} label="A. Info Básica" sx={{ fontWeight: 'bold', minHeight: 60 }} />
           <Tab icon={<PregnantWomanIcon />} label="B. Antes de Inmunización" sx={{ fontWeight: 'bold', minHeight: 60 }} />
           <Tab icon={<LocalHospitalIcon />} label="C. Evaluación Clínica" sx={{ fontWeight: 'bold', minHeight: 60 }} />
@@ -203,7 +200,8 @@ export default function AnexoVII_Clinico() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha inicio llenado de ficha</Typography>
                 <Controller name="fechaInicioLlenado" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  // CORRECCIÓN: slotProps en lugar de InputLabelProps
+                  <TextField {...field} fullWidth type="date" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )}/>
               </Grid>
               <Grid size={{ xs: 12, md: 8 }}>
@@ -291,13 +289,13 @@ export default function AnexoVII_Clinico() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha de hospitalización</Typography>
                 <Controller name="fechaHospitalizacion" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <TextField {...field} fullWidth type="date" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )} />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha inicio investigación</Typography>
                 <Controller name="fechaInicioInvestigacion" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <TextField {...field} fullWidth type="date" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )} />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -323,13 +321,13 @@ export default function AnexoVII_Clinico() {
                   <Grid size={{ xs: 12, md: 4 }}>
                     <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha de muerte</Typography>
                     <Controller name="fechaMuerte" control={control} render={({ field, fieldState }) => (
-                      <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      <TextField {...field} fullWidth type="date" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                     )} />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
                     <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Hora de muerte (24 hrs)</Typography>
                     <Controller name="horaMuerte" control={control} render={({ field, fieldState }) => (
-                      <TextField {...field} fullWidth type="time" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      <TextField {...field} fullWidth type="time" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                     )} />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -367,7 +365,7 @@ export default function AnexoVII_Clinico() {
                   <Grid size={{ xs: 12, md: 4 }}>
                     <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha prevista autopsia (pasada/prevista)</Typography>
                     <Controller name="fechaPrevistaAutopsia" control={control} render={({ field, fieldState }) => (
-                      <TextField {...field} fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      <TextField {...field} fullWidth type="date" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                     )} />
                   </Grid>
 

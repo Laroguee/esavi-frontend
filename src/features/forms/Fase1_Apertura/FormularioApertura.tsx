@@ -17,27 +17,21 @@ const aperturaSchema = z.object({
   establecimiento: z.string().min(5, "El nombre del establecimiento debe tener al menos 5 caracteres"),
   tipoReunion: z.string().min(1, "Campo obligatorio"),
   fechaReunion: z.string().min(1, "Campo obligatorio").refine((val) => {
-    // Validamos que la fecha ingresada no sea menor a la fecha/hora actual
     if (!val) return false;
     const fechaIngresada = new Date(val).getTime();
     const ahora = new Date().getTime();
-    // Damos un margen de tolerancia de 1 minuto por si llenan la hora exacta actual
     return fechaIngresada >= (ahora - 60000); 
   }, {
     message: "La fecha y hora de la reunión no puede ser en el pasado"
   }),
 });
 
-// Inferimos los tipos TypeScript a partir del esquema
 type AperturaFormValues = z.infer<typeof aperturaSchema>;
 
 export default function FormularioApertura() {
   const navigate = useNavigate();
-  
-  // Estado para capturar el archivo escaneado del Anexo II
   const [anexoFile, setAnexoFile] = useState<File | null>(null);
 
-  // Inyectamos el resolver de Zod a React-Hook-Form
   const { control, handleSubmit, watch, setValue } = useForm<AperturaFormValues>({
     resolver: zodResolver(aperturaSchema),
     defaultValues: {
@@ -65,12 +59,9 @@ export default function FormularioApertura() {
       console.log("Archivo adjunto preparado para envío:", anexoFile.name);
     }
     alert(`Expediente Oficial ${data.idUnico} creado exitosamente.`);
-    
-    // Redirección al expediente del caso usando el ID dinámico generado
     navigate('/caso/' + data.idUnico);
   };
 
-  // Función auxiliar pura para arreglar el traslape de fechas y horas
   const getDateTimeSx = (hasValue: boolean) => ({
     '& input::-webkit-datetime-edit': {
       color: hasValue ? 'text.primary' : 'transparent',
@@ -102,8 +93,7 @@ export default function FormularioApertura() {
         </Box>
         <Box sx={{ p: 4 }}>
           <Grid container spacing={3}>
-            {/* Fila 1: Suma 12 */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller name="idUnico" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
@@ -111,13 +101,13 @@ export default function FormularioApertura() {
                   label="ID Único Generado por el Sistema" 
                   disabled 
                   variant="filled" 
-                  InputLabelProps={{ shrink: true }} 
+                  slotProps={{ inputLabel: { shrink: true } }} 
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
                 />
               )}/>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller name="fechaNotificacion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
@@ -125,7 +115,7 @@ export default function FormularioApertura() {
                   type="date" 
                   label="Fecha de Oficialización" 
                   required 
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                   sx={getDateTimeSx(!!field.value)}
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
@@ -133,8 +123,7 @@ export default function FormularioApertura() {
               )}/>
             </Grid>
 
-            {/* Fila 2: Suma 12 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Controller name="institucion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
@@ -152,7 +141,7 @@ export default function FormularioApertura() {
                 </TextField>
               )}/>
             </Grid>
-            <Grid item xs={12} md={8}>
+            <Grid size={{ xs: 12, md: 8 }}>
               <Controller name="establecimiento" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
@@ -177,8 +166,7 @@ export default function FormularioApertura() {
         </Box>
         <Box sx={{ p: 4 }}>
           <Grid container spacing={3}>
-            {/* Fila 1: Suma 12 */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller name="tipoReunion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
@@ -196,7 +184,7 @@ export default function FormularioApertura() {
               )}/>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Controller name="fechaReunion" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field} 
@@ -204,7 +192,7 @@ export default function FormularioApertura() {
                   type="datetime-local" 
                   label="Fecha y Hora Propuesta" 
                   required
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                   sx={getDateTimeSx(!!field.value)}
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
@@ -224,7 +212,7 @@ export default function FormularioApertura() {
         </Box>
         <Box sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            Adjunte la presentacion llena del Anexo II  como respaldo primario del expediente.
+            Adjunte la presentación llena del Anexo II como respaldo primario del expediente.
           </Typography>
           <Button 
             component="label" 

@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
+import { Box, Paper, Typography, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import jsPDF from 'jspdf';
@@ -61,7 +61,7 @@ export default function MatrizRiesgo() {
         color: 'warning' as const, 
         mensaje: 'Respuesta REGIONAL. Defina plan de captura y notifique a la Jefatura Regional.' 
       };
-    } else if (puntaje >= 5) { // <- NUEVO NIVEL MEDIO AGREGADO AQUÍ
+    } else if (puntaje >= 5) { 
       return { 
         etiqueta: 'RIESGO MEDIO', 
         nivelRespuesta: 'DEPARTAMENTAL',
@@ -111,7 +111,6 @@ export default function MatrizRiesgo() {
     // Descarga automática
     doc.save('SitRep_ESAVI.pdf');
   };
-  // =========================================================================
 
   // Función de ayuda para renderizar las filas de la tabla
   const renderRow = (id: string, label: string, options: {val: number, label: string}[]) => (
@@ -157,7 +156,7 @@ export default function MatrizRiesgo() {
       <Paper elevation={4} sx={{ p: 2, mb: 3, position: 'sticky', top: 64, zIndex: 100, borderBottom: '4px solid', borderColor: 'secondary.main' }}>
         
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" color="primary" fontWeight="bold">
+          <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
             Matriz de Riesgo ESAVI
           </Typography>
           
@@ -167,7 +166,6 @@ export default function MatrizRiesgo() {
               <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', marginRight: '8px' }}>
                 {puntajeTotal}
               </span>
-              {/* 2. AQUÍ AGREGAMOS EL CHIP DINÁMICO */}
               <Chip 
                 label={riesgoActual.etiqueta} 
                 color={riesgoActual.color} 
@@ -182,20 +180,18 @@ export default function MatrizRiesgo() {
           </Box>
         </Box>
 
-        {/* 2. ALERT DINÁMICO DE RESPUESTA */}
+        {/* ALERT DINÁMICO DE RESPUESTA */}
         <Alert 
           severity={riesgoActual.color === 'error' ? 'error' : riesgoActual.color === 'warning' ? 'warning' : 'success'} 
           sx={{ 
             fontWeight: 'bold', 
-            bgcolor: riesgoActual.nivelRespuesta === 'DEPARTAMENTAL' ? '#fffde7' : undefined // Fondo personalizado para Medio
+            bgcolor: riesgoActual.nivelRespuesta === 'DEPARTAMENTAL' ? '#fffde7' : undefined 
           }}
         >
           Nivel de Respuesta: {riesgoActual.nivelRespuesta} ({riesgoActual.etiqueta}). {riesgoActual.mensaje}
         </Alert>
 
-        {/* ========================================================================= */}
         {/* BOTÓN CONDICIONAL SITREP (SOLO ALTO O CRÍTICO >= 11 puntos) */}
-        {/* ========================================================================= */}
         {puntajeTotal >= 11 && (
           <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button 
@@ -217,7 +213,7 @@ export default function MatrizRiesgo() {
           <TableHead>
             <TableRow sx={{ bgcolor: '#4db6ac' }}>
               <TableCell colSpan={3}>
-                <Typography variant="subtitle1" color="white" fontWeight="bold">Dimensión: EVENTO (40%) | Subtotal: {subtotalEvento}</Typography>
+                <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 'bold' }}>Dimensión: EVENTO (40%) | Subtotal: {subtotalEvento}</Typography>
               </TableCell>
             </TableRow>
             <TableRow sx={{ bgcolor: '#f5f5f5' }}>
@@ -273,7 +269,7 @@ export default function MatrizRiesgo() {
           <TableHead>
             <TableRow sx={{ bgcolor: '#9575cd' }}>
               <TableCell colSpan={3}>
-                <Typography variant="subtitle1" color="white" fontWeight="bold">Dimensión: PERSONA (15%) | Subtotal: {subtotalPersona}</Typography>
+                <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 'bold' }}>Dimensión: PERSONA (15%) | Subtotal: {subtotalPersona}</Typography>
               </TableCell>
             </TableRow>
           </TableHead>
@@ -294,7 +290,7 @@ export default function MatrizRiesgo() {
           <TableHead>
             <TableRow sx={{ bgcolor: '#dce775' }}>
               <TableCell colSpan={3}>
-                <Typography variant="subtitle1" color="black" fontWeight="bold">Dimensión: VACUNA / PROGRAMA | Subtotal: {subtotalVacuna}</Typography>
+                <Typography variant="subtitle1" sx={{ color: 'black', fontWeight: 'bold' }}>Dimensión: VACUNA / PROGRAMA | Subtotal: {subtotalVacuna}</Typography>
               </TableCell>
             </TableRow>
           </TableHead>

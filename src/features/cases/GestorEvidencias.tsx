@@ -6,7 +6,6 @@ import {
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import ImageIcon from '@mui/icons-material/Image';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
@@ -154,7 +153,7 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <FolderSpecialIcon color="primary" sx={{ fontSize: 40 }} />
           <Box>
-            <Typography variant="h5" color="primary" fontWeight="bold">Repositorio Digital de Evidencias</Typography>
+            <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>Repositorio Digital de Evidencias</Typography>
             <Typography variant="body2" color="text.secondary">Gestor documental oficial estructurado según el Anexo I.</Typography>
           </Box>
         </Box>
@@ -164,7 +163,7 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
       {/* PESTAÑAS DE CATEGORÍAS */}
       <Tabs 
         value={tabIndex} 
-        onChange={(e, val) => setTabIndex(val)} 
+        onChange={(_, val) => setTabIndex(val)} 
         indicatorColor="primary" 
         textColor="primary" 
         variant="fullWidth"
@@ -190,13 +189,13 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
       <Box sx={{ p: 4 }}>
         {CATEGORIAS.map((cat, index) => (
           <TabPanel key={cat.id} value={tabIndex} index={index}>
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>{cat.label}</Typography>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>{cat.label}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{cat.description}</Typography>
             
             <Grid container spacing={4}>
               
               {/* ÁREA DE DRAG & DROP */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Box
                   onDragEnter={(e) => handleDrag(e, cat.id)}
                   onDragLeave={(e) => handleDrag(e, cat.id)}
@@ -234,10 +233,10 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
               </Grid>
 
               {/* LISTA DE PREVISUALIZACIÓN */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff' }}>
                   <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
-                    <Typography variant="subtitle2" fontWeight="bold">Archivos a subir ({archivos[cat.id].length})</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos a subir ({archivos[cat.id].length})</Typography>
                   </Box>
                   
                   {archivos[cat.id].length === 0 ? (
@@ -268,7 +267,7 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
                                 )}
                               </ListItemIcon>
                               <ListItemText 
-                                primary={<Typography variant="body2" noWrap fontWeight="medium">{fileObj.file.name}</Typography>}
+                                primary={<Typography variant="body2" noWrap sx={{ fontWeight: 'medium' }}>{fileObj.file.name}</Typography>}
                                 secondary={formatBytes(fileObj.file.size)}
                               />
                             </ListItem>

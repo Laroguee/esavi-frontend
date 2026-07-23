@@ -112,25 +112,27 @@ export default function Dashboard() {
       <Typography variant="h6" color="primary" sx={{ mb: 2, fontWeight: 'bold' }}>📂 Casos Oficializados Activos</Typography>
       
       <Paper elevation={2} sx={{ p: 2, mb: 3, bgcolor: '#f4f6f8' }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+        <Grid container spacing={2} sx={{ alignItems: 'center' }}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               size="small"
               placeholder="Buscar por ID de Caso o Nombre del Paciente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-                sx: { bgcolor: 'white' }
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  sx: { bgcolor: 'white' }
+                }
               }}
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <TextField
               select
               fullWidth
@@ -148,7 +150,7 @@ export default function Dashboard() {
               <MenuItem value="Fase 6: Dictamen">Fase 6: Comité Causalidad</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <TextField
               select
               fullWidth
@@ -186,7 +188,6 @@ export default function Dashboard() {
               casosFiltrados.map((caso) => {
                 const sla = getSLAStatus(caso.fecha);
                 return (
-                  // COLOR DE FILA DINÁMICO SEGÚN ESTADO DE FLUJO
                   <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: caso.estadoFlujo !== 'NORMAL' ? '#ffebee' : sla.rowColor, cursor: 'pointer' }}>
                     <TableCell>{caso.id}</TableCell>
                     <TableCell>{caso.paciente}</TableCell>
@@ -201,11 +202,12 @@ export default function Dashboard() {
                     </TableCell>
 
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold" color={
-                        caso.riesgo === 'Crítico' ? 'error.main' :
-                        caso.riesgo === 'Alto' ? 'warning.main' :
-                        caso.riesgo === 'Medio' ? 'info.main' : 'success.main'
-                      }>
+                      <Typography variant="body2" sx={{ 
+                        fontWeight: 'bold', 
+                        color: caso.riesgo === 'Crítico' ? 'error.main' :
+                               caso.riesgo === 'Alto' ? 'warning.main' :
+                               caso.riesgo === 'Medio' ? 'info.main' : 'success.main'
+                      }}>
                         {caso.riesgo}
                       </Typography>
                     </TableCell>

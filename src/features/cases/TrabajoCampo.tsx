@@ -72,8 +72,8 @@ export default function TrabajoCampo() {
           {icon}
         </Box>
         <Box>
-          <Typography variant="h4" fontWeight="bold" color={color}>{value}</Typography>
-          <Typography variant="body2" color="text.secondary" fontWeight="medium">{title}</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', color }}>{value}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>{title}</Typography>
         </Box>
       </CardContent>
     </Card>
@@ -93,26 +93,26 @@ export default function TrabajoCampo() {
           </Typography>
         </Box>
         <Box sx={{ textAlign: 'right' }}>
-          <Typography variant="caption" display="block" color="text.secondary" fontWeight="bold">ROL ACTIVO</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block' }}>ROL ACTIVO</Typography>
           <Chip label={currentRole?.replace('_', ' ')} color="primary" sx={{ fontWeight: 'bold', fontSize: '0.9rem' }} />
         </Box>
       </Box>
 
       {/* DASHBOARD DE MÉTRICAS */}
       <Grid container spacing={3} sx={{ mb: 5 }}>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MetricCard title="Casos Asignados a mi Región" value={14} color="#1976d2" icon={<MapIcon color="primary" fontSize="large" />} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MetricCard title="Fichas Pendientes de Llenar" value={3} color="#ed6c02" icon={<AssignmentLateIcon color="warning" fontSize="large" />} />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <MetricCard title="Formularios Completados (Mes)" value={11} color="#2e7d32" icon={<FactCheckIcon color="success" fontSize="large" />} />
         </Grid>
       </Grid>
 
       {/* TABLA DE CASOS ASIGNADOS */}
-      <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ mb: 2 }}>
+      <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>
         Expedientes Asignados para Investigación de Campo
       </Typography>
       
@@ -130,7 +130,7 @@ export default function TrabajoCampo() {
           <TableBody>
             {mockCasosCampo.map((caso) => (
               <TableRow key={caso.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell fontWeight="medium">{caso.id}</TableCell>
+                <TableCell sx={{ fontWeight: 'medium' }}>{caso.id}</TableCell>
                 <TableCell>{caso.paciente}</TableCell>
                 <TableCell>{caso.municipio}</TableCell>
                 <TableCell>

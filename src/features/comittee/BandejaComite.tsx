@@ -42,7 +42,7 @@ export default function BandejaComite() {
           <TableBody>
             {mockCasosComite.map((caso) => (
               <TableRow key={caso.id} hover>
-                <TableCell fontWeight="bold">{caso.id}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{caso.id}</TableCell>
                 <TableCell>{caso.paciente}</TableCell>
                 <TableCell>{caso.vacuna}</TableCell>
                 <TableCell>{caso.fechaAprobacion}</TableCell>

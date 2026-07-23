@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Alert } from '@mui/material';
 import GavelIcon from '@mui/icons-material/Gavel';
@@ -29,7 +29,7 @@ export default function CierreYDictamen() {
   const componentRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
+    contentRef: componentRef,
     documentTitle: `Informe_Tecnico_ESAVI_${id || '001'}`,
     pageStyle: `
       @page { size: portrait; margin: 20mm; }
@@ -104,9 +104,9 @@ export default function CierreYDictamen() {
 
   // Componente de UI para datos de solo lectura
   const DataField = ({ label, value, fullWidth = false }: { label: string, value: string, fullWidth?: boolean }) => (
-    <Grid item xs={12} md={fullWidth ? 12 : 4} sx={{ mb: 1 }}>
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: -0.5 }}>{label}</Typography>
-      <Typography variant="body2" fontWeight="medium" color="text.primary">{value}</Typography>
+    <Grid size={{ xs: 12, md: fullWidth ? 12 : 4 }} sx={{ mb: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: -0.5 }}>{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.primary' }}>{value}</Typography>
     </Grid>
   );
 
@@ -119,7 +119,7 @@ export default function CierreYDictamen() {
           <DescriptionIcon fontSize="large" /> Informe Técnico y Dictamen
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" color="success" startIcon={<PrintIcon />} onClick={handlePrint}>
+          <Button variant="contained" color="success" startIcon={<PrintIcon />} onClick={() => handlePrint()}>
             Exportar Informe a PDF
           </Button>
           <Button variant="outlined" onClick={() => navigate(-1)}>Volver al Expediente</Button>
@@ -134,14 +134,14 @@ export default function CierreYDictamen() {
           
           {/* TÍTULO DEL DOCUMENTO */}
           <Box sx={{ textAlign: 'center', mb: 5, borderBottom: '2px solid', borderColor: 'primary.main', pb: 2 }}>
-            <Typography variant="h5" fontWeight="bold">INFORME TÉCNICO CONSOLIDADO</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>INFORME TÉCNICO CONSOLIDADO</Typography>
             <Typography variant="subtitle1" color="text.secondary">
               ESAVI POSTERIOR A LA ADMINISTRACIÓN DE VACUNAS EN {casoData.pais.toUpperCase()}
             </Typography>
           </Box>
 
           {/* 1. DATOS BÁSICOS */}
-          <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ bgcolor: '#f5f5f5', p: 1, mb: 2 }}>1. DATOS BÁSICOS DEL CASO</Typography>
+          <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>1. DATOS BÁSICOS DEL CASO</Typography>
           <Grid container spacing={2} sx={{ mb: 4 }}>
             <DataField label="ID de Caso" value={casoData.id} />
             <DataField label="Fecha del informe" value={casoData.fechaInforme} />
@@ -161,16 +161,16 @@ export default function CierreYDictamen() {
           </Grid>
 
           {/* 2. OBJETIVO Y RESUMEN */}
-          <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ bgcolor: '#f5f5f5', p: 1, mb: 2 }}>2. OBJETIVO DEL INFORME</Typography>
-          <Typography variant="body2" paragraph sx={{ mb: 4 }}>
+          <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>2. OBJETIVO DEL INFORME</Typography>
+          <Typography variant="body2" sx={{ mb: 4, fontStyle: 'italic' }}>
             Analizar en forma pormenorizada la información disponible del caso, identificando los datos faltantes y retroalimentar a los equipos locales responsables de la vigilancia de ESAVI sobre las mejores prácticas a implementar para la investigación de casos.
           </Typography>
 
-          <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ bgcolor: '#f5f5f5', p: 1, mb: 2 }}>3. RESUMEN EJECUTIVO DE SITUACIÓN</Typography>
-          <Typography variant="body2" paragraph sx={{ mb: 4 }}>{casoData.resumenEjecutivo}</Typography>
+          <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>3. RESUMEN EJECUTIVO DE SITUACIÓN</Typography>
+          <Typography variant="body2" sx={{ mb: 4 }}>{casoData.resumenEjecutivo}</Typography>
 
           {/* 3. ANTECEDENTES */}
-          <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ bgcolor: '#f5f5f5', p: 1, mb: 2 }}>4. ANTECEDENTES MÉDICOS Y EPIDEMIOLÓGICOS</Typography>
+          <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>4. ANTECEDENTES MÉDICOS Y EPIDEMIOLÓGICOS</Typography>
           <Grid container spacing={2} sx={{ mb: 4 }}>
             <DataField fullWidth label="Antecedentes Clínicos" value={casoData.antClinicos} />
             <DataField fullWidth label="Antecedentes Quirúrgicos" value={casoData.antQuirurgicos} />
@@ -180,7 +180,7 @@ export default function CierreYDictamen() {
           </Grid>
 
           {/* 4. INMUNIZACIONES */}
-          <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ bgcolor: '#f5f5f5', p: 1, mb: 2 }}>5. ANTECEDENTES DE INMUNIZACIONES</Typography>
+          <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>5. ANTECEDENTES DE INMUNIZACIONES</Typography>
           <TableContainer sx={{ mb: 4, border: '1px solid #e0e0e0' }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#eeeeee' }}>
@@ -221,7 +221,7 @@ export default function CierreYDictamen() {
           </TableContainer>
 
           {/* 5. HALLAZGOS */}
-          <Typography variant="h6" color="primary.dark" fontWeight="bold" sx={{ bgcolor: '#f5f5f5', p: 1, mb: 2 }}>6. RESUMEN DEL CASO Y HALLAZGOS</Typography>
+          <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>6. RESUMEN DEL CASO Y HALLAZGOS</Typography>
           <Grid container spacing={2} sx={{ mb: 4 }}>
             <DataField fullWidth label="Resumen del Caso (Línea de tiempo)" value={casoData.resumenCaso} />
             <DataField fullWidth label="Hallazgos de Investigación Clínica" value={casoData.hallazgosClinicos} />
@@ -243,7 +243,7 @@ export default function CierreYDictamen() {
         <Paper elevation={4} sx={{ p: 5, borderTop: '6px solid', borderColor: 'success.main', borderRadius: 2, bgcolor: '#f0fdf4' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
             <TaskAltIcon color="success" sx={{ fontSize: 40 }} />
-            <Typography variant="h5" color="success.main" fontWeight="bold">Verificación Administrativa del Secretariado</Typography>
+            <Typography variant="h5" color="success.main" sx={{ fontWeight: 'bold' }}>Verificación Administrativa del Secretariado</Typography>
           </Box>
           <Typography variant="body1" sx={{ mb: 4 }}>
             Confirme que el informe consolidado contiene todos los hallazgos necesarios de la investigación de campo. 
@@ -276,7 +276,7 @@ export default function CierreYDictamen() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                 <GavelIcon color="secondary" sx={{ fontSize: 40 }} />
                 <Box>
-                  <Typography variant="h5" color="secondary.main" fontWeight="bold">Dictamen Oficial de Causalidad</Typography>
+                  <Typography variant="h5" color="secondary.main" sx={{ fontWeight: 'bold' }}>Dictamen Oficial de Causalidad</Typography>
                   <Typography variant="body2" color="text.secondary">Uso exclusivo del Comité Nacional de Expertos de Vacunación Segura.</Typography>
                 </Box>
               </Box>
@@ -284,8 +284,8 @@ export default function CierreYDictamen() {
               <Divider sx={{ mb: 4 }} />
 
               <Grid container spacing={4}>
-                <Grid item xs={12} md={8}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Clasificación final otorgada por el Comité</Typography>
+                <Grid size={{ xs: 12, md: 8 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Clasificación final otorgada por el Comité</Typography>
                   <Controller name="clasificacionFinal" control={control} render={({ field }) => (
                     <TextField {...field} select fullWidth variant="filled" required sx={{ bgcolor: '#fffde7' }}>
                       <MenuItem value="A1">A1. Reacción relacionada con el producto de la vacuna</MenuItem>
@@ -299,29 +299,29 @@ export default function CierreYDictamen() {
                   )}/>
                 </Grid>
                 
-                <Grid item xs={12} md={4}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Fecha de evaluación</Typography>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha de evaluación</Typography>
                   <Controller name="fechaEvaluacion" control={control} render={({ field }) => (
-                    <TextField {...field} fullWidth type="date" required InputLabelProps={{ shrink: true }} />
+                    <TextField {...field} fullWidth type="date" required slotProps={{ inputLabel: { shrink: true } }} />
                   )}/>
                 </Grid>
 
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Justificación Clínica y Epidemiológica del Dictamen</Typography>
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Justificación Clínica y Epidemiológica del Dictamen</Typography>
                   <Controller name="comentariosComite" control={control} render={({ field }) => (
                     <TextField {...field} fullWidth multiline rows={4} placeholder="Redacte aquí la conclusión final del comité..." required />
                   )}/>
                 </Grid>
 
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Recomendaciones y Acciones a tomar</Typography>
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Recomendaciones y Acciones a tomar</Typography>
                   <Controller name="recomendaciones" control={control} render={({ field }) => (
                     <TextField {...field} fullWidth multiline rows={3} placeholder="Ej: Capacitar al personal en cadena de frío..." required />
                   )}/>
                 </Grid>
 
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Nombres y firmas de los expertos participantes</Typography>
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Nombres y firmas de los expertos participantes</Typography>
                   <Controller name="firmasExpertos" control={control} render={({ field }) => (
                     <TextField {...field} fullWidth multiline rows={2} placeholder="Ingrese los nombres completos de los dictaminadores..." required />
                   )}/>
@@ -330,7 +330,7 @@ export default function CierreYDictamen() {
 
               <Box sx={{ mt: 5, p: 3, bgcolor: '#fff3e0', borderRadius: 2, textAlign: 'center', border: '1px dashed #ccc' }}>
                  <VerifiedUserIcon color="success" sx={{ fontSize: 40, mb: 1 }} />
-                 <Typography variant="body1" fontWeight="bold" gutterBottom>
+                 <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
                    Cierre de Expediente Médico-Legal
                  </Typography>
                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
