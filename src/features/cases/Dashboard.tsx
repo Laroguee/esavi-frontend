@@ -2,26 +2,24 @@ import { useEffect, useState } from 'react';
 import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, TextField, MenuItem, InputAdornment } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SearchIcon from '@mui/icons-material/Search';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useCasesStore } from '../../store/useCasesStore';
 
-// --- MOCKS DE DATOS ---
+// --- MOCKS DE DATOS PENDIENTES (Intactos) ---
 const mockPendientes = [
   { idLocal: 'NOTIF-089', paciente: 'Ana Gómez', establecimiento: 'U.S. San Miguel', fecha: dayjs().subtract(1, 'hour').toISOString() },
   { idLocal: 'NOTIF-090', paciente: 'Luis Torres', establecimiento: 'Hospital Rosales', fecha: dayjs().subtract(4, 'hour').toISOString() }
 ];
 
-const mockCasos = [
-  { id: 'ESAVI-MINSAL-2025-001', paciente: 'Juan Pérez', vacuna: 'COVID-19', fase: 'Fase 2: Riesgo', riesgo: 'Alto', fecha: dayjs().subtract(2, 'hour').toISOString() },
-  { id: 'ESAVI-ISSS-2025-002', paciente: 'María López', vacuna: 'Influenza', fase: 'Fase 4: Investigación', riesgo: 'Medio', fecha: dayjs().subtract(23, 'hour').toISOString() },
-  { id: 'ESAVI-MINSAL-2025-003', paciente: 'Carlos Ruiz', vacuna: 'DPT', fase: 'Fase 5: Control Calidad', riesgo: 'Bajo', fecha: dayjs().subtract(10, 'hour').toISOString() },
-  { id: 'ESAVI-ISSS-2025-004', paciente: 'Laura Méndez', vacuna: 'COVID-19', fase: 'Fase 6: Dictamen', riesgo: 'Crítico', fecha: dayjs().subtract(30, 'hour').toISOString() },
-];
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentRole } = useAuthStore();
+
+  // --- TRAEMOS LOS CASOS DEL STORE ---
+  const casosGlobales = useCasesStore((state) => state.casos);
 
   // =========================================================================
   // ESTADOS PARA FILTROS DE BÚSQUEDA
@@ -44,7 +42,6 @@ export default function Dashboard() {
     else if (['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole)) {
       navigate('/trabajo-campo', { replace: true });
     }
-    // (Roles Centrales e Institucionales se quedan en este Dashboard)
   }, [currentRole, navigate]);
 
   const getSLAStatus = (fechaIso: string) => {
@@ -57,7 +54,7 @@ export default function Dashboard() {
   // =========================================================================
   // LÓGICA DE FILTRADO (FRONTEND)
   // =========================================================================
-  const casosFiltrados = mockCasos.filter((caso) => {
+  const casosFiltrados = casosGlobales.filter((caso) => {
     const matchesSearch = 
       caso.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
       caso.paciente.toLowerCase().includes(searchTerm.toLowerCase());
@@ -179,6 +176,7 @@ export default function Dashboard() {
               <TableCell sx={{ fontWeight: 'bold' }}>ID Caso</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Paciente</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Fase Actual</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Estado de Flujo</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Nivel de Riesgo</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Tiempo SLA</TableCell>
             </TableRow>
@@ -188,10 +186,20 @@ export default function Dashboard() {
               casosFiltrados.map((caso) => {
                 const sla = getSLAStatus(caso.fecha);
                 return (
-                  <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: sla.rowColor, cursor: 'pointer' }}>
+                  // COLOR DE FILA DINÁMICO SEGÚN ESTADO DE FLUJO
+                  <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: caso.estadoFlujo !== 'NORMAL' ? '#ffebee' : sla.rowColor, cursor: 'pointer' }}>
                     <TableCell>{caso.id}</TableCell>
                     <TableCell>{caso.paciente}</TableCell>
                     <TableCell><Chip label={caso.fase} size="small" /></TableCell>
+                    
+                    <TableCell>
+                      {caso.estadoFlujo !== 'NORMAL' ? (
+                        <Chip icon={<WarningAmberIcon />} label="Con Observaciones" color="error" size="small" variant="filled" />
+                      ) : (
+                        <Chip label="Normal" color="default" size="small" variant="outlined" />
+                      )}
+                    </TableCell>
+
                     <TableCell>
                       <Typography variant="body2" fontWeight="bold" color={
                         caso.riesgo === 'Crítico' ? 'error.main' :
@@ -207,7 +215,7 @@ export default function Dashboard() {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
                   <Typography variant="body1" color="text.secondary">
                     No se encontraron expedientes que coincidan con los criterios de búsqueda.
                   </Typography>

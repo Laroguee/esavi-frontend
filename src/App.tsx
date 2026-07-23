@@ -16,6 +16,9 @@ import Login from './features/auth/Login';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import TrabajoCampo from './features/cases/TrabajoCampo';
 import BandejaComite from './features/comittee/BandejaComite';
+import ModuloAdministracion from './features/administration/ModuloAdministracion';
+
+
 
 export default function App() {
   return (
@@ -41,6 +44,7 @@ export default function App() {
             <Route path="dictamen/:id" element={<CierreYDictamen />} />
             <Route path="trabajo-campo" element={<TrabajoCampo />} />
             <Route path="bandeja-comite" element={<BandejaComite />} />
+            <Route path="administracion" element={<ModuloAdministracion />} />
           </Route>
         </Route> {/* <-- Esta es la etiqueta de cierre que faltaba */}
       </Routes>

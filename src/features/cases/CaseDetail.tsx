@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField } from '@mui/material';
+import { Box, Paper, Typography, Stepper, Step, StepLabel, Button, Divider, Grid, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useCasesStore } from '../../store/useCasesStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -9,6 +10,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck';
 import GavelIcon from '@mui/icons-material/Gavel';
 import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
+import SendIcon from '@mui/icons-material/Send';
 import GestorEvidencias from '../cases/GestorEvidencias';
 
 const fases = [
@@ -34,6 +36,10 @@ export default function CaseDetail() {
   const navigate = useNavigate();
   const { currentRole, logisticaCompletada } = useAuthStore(); 
 
+  // --- CONEXIÓN AL STORE CENTRAL ---
+  const { casos, devolverCaso } = useCasesStore();
+  const casoActual = casos.find(c => c.id === id) || casos[0]; // Si no halla el id, usa el primero.
+
   // --- ESTADOS PARA MODALES (Read-Only) ---
   const [openNotif, setOpenNotif] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
@@ -41,6 +47,7 @@ export default function CaseDetail() {
   // --- NUEVOS ESTADOS PARA MODAL DE RECHAZO ---
   const [openRechazoModal, setOpenRechazoModal] = useState(false);
   const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [anexoACorregir, setAnexoACorregir] = useState('Anexo III (Logística)');
 
   // --- ESTADO PARA PESTAÑAS (TABS) ---
   const [tabIndex, setTabIndex] = useState(0);
@@ -49,31 +56,21 @@ export default function CaseDetail() {
   const isAperturado = true;
   const isClinicoLlenado = true; // Simulamos que el médico ya llenó su parte
   const isFase4Completa = isClinicoLlenado && logisticaCompletada; 
-  
-  // SIMULACIÓN DE ASIGNACIÓN: ¿Está el usuario local logueado asignado al ERR de este caso?
   const isUserAssignedToERR = true; // Cambia a false para probar el bloqueo
 
   // =====================================================================
-  // MISIÓN 1: LÓGICA DINÁMICA DEL STEPPER
+  // LÓGICA DINÁMICA DEL STEPPER BASADO EN EL STORE
   // =====================================================================
-  const casoDB = {
-    estadoGeneral: "EN_INVESTIGACION" // Mock: "NOTIFICADO", "APERTURADO", "EN_INVESTIGACION", "EN_COMITE", "DICTAMINADO", "CERRADO"
+  const getActiveStepIndex = (faseStr: string): number => {
+    if (faseStr.includes('Fase 1')) return 0;
+    if (faseStr.includes('Fase 2')) return 1;
+    if (faseStr.includes('Fase 3')) return 2;
+    if (faseStr.includes('Fase 4')) return 3;
+    if (faseStr.includes('Fase 5')) return 4;
+    if (faseStr.includes('Fase 6')) return 5;
+    return 0;
   };
-
-  const getActiveStepIndex = (estado: string): number => {
-    const mapeoFases: Record<string, number> = {
-      "NOTIFICADO": 0,
-      "APERTURADO": 1,
-      "EN_INVESTIGACION": 2,
-      "EN_COMITE": 3,
-      "DICTAMINADO": 4,
-      "CERRADO": 4
-    };
-    return mapeoFases[estado] ?? 0;
-  };
-
-  const faseActual = getActiveStepIndex(casoDB.estadoGeneral);
-  // =====================================================================
+  const faseActual = getActiveStepIndex(casoActual.fase);
 
   // --- EVALUACIÓN DE ROLES ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
@@ -81,6 +78,7 @@ export default function CaseDetail() {
   const isEsaviLocal = currentRole === 'ESAVI_LOCAL';
   const isInmunoLocal = currentRole === 'INMUNO_LOCAL';
   const isEpidemioLocal = currentRole === 'EPIDEMIO_LOCAL';
+  const isEsaviInstitucional = currentRole === 'ESAVI_INSTITUCIONAL';
   const isSecretariado = currentRole === 'SECRETARIADO';
   const isComite = currentRole === 'COMITE_EXTERNO';
 
@@ -89,6 +87,7 @@ export default function CaseDetail() {
     const getChip = () => {
       if (chipStatus === 'Completado') return <Chip label="Completado" color="success" size="small" />;
       if (chipStatus === 'Pendiente') return <Chip label="Pendiente" color="primary" size="small" variant="outlined" />;
+      if (chipStatus === 'Corrección') return <Chip label="Requiere Corrección" color="error" size="small" />;
       return <Chip label="Bloqueado" color="default" size="small" />;
     };
 
@@ -123,19 +122,43 @@ export default function CaseDetail() {
         Volver a la Bandeja
       </Button>
 
+      {/* ================= BANNERS INTELIGENTES DE ESTADO DE FLUJO ================= */}
+      {casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' && isEsaviInstitucional && (
+        <Alert 
+          severity="error" 
+          variant="filled"
+          sx={{ mb: 3, alignItems: 'center' }}
+          action={
+            <Button color="inherit" size="small" variant="outlined" endIcon={<SendIcon />} onClick={() => devolverCaso(casoActual.id, 'DEVUELTO_A_ERR', casoActual.observacionRechazo!, casoActual.anexoRechazado!, `Jefatura delegó corrección del ${casoActual.anexoRechazado} al equipo local.`)}>
+              Delegar corrección al ERR Local
+            </Button>
+          }
+        >
+          <strong>ATENCIÓN:</strong> El Secretariado de la SRS ha devuelto este expediente. 
+          <br/><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
+        </Alert>
+      )}
+
+      {casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && isLocalOperativo && (
+        <Alert severity="error" variant="filled" sx={{ mb: 3 }}>
+          <strong>ACCIÓN REQUERIDA:</strong> El ESAVI Institucional ha devuelto este expediente para corrección. 
+          <br/><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
+        </Alert>
+      )}
+
       {/* ================= CABECERA DEL EXPEDIENTE ================= */}
       <Paper elevation={3} sx={{ p: 4, mb: 4, borderLeft: '6px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={7}>
-            <Typography variant="h5" color="primary" fontWeight="bold">Expediente {id}</Typography>
-            <Typography variant="subtitle1" color="text.secondary">Paciente: Juan Pérez | Vacuna: COVID-19 Pfizer</Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>Establecimiento: Unidad de Salud Barrios (MINSAL)</Typography>
+            <Typography variant="h5" color="primary" fontWeight="bold">Expediente {casoActual.id}</Typography>
+            <Typography variant="subtitle1" color="text.secondary">Paciente: {casoActual.paciente} | Vacuna: {casoActual.vacuna}</Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>Establecimiento: {casoActual.establecimiento}</Typography>
           </Grid>
           
           <Grid item xs={12} md={5} sx={{ textAlign: 'right' }}>
             <Typography variant="overline" color="secondary" fontWeight="bold" display="block">ESTADO ACTUAL</Typography>
-            <Typography variant="h6" display="block" gutterBottom color={isFase4Completa ? "success.main" : "text.primary"}>
-              {isFase4Completa ? "En Control de Calidad (Fase 5)" : "En Trabajo de Campo (Fase 4)"}
+            <Typography variant="h6" display="block" gutterBottom color={casoActual.estadoFlujo !== 'NORMAL' ? "error.main" : "text.primary"}>
+              {casoActual.estadoFlujo !== 'NORMAL' ? "Devuelto por Observaciones" : casoActual.fase}
             </Typography>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', mt: 2 }}>
@@ -154,7 +177,7 @@ export default function CaseDetail() {
       <Stepper activeStep={faseActual} alternativeLabel sx={{ mb: 5 }}>
         {fases.map((label) => (
           <Step key={label}>
-            <StepLabel>{label}</StepLabel>
+            <StepLabel error={casoActual.estadoFlujo !== 'NORMAL' && label === 'Fase 5: Control Calidad'}>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
@@ -202,10 +225,44 @@ export default function CaseDetail() {
                   <Alert severity="warning" sx={{ mb: 2, fontWeight: 'bold' }}>Debe completar la Logística de Campo (Anexo III) antes de proceder a la investigación en terreno.</Alert>
                 )}
 
-                <ActionRow title="Checklist Logística (Anexo III)" chipStatus={logisticaCompletada ? 'Completado' : 'Pendiente'} btnText="Completar Logística" onClick={() => navigate('/anexo-logistica/' + id)} disabled={!(isInmunoLocal || isEpidemioLocal) || !isUserAssignedToERR} tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Equipo de Campo."} />
-                <ActionRow title="Evaluación Clínica (Anexo VII)" chipStatus={isClinicoLlenado ? 'Completado' : 'Pendiente'} btnText="Llenar Clínico" onClick={() => navigate('/anexo-clinico')} disabled={!isEsaviLocal || !isUserAssignedToERR} tooltipText={!isUserAssignedToERR ? "No asignado." : "Solo Médico Clínico."} />
-                <ActionRow title="Puesto Vacunación (Anexo V)" chipStatus={logisticaCompletada ? 'Pendiente' : 'Bloqueado'} btnText="Llenar Anexo V" onClick={() => navigate('/anexo-puesto')} disabled={!isInmunoLocal || !logisticaCompletada || !isUserAssignedToERR} tooltipText={!isInmunoLocal ? "Solo Inmunizaciones." : "Debe completar Logística (Anexo III)."} />
-                <ActionRow title="Inv. Domiciliaria (Anexo VI)" chipStatus={logisticaCompletada ? 'Pendiente' : 'Bloqueado'} btnText="Llenar Anexo VI" onClick={() => navigate('/anexo-domicilio')} disabled={!isEpidemioLocal || !logisticaCompletada || !isUserAssignedToERR} tooltipText={!isEpidemioLocal ? "Solo Epidemiólogo." : "Debe completar Logística (Anexo III)."} />
+                {/* MODIFICACIÓN SOLICITADA: Solo ESAVI LOCAL puede llenar Anexo III */}
+                <ActionRow 
+                  title="Checklist Logística (Anexo III)" 
+                  chipStatus={casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'Corrección' : (logisticaCompletada ? 'Completado' : 'Pendiente')} 
+                  btnText={casoActual.anexoRechazado === 'Anexo III (Logística)' ? "Modificar Anexo" : "Completar Logística"} 
+                  onClick={() => navigate('/anexo-logistica/' + id)} 
+                  disabled={!isEsaviLocal || !isUserAssignedToERR} 
+                  tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Referente ESAVI Local."} 
+                  color={casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'error' : 'secondary'}
+                />
+                
+                <ActionRow 
+                  title="Evaluación Clínica (Anexo VII)" 
+                  chipStatus={casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'Corrección' : (isClinicoLlenado ? 'Completado' : 'Pendiente')} 
+                  btnText="Llenar Clínico" 
+                  onClick={() => navigate('/anexo-clinico')} 
+                  disabled={!isEsaviLocal || !isUserAssignedToERR} 
+                  tooltipText={!isUserAssignedToERR ? "No asignado." : "Solo Médico Clínico."} 
+                  color={casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'error' : 'secondary'}
+                />
+                <ActionRow 
+                  title="Puesto Vacunación (Anexo V)" 
+                  chipStatus={casoActual.anexoRechazado === 'Anexo V (Puesto de Vacunación)' ? 'Corrección' : (logisticaCompletada ? 'Pendiente' : 'Bloqueado')} 
+                  btnText="Llenar Anexo V" 
+                  onClick={() => navigate('/anexo-puesto')} 
+                  disabled={!isInmunoLocal || !logisticaCompletada || !isUserAssignedToERR} 
+                  tooltipText={!isInmunoLocal ? "Solo Inmunizaciones." : "Debe completar Logística (Anexo III)."} 
+                  color={casoActual.anexoRechazado === 'Anexo V (Puesto de Vacunación)' ? 'error' : 'secondary'}
+                />
+                <ActionRow 
+                  title="Inv. Domiciliaria (Anexo VI)" 
+                  chipStatus={casoActual.anexoRechazado === 'Anexo VI (Domiciliaria)' ? 'Corrección' : (logisticaCompletada ? 'Pendiente' : 'Bloqueado')} 
+                  btnText="Llenar Anexo VI" 
+                  onClick={() => navigate('/anexo-domicilio')} 
+                  disabled={!isEpidemioLocal || !logisticaCompletada || !isUserAssignedToERR} 
+                  tooltipText={!isEpidemioLocal ? "Solo Epidemiólogo." : "Debe completar Logística (Anexo III)."}
+                  color={casoActual.anexoRechazado === 'Anexo VI (Domiciliaria)' ? 'error' : 'secondary'}
+                />
               </Box>
             </CardContent>
           </Card>
@@ -218,24 +275,16 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
-                <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 6 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
+                <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 4 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
+                <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
                 
-                {/* BOTONES DE DEVOLUCIÓN (NUEVA LÓGICA DE MODAL) */}
+                {/* BOTONES DE DEVOLUCIÓN (CONECTADOS AL STORE) */}
                 {isSecretariado && (
                   <Box sx={{ mt: 2 }}>
                     <Divider sx={{ my: 1 }} />
-                    <Typography variant="subtitle2" color="error" sx={{ mb: 1 }}>¿Falta Información? Devolver a:</Typography>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      {/* CAMBIO AQUÍ: Se abre el modal al hacer clic */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
-                        Devolver a Ref. ESAVI Local (Clínico)
-                      </Button>
-                      <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
-                        Devolver a Inmunizaciones
-                      </Button>
-                      <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
-                        Devolver a Epidemiólogo (Campo)
+                        Devolver Expediente con Observaciones
                       </Button>
                     </Box>
                   </Box>
@@ -304,12 +353,12 @@ export default function CaseDetail() {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos del Paciente</Typography>
-              <ReadOnlyField label="Nombre Completo" value="Juan Pérez López" />
+              <ReadOnlyField label="Nombre Completo" value={casoActual.paciente} />
               <ReadOnlyField label="DUI" value="04567892-1" />
             </Grid>
             <Grid item xs={12} md={6}>
               <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1 }}>Datos Evento</Typography>
-              <ReadOnlyField label="Vacuna" value="COVID-19 Pfizer" />
+              <ReadOnlyField label="Vacuna" value={casoActual.vacuna} />
               <ReadOnlyField label="Inicio Síntomas" value="01/07/2026 10:15 AM" />
             </Grid>
           </Grid>
@@ -321,28 +370,43 @@ export default function CaseDetail() {
         <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 2 }}>Datos de Apertura y Triaje (Fase 2)</DialogTitle>
         <DialogContent>
           <ReadOnlyField label="Fecha Oficialización" value="02/07/2026" />
-          <ReadOnlyField label="Institución" value="MINSAL - U.S. Barrios" />
+          <ReadOnlyField label="Institución" value={casoActual.establecimiento} />
           <Alert severity="warning" sx={{ mt: 2, fontWeight: 'bold' }}>Riesgo Calculado: ALTO (7 puntos) - Respuesta REGIONAL.</Alert>
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}><Button onClick={() => setOpenApertura(false)} variant="contained" color="secondary">Cerrar</Button></DialogActions>
       </Dialog>
 
       {/* =====================================================================
-          NUEVO MODAL: DEVOLUCIÓN DE EXPEDIENTE (FASE 5)
+          NUEVO MODAL: DEVOLUCIÓN DE EXPEDIENTE AL STORE
       ===================================================================== */}
       <Dialog open={openRechazoModal} onClose={() => setOpenRechazoModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', mb: 2 }}>
-          Motivo de Devolución del Expediente
+          Devolver Expediente a ESAVI Institucional
         </DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 3 }}>
-            El caso regresará al investigador local y su estado cambiará a "EN INVESTIGACIÓN" hasta que se subsanen las observaciones.
+            El expediente regresará a la Jefatura Institucional para que asigne las correcciones pertinentes al Equipo Local.
           </Alert>
+          
+          <TextField
+            select
+            fullWidth
+            label="Sección / Anexo que requiere corrección"
+            value={anexoACorregir}
+            onChange={(e) => setAnexoACorregir(e.target.value)}
+            sx={{ mb: 3 }}
+          >
+            <MenuItem value="Anexo III (Logística)">Anexo III (Logística)</MenuItem>
+            <MenuItem value="Anexo V (Puesto de Vacunación)">Anexo V (Puesto de Vacunación)</MenuItem>
+            <MenuItem value="Anexo VI (Domiciliaria)">Anexo VI (Domiciliaria)</MenuItem>
+            <MenuItem value="Anexo VII (Clínico)">Anexo VII (Clínico)</MenuItem>
+          </TextField>
+
           <TextField 
             fullWidth 
             multiline 
             rows={4} 
-            label="Observaciones de Devolución" 
+            label="Observaciones detalladas de Devolución" 
             placeholder="Especifique qué información falta o debe ser corregida..."
             value={motivoRechazo}
             onChange={(e) => setMotivoRechazo(e.target.value)}
@@ -356,9 +420,13 @@ export default function CaseDetail() {
             color="error" 
             disabled={motivoRechazo.trim() === ''}
             onClick={() => {
-              alert(`Expediente devuelto por el siguiente motivo: ${motivoRechazo}`);
+              // AQUÍ SE DISPARA LA MUTACIÓN GLOBAL
+              const msgNotif = `El Secretariado devolvió el caso ${casoActual.id} indicando corrección en: ${anexoACorregir}`;
+              devolverCaso(casoActual.id, 'DEVUELTO_A_INSTITUCIONAL', motivoRechazo, anexoACorregir, msgNotif);
+              
               setMotivoRechazo('');
               setOpenRechazoModal(false);
+              navigate('/'); // Lo sacamos del caso después de devolverlo
             }}
           >
             Confirmar Devolución

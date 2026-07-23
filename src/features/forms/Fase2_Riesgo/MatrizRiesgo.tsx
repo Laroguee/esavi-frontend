@@ -1,6 +1,8 @@
 import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import jsPDF from 'jspdf';
 import { useNavigate } from 'react-router-dom';
 
 export default function MatrizRiesgo() {
@@ -84,6 +86,33 @@ export default function MatrizRiesgo() {
     navigate(-1);
   };
 
+  // =========================================================================
+  // MISIÓN: FUNCIÓN GENERADORA DE REPORTE SITREP EN PDF
+  // =========================================================================
+  const generarSitRepPDF = () => {
+    const doc = new jsPDF();
+    
+    // Título centrado
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Reporte de Situación Inicial (SitRep) - ESAVI", 105, 20, { align: 'center' });
+    
+    // Contenido del reporte
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Fecha y hora de generación: ${new Date().toLocaleString()}`, 20, 40);
+    doc.text(`Nivel de Riesgo Detectado: ${riesgoActual.etiqueta}`, 20, 50);
+    
+    // Texto estándar multilinea
+    const textoEstandar = "El presente reporte notifica la identificación de un evento adverso supuestamente atribuible a la vacunación e inmunización (ESAVI) que requiere movilización inmediata del Equipo de Respuesta Rápida (ERR).";
+    const lineas = doc.splitTextToSize(textoEstandar, 170);
+    doc.text(lineas, 20, 65);
+    
+    // Descarga automática
+    doc.save('SitRep_ESAVI.pdf');
+  };
+  // =========================================================================
+
   // Función de ayuda para renderizar las filas de la tabla
   const renderRow = (id: string, label: string, options: {val: number, label: string}[]) => (
     <TableRow key={id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -121,8 +150,6 @@ export default function MatrizRiesgo() {
     { val: 3, label: 'Sí' }
   ];
 
- 
-
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ pb: 10 }}>
       
@@ -140,6 +167,7 @@ export default function MatrizRiesgo() {
               <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', marginRight: '8px' }}>
                 {puntajeTotal}
               </span>
+              {/* 2. AQUÍ AGREGAMOS EL CHIP DINÁMICO */}
               <Chip 
                 label={riesgoActual.etiqueta} 
                 color={riesgoActual.color} 
@@ -164,6 +192,22 @@ export default function MatrizRiesgo() {
         >
           Nivel de Respuesta: {riesgoActual.nivelRespuesta} ({riesgoActual.etiqueta}). {riesgoActual.mensaje}
         </Alert>
+
+        {/* ========================================================================= */}
+        {/* BOTÓN CONDICIONAL SITREP (SOLO ALTO O CRÍTICO >= 11 puntos) */}
+        {/* ========================================================================= */}
+        {puntajeTotal >= 11 && (
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button 
+              variant="contained" 
+              color="error" 
+              startIcon={<PictureAsPdfIcon />} 
+              onClick={generarSitRepPDF}
+            >
+              Descargar SitRep (PDF)
+            </Button>
+          </Box>
+        )}
 
       </Paper>
 

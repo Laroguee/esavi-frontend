@@ -1,18 +1,52 @@
-import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, Divider } from '@mui/material';
+import { useState } from 'react';
+import { 
+  Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, 
+  ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, 
+  Badge, IconButton, Menu, Divider, Button
+} from '@mui/material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import GavelIcon from '@mui/icons-material/Gavel';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import CircleIcon from '@mui/icons-material/Circle';
+import LogoutIcon from '@mui/icons-material/Logout';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
-
+import { useCasesStore } from '../../store/useCasesStore';
 
 const drawerWidth = 260;
 
 export default function MainLayout() {
   const navigate = useNavigate();
-  const { currentRole, setRole } = useAuthStore();
+  // Se extrae la función logout del store global
+  const { currentRole, setRole, logout } = useAuthStore();
+
+  // --- CONEXIÓN AL STORE CENTRAL DE CASOS ---
+  const { notificaciones, marcarNotificacionLeida } = useCasesStore();
+
+  // --- ESTADOS PARA EL MENÚ DE NOTIFICACIONES ---
+  const [anchorElNotif, setAnchorElNotif] = useState<null | HTMLElement>(null);
+  const openNotifMenu = Boolean(anchorElNotif);
+
+  const handleOpenNotif = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElNotif(event.currentTarget);
+  };
+
+  const handleCloseNotif = () => {
+    setAnchorElNotif(null);
+  };
+
+  // Función para manejar el Cierre de Sesión
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  // Calcula cuántas notificaciones no están leídas desde el Store
+  const notificacionesNoLeidas = notificaciones.filter(n => !n.leido).length;
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
@@ -22,42 +56,107 @@ export default function MainLayout() {
           <HealthAndSafetyIcon sx={{ mr: 2, fontSize: 32 }} />
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6" noWrap component="div" sx={{ lineHeight: 1.2 }}>
-              Sistema Nacional ESAVI
+              Sistema de Notificación ESAVI
             </Typography>
             <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
               El Salvador
             </Typography>
           </Box>
 
-          {/* SELECTOR DINÁMICO DE ROLES */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2" sx={{ color: 'white' }}>Simular Rol:</Typography>
-            <FormControl size="small" variant="outlined">
-              <Select
-                value={currentRole}
-                onChange={(e) => setRole(e.target.value as Role)}
-                sx={{ 
-                  color: 'white', bgcolor: 'rgba(255,255,255,0.1)',
-                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'secondary.main' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
-                  '.MuiSvgIcon-root': { color: 'secondary.main' }
-                }}
-              >
-                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL</ListSubheader>
-                <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Institucional</MenuItem>
-                <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiólogo Institucional</MenuItem>
-                <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Institucional</MenuItem>
-                
-                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL LOCAL (Campo)</ListSubheader>
-                <MenuItem value="ESAVI_LOCAL">Referente ESAVI Local (Clínico)</MenuItem>
-                <MenuItem value="EPIDEMIO_LOCAL">Epidemiólogo Local</MenuItem>
-                <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            
+            {/* SELECTOR DINÁMICO DE ROLES */}
+            <Box id="selector-roles-simulador" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ color: 'white' }}>Simular Rol:</Typography>
+              <FormControl size="small" variant="outlined">
+                <Select
+                  value={currentRole}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  sx={{ 
+                    color: 'white', bgcolor: 'rgba(255,255,255,0.1)',
+                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'secondary.main' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
+                    '.MuiSvgIcon-root': { color: 'secondary.main' }
+                  }}
+                >
+                  <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL</ListSubheader>
+                  <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Institucional</MenuItem>
+                  <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiólogo Institucional</MenuItem>
+                  <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Institucional</MenuItem>
+                  
+                  <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL ERR (Campo)</ListSubheader>
+                  <MenuItem value="ESAVI_LOCAL">Referente ESAVI Local (Clínico)</MenuItem>
+                  <MenuItem value="EPIDEMIO_LOCAL">Epidemiólogo Local</MenuItem>
+                  <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
 
-                <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL CENTRAL / EXTERNO</ListSubheader>
-                <MenuItem value="SECRETARIADO">Secretariado (SRS)</MenuItem>
-                <MenuItem value="COMITE_EXTERNO">Comité Evaluador Externo</MenuItem>
-              </Select>
-            </FormControl>
+                  <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL CENTRAL / EXTERNO</ListSubheader>
+                  <MenuItem value="SECRETARIADO">Secretariado (SRS)</MenuItem>
+                  <MenuItem value="COMITE_EXTERNO">Comité Evaluador Externo</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* CAMPANITA DE NOTIFICACIONES */}
+            <IconButton color="inherit" onClick={handleOpenNotif} id="btn-notificaciones">
+              <Badge badgeContent={notificacionesNoLeidas} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+
+            {/* BOTÓN DE CERRAR SESIÓN */}
+            <IconButton color="inherit" onClick={handleLogout} title="Cerrar Sesión">
+              <LogoutIcon />
+            </IconButton>
+
+            {/* MENÚ DESPLEGABLE DE NOTIFICACIONES */}
+            <Menu
+              anchorEl={anchorElNotif}
+              open={openNotifMenu}
+              onClose={handleCloseNotif}
+              PaperProps={{
+                elevation: 3,
+                sx: { width: 350, maxHeight: 400, mt: 1.5, overflowY: 'auto' }
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <Box sx={{ px: 2, py: 1.5, bgcolor: '#f4f6f8', borderBottom: '1px solid #e0e0e0' }}>
+                <Typography variant="subtitle1" color="primary" fontWeight="bold">Notificaciones Recientes</Typography>
+              </Box>
+              
+              {notificaciones.map((notif) => (
+                <Box key={notif.id}>
+                  <MenuItem 
+                    onClick={() => {
+                      marcarNotificacionLeida(notif.id);
+                    }} 
+                    sx={{ 
+                      display: 'flex', alignItems: 'flex-start', py: 1.5, px: 2, gap: 1.5,
+                      bgcolor: notif.leido ? 'transparent' : '#e3f2fd',
+                      whiteSpace: 'normal' // Permite que el texto baje de línea si es largo
+                    }}
+                  >
+                    <Box sx={{ mt: 0.5 }}>
+                      <CircleIcon sx={{ fontSize: 10, color: notif.leido ? 'transparent' : 'primary.main' }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: notif.leido ? 'normal' : 'bold', color: 'text.primary', mb: 0.5 }}>
+                        {notif.texto}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {notif.fecha}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                  <Divider sx={{ my: 0 }} />
+                </Box>
+              ))}
+
+              <Box sx={{ textAlign: 'center', p: 1 }}>
+                <Button size="small" color="primary" onClick={handleCloseNotif}>Ver Todas</Button>
+              </Box>
+            </Menu>
+
           </Box>
         </Toolbar>
       </AppBar>
@@ -67,49 +166,52 @@ export default function MainLayout() {
         <Toolbar /> 
         <Box sx={{ overflow: 'auto', mt: 2 }}>
           <List>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => navigate('/')}>
+                <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
+                <ListItemText primary="Bandeja de Casos" />
+              </ListItemButton>
+            </ListItem>
 
-            {/* REGLA: BANDEJA CENTRAL (Solo Nivel Central e Institucional) */}
-            {['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL', 'SECRETARIADO'].includes(currentRole as string) && (
+            {/* REGLA: MÓDULO DE ADMINISTRACIÓN (Exclusivo Nivel Central / SRS) */}
+            {['ESAVI_INSTITUCIONAL', 'SECRETARIADO'].includes(currentRole as string) && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/administracion')}>
+                  <ListItemIcon><ManageAccountsIcon color="primary" /></ListItemIcon>
+                  <ListItemText primary="Panel de Administración" />
+                </ListItemButton>
+              </ListItem>
+            )}
+
+            {/* REGLA: SOLO EL ESAVI INSTITUCIONAL CREA EL CASO */}
+            {currentRole === 'ESAVI_INSTITUCIONAL' && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/notificacion-inicial')}>
+                  <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
+                  <ListItemText primary="Notificar ESAVI (Fase 1)" />
+                </ListItemButton>
+              </ListItem>
+            )}
+
+            {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
+            {currentRole?.includes('LOCAL') && (
               <ListItem disablePadding>
                 <ListItemButton onClick={() => navigate('/')}>
-                  <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
-                  <ListItemText primary="Bandeja Central" />
-                </ListItemButton>
-              </ListItem>
-            )}
-
-            {/* REGLA: BANDEJA DEL COMITÉ EXTERNO (Exclusivo) */}
-            {currentRole === 'COMITE_EXTERNO' && (
-              <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/bandeja-comite')}>
-                  <ListItemIcon><GavelIcon color="primary" /></ListItemIcon>
-                  <ListItemText primary="Bandeja del Comité" />
-                </ListItemButton>
-              </ListItem>
-            )}
-
-            {/* REGLA: TRABAJO DE CAMPO (Solo Nivel Local) */}
-            {['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string) && (
-              <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/trabajo-campo')}>
-                  <ListItemIcon><SearchIcon color="primary" /></ListItemIcon>
+                  <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Mi Trabajo de Campo" />
                 </ListItemButton>
               </ListItem>
             )}
 
-            <Divider sx={{ my: 1 }} />
-
-            {/* REGLA: NOTIFICAR ESAVI (Solo ESAVI Local o ESAVI Institucional) */}
-            {['ESAVI_LOCAL', 'ESAVI_INSTITUCIONAL'].includes(currentRole as string) && (
+            {/* REGLA: EL COMITÉ VE LOS DICTÁMENES */}
+            {currentRole === 'COMITE_EXTERNO' && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/notificacion-inicial')}>
-                  <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
-                  <ListItemText primary="Registrar Notificación" />
+                <ListItemButton onClick={() => navigate('/comite-causalidad')}>
+                  <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
+                  <ListItemText primary="Dictámenes Causalidad" />
                 </ListItemButton>
               </ListItem>
             )}
-
           </List>
         </Box>
       </Drawer>
@@ -118,12 +220,9 @@ export default function MainLayout() {
       <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
         <Toolbar /> 
         <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold' }}>
-          PERFIL ACTIVO: {currentRole.replace(/_/g, ' ')}
+          PERFIL ACTIVO: {currentRole?.replace(/_/g, ' ')}
         </Typography>
-        <Box sx={{ mt: 2 }}>
-       
-       <Outlet />
-     </Box>
+        <Box sx={{ mt: 2 }}><Outlet /></Box>
       </Box>
     </Box>
   );

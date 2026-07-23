@@ -34,8 +34,24 @@ export default function Login() {
   return (
     <Box 
       sx={{ 
-        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-        bgcolor: '#f4f6f8', backgroundImage: 'linear-gradient(135deg, #231136 0%, #3a1c59 100%)'
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        bgcolor: '#f4f6f8',
+        backgroundImage: 'url(https://res.cloudinary.com/dowejnpvd/image/upload/v1769541332/fondo_srs_nhzesc.png)',
+        
+        // LA SOLUCIÓN: 
+        // 'contain' ajusta la imagen para que quepa completa sin cortarse.
+        // Si aún la ves muy grande en pantallas anchas, cámbialo a un tamaño fijo como '600px' o '50%'.
+        backgroundSize: 'contain', 
+        
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        
+        // Opcional: Si la imagen resalta demasiado y quieres que parezca marca de agua,
+        // puedes descomentar la siguiente línea:
+        //backgroundBlendMode: 'soft-light' 
       }}
     >
       <Card elevation={6} sx={{ maxWidth: 450, width: '100%', borderRadius: 3 }}>
@@ -44,7 +60,7 @@ export default function Login() {
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <HealthAndSafetyIcon sx={{ fontSize: 60, color: 'secondary.main', mb: 1 }} />
             <Typography variant="h5" color="primary" fontWeight="bold">
-              Sistema Nacional ESAVI
+              Sistema de Notificación ESAVI
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Superintendencia de Regulación Sanitaria (SRS)
@@ -96,7 +112,7 @@ export default function Login() {
           </Box>
 
           <Typography variant="caption" display="block" textAlign="center" color="text.secondary" sx={{ mt: 4 }}>
-            Acceso restringido a personal autorizado del MINSAL y SRS.
+            Acceso restringido a personal autorizado del MINSAL, ISSS y SRS.
           </Typography>
         </CardContent>
       </Card>

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -32,6 +33,9 @@ type AperturaFormValues = z.infer<typeof aperturaSchema>;
 
 export default function FormularioApertura() {
   const navigate = useNavigate();
+  
+  // Estado para capturar el archivo escaneado del Anexo II
+  const [anexoFile, setAnexoFile] = useState<File | null>(null);
 
   // Inyectamos el resolver de Zod a React-Hook-Form
   const { control, handleSubmit, watch, setValue } = useForm<AperturaFormValues>({
@@ -57,6 +61,9 @@ export default function FormularioApertura() {
 
   const onSubmit = (data: AperturaFormValues) => {
     console.log("Datos Apertura:", data);
+    if (anexoFile) {
+      console.log("Archivo adjunto preparado para envío:", anexoFile.name);
+    }
     alert(`Expediente Oficial ${data.idUnico} creado exitosamente.`);
     
     // Redirección al expediente del caso usando el ID dinámico generado
@@ -205,6 +212,42 @@ export default function FormularioApertura() {
               )}/>
             </Grid>
           </Grid>
+        </Box>
+      </Paper>
+
+      {/* SECCIÓN 3: Documentación Base */}
+      <Paper elevation={2} sx={{ mb: 4, borderRadius: 2, border: '1px dashed', borderColor: 'info.main', overflow: 'hidden' }}>
+        <Box sx={{ bgcolor: 'info.light', py: 1.5, px: 3 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'info.dark' }}>
+            Documentación Base
+          </Typography>
+        </Box>
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Adjunte la presentacion llena del Anexo II  como respaldo primario del expediente.
+          </Typography>
+          <Button 
+            component="label" 
+            variant="contained" 
+            color="info" 
+            startIcon={<UploadFileIcon />}
+            size="large"
+            sx={{ px: 4 }}
+          >
+            Adjuntar Anexo II Escaneado
+            <input 
+              type="file" 
+              hidden 
+              accept=".pdf,image/*" 
+              onChange={(e) => setAnexoFile(e.target.files?.[0] || null)} 
+            />
+          </Button>
+          
+          {anexoFile && (
+            <Typography variant="body2" sx={{ mt: 2, fontWeight: 'bold', color: 'success.main' }}>
+              ✓ Archivo seleccionado: {anexoFile.name}
+            </Typography>
+          )}
         </Box>
       </Paper>
 

@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -71,6 +73,11 @@ export default function NotificacionInicial() {
     navigate('/');
   };
 
+  const handleDescargarPlantilla = () => {
+    alert("Descargando plantilla PDF del Anexo II para llenado manual...");
+    // Aquí en el futuro puedes colocar la URL real de descarga del PDF
+  };
+
   const getDateTimeSx = (hasValue: boolean) => ({
     '& input::-webkit-datetime-edit': {
       color: hasValue ? 'text.primary' : 'transparent',
@@ -102,6 +109,7 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: 4 }}>
           <Grid container spacing={3}>
+            {/* Fila 1: Suma 12 */}
             <Grid item xs={12} md={4}>
               <Controller name="fechaNotificacion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de notificación" required 
@@ -115,6 +123,7 @@ export default function NotificacionInicial() {
                   error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
+            {/* Fila 2: Suma 12 */}
             <Grid item xs={12} md={5}>
               <Controller name="nombreNotificador" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombre del notificador" required 
@@ -144,6 +153,7 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: 4 }}>
           <Grid container spacing={3}>
+            {/* Fila 1: Suma 12 */}
             <Grid item xs={12} md={6}>
               <Controller name="pacienteNombres" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombres" required error={!!fieldState.error} helperText={fieldState.error?.message} />
@@ -154,6 +164,7 @@ export default function NotificacionInicial() {
                 <TextField {...field} fullWidth label="Apellidos" required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
+            {/* Fila 2: Suma 12 */}
             <Grid item xs={12} md={4}>
               <Controller name="pacienteSexo" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Sexo" required sx={{ minWidth: 160 }} error={!!fieldState.error} helperText={fieldState.error?.message}>
@@ -175,6 +186,7 @@ export default function NotificacionInicial() {
                 <TextField {...field} fullWidth type="number" label="Edad" required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
+            {/* Fila 3: Suma 12 */}
             <Grid item xs={12} md={4}>
               <Controller name="pacienteDUI" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Identidad (DUI/Pas)" placeholder="Ej: 12345678-9" error={!!fieldState.error} helperText={fieldState.error?.message} />
@@ -185,6 +197,7 @@ export default function NotificacionInicial() {
                 <TextField {...field} fullWidth label="Nombre del responsable (si es menor)" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
+            {/* Fila 4: Suma 12 */}
             <Grid item xs={12} md={12}>
               <Controller name="pacienteDireccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Dirección de residencia completa" error={!!fieldState.error} helperText={fieldState.error?.message} />
@@ -203,6 +216,7 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: 4 }}>
           <Grid container spacing={3}>
+            {/* Fila 1: Suma 12 */}
             <Grid item xs={12} md={6}>
               <Controller name="vacunaNombre" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Nombre de la vacuna" required sx={{ minWidth: 160 }} error={!!fieldState.error} helperText={fieldState.error?.message}>
@@ -226,7 +240,7 @@ export default function NotificacionInicial() {
                   InputLabelProps={{ shrink: true }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            
+            {/* Fila 2: Suma 12 */}
             <Grid item xs={12} md={4}>
               <Controller name="vacunaDosis" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Número de Dosis" sx={{ minWidth: 160 }} error={!!fieldState.error} helperText={fieldState.error?.message}>
@@ -248,7 +262,7 @@ export default function NotificacionInicial() {
                 <TextField {...field} fullWidth label="Nombre del Fabricante" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-
+            {/* Fila 3: Suma 12 */}
             <Grid item xs={12} md={4}>
               <Controller name="vacunaCaducidad" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de caducidad"
@@ -280,6 +294,7 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: 4 }}>
           <Grid container spacing={3}>
+            {/* Fila 1: Suma 12 */}
             <Grid item xs={12} md={4}>
               <Controller name="eventoFechaInicio" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha inicio de síntomas" required 
@@ -303,12 +318,14 @@ export default function NotificacionInicial() {
               )}/>
             </Grid>
 
+            {/* Fila 2: Suma 12 */}
             <Grid item xs={12}>
               <Controller name="eventoDescripcion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth multiline rows={4} label="Descripción clínica del evento" placeholder="Describa a detalle los signos, síntomas y la evolución del paciente..." required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 
+            {/* Fila 3: Suma 12 (Condicional) */}
             <Grid container item spacing={3} xs={12}>
               {gravedadActual === 'Grave' && (
                 <Grid item xs={12} md={6}>
@@ -341,13 +358,38 @@ export default function NotificacionInicial() {
 
       {/* BOTONES */}
       <Divider sx={{ mb: 3 }} />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-        <Button variant="outlined" color="inherit" size="large" onClick={() => reset()}>
-          Limpiar Campos
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        
+        {/* Botón de descarga de plantilla física */}
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          startIcon={<DownloadIcon />}
+          onClick={handleDescargarPlantilla}
+        >
+          Descargar Plantilla Anexo II (Presentación)
         </Button>
-        <Button type="submit" variant="contained" color="primary" size="large" sx={{ px: 4, py: 1.5, fontWeight: 'bold' }}>
-          Registrar Notificación Inicial
-        </Button>
+
+        {/* Botones de acción del formulario */}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button 
+            variant="outlined" 
+            color="inherit" 
+            size="large" 
+            onClick={() => reset()}
+          >
+            Limpiar Campos
+          </Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary" 
+            size="large" 
+            sx={{ px: 4, py: 1.5, fontWeight: 'bold' }}
+          >
+            Registrar Notificación Inicial
+          </Button>
+        </Box>
       </Box>
 
     </Box>
