@@ -169,7 +169,7 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
         variant="fullWidth"
         sx={{ borderBottom: 1, borderColor: 'divider' }}
       >
-        {CATEGORIAS.map((cat, index) => (
+        {CATEGORIAS.map((cat) => (
           <Tab 
             key={cat.id} 
             label={

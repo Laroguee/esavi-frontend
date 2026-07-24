@@ -20,8 +20,8 @@ const notificacionSchema = z.object({
   pacienteSexo: z.string().min(1, "Seleccione el sexo"),
   pacienteFechaNacimiento: z.string().optional(),
   
-  // Regla 1: Edad mayor o igual a 0 (Compatible con TS y RHF)
-  pacienteEdad: z.preprocess((val) => Number(val), z.number().min(0, "La edad no puede ser negativa")),
+  // Regla 1: Zod nativo, simple y compatible. La magia la hace el onChange del TextField
+  pacienteEdad: z.number().min(0, "La edad no puede ser negativa"),
   
   // Regla 2: Formato DUI Salvadoreño o estar vacío
   pacienteDUI: z.string()
@@ -85,7 +85,7 @@ export default function NotificacionInicial() {
   });
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit as any)} sx={{ maxWidth: 1050, margin: 'auto', pb: 8, pt: 4 }}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1050, margin: 'auto', pb: 8, pt: 4 }}>
       
       {/* CABECERA */}
       <Box sx={{ mb: 5, textAlign: 'center' }}>
@@ -175,8 +175,14 @@ export default function NotificacionInicial() {
               )}/>
             </Grid>
             <Grid size={{ xs: 12, md: 3 }}>
+              {/* === SOLUCIÓN DEFINITIVA TS2353 === */}
               <Controller name="pacienteEdad" control={control} render={({ field, fieldState }) => (
-                <TextField {...field} fullWidth type="number" label="Edad" required error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <TextField 
+                  {...field} 
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  fullWidth type="number" label="Edad" required 
+                  error={!!fieldState.error} helperText={fieldState.error?.message} 
+                />
               )}/>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>

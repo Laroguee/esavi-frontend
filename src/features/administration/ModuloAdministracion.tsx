@@ -65,7 +65,7 @@ export default function ModuloAdministracion() {
       <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Tabs 
           value={tabIndex} 
-          onChange={(e, val) => setTabIndex(val)} 
+          onChange={(_, val) => setTabIndex(val)} 
           indicatorColor="secondary" 
           textColor="primary" 
           variant="fullWidth" 
@@ -81,7 +81,7 @@ export default function ModuloAdministracion() {
           ===================================================================== */}
           <TabPanel value={tabIndex} index={0}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" color="primary" fontWeight="bold">Directorio de Personal Autorizado</Typography>
+              <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>Directorio de Personal Autorizado</Typography>
               <Button variant="contained" color="secondary" startIcon={<PersonAddIcon />}>
                 + Nuevo Usuario
               </Button>
@@ -102,7 +102,7 @@ export default function ModuloAdministracion() {
                 <TableBody>
                   {mockUsuarios.map((user) => (
                     <TableRow key={user.id} hover sx={{ opacity: user.activo ? 1 : 0.5 }}>
-                      <TableCell fontWeight="medium">{user.nombre}</TableCell>
+                      <TableCell sx={{ fontWeight: 'medium' }}>{user.nombre}</TableCell>
                       <TableCell>{user.dui}</TableCell>
                       <TableCell>{user.correo}</TableCell>
                       <TableCell>
@@ -140,7 +140,7 @@ export default function ModuloAdministracion() {
           ===================================================================== */}
           <TabPanel value={tabIndex} index={1}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" color="primary" fontWeight="bold">Catálogo Maestro de Red Integrada (SNIS)</Typography>
+              <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>Catálogo Maestro de Red Integrada (SNIS)</Typography>
               <Button variant="contained" color="secondary" startIcon={<HealthAndSafetyIcon />}>
                 + Nuevo Establecimiento
               </Button>
@@ -160,7 +160,7 @@ export default function ModuloAdministracion() {
                 <TableBody>
                   {mockEstablecimientos.map((estab) => (
                     <TableRow key={estab.id} hover>
-                      <TableCell fontWeight="medium" color="primary.main">{estab.nombre}</TableCell>
+                      <TableCell sx={{ fontWeight: 'medium', color: 'primary.main' }}>{estab.nombre}</TableCell>
                       <TableCell>{estab.tipo}</TableCell>
                       <TableCell>{estab.sibasi}</TableCell>
                       <TableCell>

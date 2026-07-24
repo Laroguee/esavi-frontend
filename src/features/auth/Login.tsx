@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Card, CardContent, Typography, TextField, Button, Alert } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, Alert, InputAdornment } from '@mui/material';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
-
-// ¡AQUÍ ESTÁ LA MAGIA DEL DEFAULT!
 
 type LoginFormData = {
   email: string;
@@ -46,18 +44,9 @@ export default function Login() {
         justifyContent: 'center', 
         bgcolor: '#f4f6f8',
         backgroundImage: 'url(https://res.cloudinary.com/dowejnpvd/image/upload/v1769541332/fondo_srs_nhzesc.png)',
-        
-        // LA SOLUCIÓN: 
-        // 'contain' ajusta la imagen para que quepa completa sin cortarse.
-        // Si aún la ves muy grande en pantallas anchas, cámbialo a un tamaño fijo como '600px' o '50%'.
         backgroundSize: 'contain', 
-        
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        
-        // Opcional: Si la imagen resalta demasiado y quieres que parezca marca de agua,
-        // puedes descomentar la siguiente línea:
-        //backgroundBlendMode: 'soft-light' 
       }}
     >
       <Card elevation={6} sx={{ maxWidth: 450, width: '100%', borderRadius: 3 }}>
@@ -89,7 +78,15 @@ export default function Login() {
                   {...field}
                   fullWidth label="Correo Institucional" variant="outlined" margin="normal"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
-                  startDecorator={<EmailIcon color="action" />}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailIcon color="action" />
+                        </InputAdornment>
+                      ),
+                    }
+                  }}
                 />
               )}
             />
@@ -103,7 +100,15 @@ export default function Login() {
                   {...field}
                   fullWidth type="password" label="Contraseña" variant="outlined" margin="normal" sx={{ mb: 4 }}
                   error={!!fieldState.error} helperText={fieldState.error?.message}
-                  startDecorator={<LockIcon color="action" />}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockIcon color="action" />
+                        </InputAdornment>
+                      ),
+                    }
+                  }}
                 />
               )}
             />
@@ -113,7 +118,7 @@ export default function Login() {
             </Button>
           </Box>
 
-          <Typography variant="caption" display="block" textAlign="center" color="text.secondary" sx={{ mt: 4 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 4 }}>
             Acceso restringido a personal autorizado del MINSAL, ISSS y SRS.
           </Typography>
         </CardContent>
