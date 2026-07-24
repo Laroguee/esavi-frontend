@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './features/cases/Dashboard';
 import FormularioApertura from './features/forms/Fase1_Apertura/FormularioApertura';
@@ -18,11 +18,9 @@ import TrabajoCampo from './features/cases/TrabajoCampo';
 import BandejaComite from './features/comittee/BandejaComite';
 import ModuloAdministracion from './features/administration/ModuloAdministracion';
 
-
-
 export default function App() {
   return (
-    <BrowserRouter basename="/esavi-frontend">
+    <HashRouter>
       <Routes>
         {/* RUTA PÚBLICA */}
         <Route path="/login" element={<Login />} />
@@ -46,8 +44,8 @@ export default function App() {
             <Route path="bandeja-comite" element={<BandejaComite />} />
             <Route path="administracion" element={<ModuloAdministracion />} />
           </Route>
-        </Route> {/* <-- Esta es la etiqueta de cierre que faltaba */}
+        </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
