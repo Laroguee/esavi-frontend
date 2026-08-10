@@ -9,8 +9,8 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
-import SendIcon from '@mui/icons-material/Send';
 import GestorEvidencias from '../cases/GestorEvidencias';
+import ControlCalidad from '../forms/Fase5_ControlCalidad/ControlCalidad';
 
 const fases = [
   'Fase 1: Notificación',
@@ -33,23 +33,55 @@ const mockHistorial = [
 export default function CaseDetail() {
   const { id } = useParams(); 
   const navigate = useNavigate();
-  const { currentRole, logisticaCompletada } = useAuthStore(); 
+  const { currentRole } = useAuthStore(); 
 
   // --- CONEXIÓN AL STORE CENTRAL ---
-  const { casos, devolverCaso } = useCasesStore();
-  const casoActual = casos.find(c => c.id === id) || casos[0]; // Si no halla el id, usa el primero.
+  const { casos, devolverCaso, agendarReunion } = useCasesStore();
+  const casoActual = casos.find(c => c.id === id);
 
   // --- ESTADOS PARA MODALES (Read-Only) ---
   const [openNotif, setOpenNotif] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
 
-  // --- NUEVOS ESTADOS PARA MODAL DE RECHAZO ---
-  const [openRechazoModal, setOpenRechazoModal] = useState(false);
-  const [motivoRechazo, setMotivoRechazo] = useState('');
-  const [anexoACorregir, setAnexoACorregir] = useState('Anexo III (Logística)');
 
   // --- ESTADO PARA PESTAÑAS (TABS) ---
   const [tabIndex, setTabIndex] = useState(0);
+
+  // --- NUEVOS ESTADOS PARA AGENDA Y REUNIONES ---
+  const [openAgendaModal, setOpenAgendaModal] = useState(false);
+  const [openAuditoria, setOpenAuditoria] = useState(false);
+  const [nuevaReunion, setNuevaReunion] = useState<{
+    tema: string;
+    faseRelacionada: string;
+    fecha: string;
+    hora: string;
+    modalidad: 'Virtual' | 'Presencial';
+    enlaceOLugar: string;
+  }>({
+    tema: '',
+    faseRelacionada: 'Fase 2',
+    fecha: '',
+    hora: '',
+    modalidad: 'Virtual',
+    enlaceOLugar: ''
+  });
+
+  const handleGuardarReunion = () => {
+    if (!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora) return;
+    agendarReunion(casoActual.id, {
+      id: Date.now().toString(),
+      tema: nuevaReunion.tema,
+      faseRelacionada: nuevaReunion.faseRelacionada,
+      fecha: nuevaReunion.fecha,
+      hora: nuevaReunion.hora,
+      convocados: [],
+      estado: 'PROGRAMADA',
+      modalidad: nuevaReunion.modalidad,
+      enlaceOLugar: nuevaReunion.enlaceOLugar
+    });
+    setOpenAgendaModal(false);
+    setNuevaReunion({ tema: '', faseRelacionada: 'Fase 2', fecha: '', hora: '', modalidad: 'Virtual', enlaceOLugar: '' });
+  };
 
   // --- MOCK DE ESTADOS PARA LA UI Y ASIGNACIÓN ---
   const isAperturado = true;
@@ -68,9 +100,20 @@ export default function CaseDetail() {
     if (faseStr.includes('Fase 6')) return 5;
     return 0;
   };
-  const faseActual = getActiveStepIndex(casoActual.fase);
+  const faseActual = getActiveStepIndex(casoActual?.fase || '');
 
-  // --- EVALUACIÓN DE ROLES ---
+  if (!casoActual) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center', mt: 10 }}>
+        <Alert severity="error" variant="filled" sx={{ display: 'inline-flex', fontSize: '1.2rem' }}>Expediente no encontrado ({id})</Alert>
+        <Box sx={{ mt: 3 }}>
+          <Button variant="contained" onClick={() => navigate('/')}>Volver al Dashboard</Button>
+        </Box>
+      </Box>
+    );
+  }
+
+  // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
   const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string);
   const isEsaviLocal = currentRole === 'ESAVI_LOCAL';
@@ -81,7 +124,7 @@ export default function CaseDetail() {
   const isComite = currentRole === 'COMITE_EXTERNO';
 
   // --- COMPONENTE INTERNO: FILA DE ACCIÓN INTELIGENTE ---
-  const ActionRow = ({ title, chipStatus, btnText, onClick, disabled, tooltipText, color = "secondary" }: any) => {
+  function ActionRow({ title, chipStatus, btnText, onClick, disabled, tooltipText, color = "secondary", variant = "contained" }: any) {
     const getChip = () => {
       if (chipStatus === 'Completado') return <Chip label="Completado" color="success" size="small" />;
       if (chipStatus === 'Pendiente') return <Chip label="Pendiente" color="primary" size="small" variant="outlined" />;
@@ -97,22 +140,24 @@ export default function CaseDetail() {
         </Box>
         <Tooltip title={disabled ? tooltipText : ''} placement="left" arrow disableHoverListener={!disabled}>
           <span>
-            <Button variant="contained" color={color} size="small" onClick={onClick} disabled={disabled} sx={{ pointerEvents: disabled ? 'none' : 'auto' }}>
+            <Button variant={variant} color={color} size="small" onClick={onClick} disabled={disabled} sx={{ pointerEvents: disabled ? 'none' : 'auto' }}>
               {btnText}
             </Button>
           </span>
         </Tooltip>
       </Box>
     );
-  };
+  }
 
   // --- COMPONENTE INTERNO: FILA DE DATOS SOLO LECTURA ---
-  const ReadOnlyField = ({ label, value }: { label: string, value: string }) => (
-    <Box sx={{ mb: 1.5 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{label}</Typography>
-      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{value}</Typography>
-    </Box>
-  );
+  function ReadOnlyField({ label, value }: { label: string, value: string }) {
+    return (
+      <Box sx={{ mb: 1.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{label}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{value}</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 1000, margin: 'auto', pb: 8 }}>
@@ -155,8 +200,8 @@ export default function CaseDetail() {
           
           <Grid size={{ xs: 12, md: 5 }} sx={{ textAlign: 'right' }}>
             <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold', display: 'block' }}>ESTADO ACTUAL</Typography>
-            <Typography variant="h6" sx={{ display: 'block', mb: 1 }} color={casoActual.estadoFlujo !== 'NORMAL' ? "error.main" : "text.primary"}>
-              {casoActual.estadoFlujo !== 'NORMAL' ? "Devuelto por Observaciones" : casoActual.fase}
+            <Typography variant="h6" sx={{ display: 'block', mb: 1 }} color={(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') ? "error.main" : "text.primary"}>
+              {(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') ? "Devuelto por Observaciones" : casoActual.fase}
             </Typography>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', mt: 2 }}>
@@ -175,10 +220,17 @@ export default function CaseDetail() {
       <Stepper activeStep={faseActual} alternativeLabel sx={{ mb: 5 }}>
         {fases.map((label) => (
           <Step key={label}>
-            <StepLabel error={casoActual.estadoFlujo !== 'NORMAL' && label === 'Fase 5: Control Calidad'}>{label}</StepLabel>
+            <StepLabel error={(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') && label === 'Fase 5: Control Calidad'}>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
+
+      {/* ================= BANNER DE OBSERVACIONES ================= */}
+      {(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') && casoActual.observacionActual && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <strong>Observaciones de Auditoría:</strong> {casoActual.observacionActual}
+        </Alert>
+      )}
 
       {/* ================= TABS PRINCIPALES ================= */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -186,6 +238,7 @@ export default function CaseDetail() {
           <Tab label="Gestión del Expediente" />
           <Tab label="Gestor de Evidencias" />
           <Tab label="Historial de Cambios" iconPosition="start" icon={<HistoryIcon fontSize="small" />} />
+          <Tab label="Agenda y Reuniones" />
         </Tabs>
       </Box>
 
@@ -219,45 +272,94 @@ export default function CaseDetail() {
               </Box>
               
               <Box sx={{ p: 2 }}>
-                {!logisticaCompletada && isUserAssignedToERR && (isInmunoLocal || isEpidemioLocal) && (
-                  <Alert severity="warning" sx={{ mb: 2, fontWeight: 'bold' }}>Debe completar la Logística de Campo (Anexo III) antes de proceder a la investigación en terreno.</Alert>
-                )}
+                {(() => {
+                  const isViewer = isEsaviInstitucional || isSecretariado || isComite || isUserAssignedToERR;
+                  
+                  const a3Status = casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'Corrección' : (casoActual.anexoIII_completado ? 'Completado' : 'Pendiente');
+                  const a7Status = casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'Corrección' : (casoActual.anexoVII_completado ? 'Completado' : 'Pendiente');
+                  const a5Status = casoActual.anexoRechazado === 'Anexo V (Puesto de Vacunación)' ? 'Corrección' : (casoActual.anexoV_completado ? 'Completado' : (casoActual.anexoIII_completado ? 'Pendiente' : 'Bloqueado'));
+                  const a6Status = casoActual.anexoRechazado === 'Anexo VI (Domiciliaria)' ? 'Corrección' : (casoActual.anexoVI_completado ? 'Completado' : (casoActual.anexoIII_completado ? 'Pendiente' : 'Bloqueado'));
 
+                  return (
+                    <>
+                      <ActionRow 
+                        title="Evaluación Logística (Anexo III)" 
+                        chipStatus={a3Status} 
+                        btnText={a3Status === 'Completado' ? "VER ANEXO" : a3Status === 'Corrección' ? "Modificar Anexo" : "Completar Logística"} 
+                        variant={a3Status === 'Completado' ? "outlined" : "contained"}
+                        onClick={() => {
+                          if (a3Status === 'Completado') alert('Abriendo Anexo III en modo lectura...');
+                          else navigate('/anexo-logistica/' + id);
+                        }} 
+                        disabled={a3Status === 'Completado' ? !isViewer : (!isEsaviLocal || !isUserAssignedToERR)} 
+                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Referente ESAVI Local.")} 
+                        color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
+                      />
+                      <ActionRow 
+                        title="Evaluación Clínica (Anexo VII)" 
+                        chipStatus={a7Status} 
+                        btnText={a7Status === 'Completado' ? "VER ANEXO" : a7Status === 'Corrección' ? "Modificar Anexo" : "Llenar Clínico"} 
+                        variant={a7Status === 'Completado' ? "outlined" : "contained"}
+                        onClick={() => {
+                          if (a7Status === 'Completado') alert('Abriendo Anexo VII en modo lectura...');
+                          else navigate('/anexo-clinico');
+                        }} 
+                        disabled={a7Status === 'Completado' ? !isViewer : (!isEsaviLocal || !isUserAssignedToERR)} 
+                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!isUserAssignedToERR ? "No asignado." : "Solo Médico Clínico.")} 
+                        color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
+                      />
+                      <ActionRow 
+                        title="Puesto Vacunación (Anexo V)" 
+                        chipStatus={a5Status} 
+                        btnText={a5Status === 'Completado' ? "VER ANEXO" : a5Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo V"} 
+                        variant={a5Status === 'Completado' ? "outlined" : "contained"}
+                        onClick={() => {
+                          if (a5Status === 'Completado') alert('Abriendo Anexo V en modo lectura...');
+                          else navigate('/anexo-puesto');
+                        }} 
+                        disabled={a5Status === 'Completado' ? !isViewer : (!isInmunoLocal || !casoActual.anexoIII_completado || !isUserAssignedToERR)} 
+                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!isInmunoLocal ? "Solo Inmunizaciones." : "Debe completar Logística (Anexo III).")} 
+                        color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
+                      />
+                      <ActionRow 
+                        title="Inv. Domiciliaria (Anexo VI)" 
+                        chipStatus={a6Status} 
+                        btnText={a6Status === 'Completado' ? "VER ANEXO" : a6Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo VI"} 
+                        variant={a6Status === 'Completado' ? "outlined" : "contained"}
+                        onClick={() => {
+                          if (a6Status === 'Completado') alert('Abriendo Anexo VI en modo lectura...');
+                          else navigate('/anexo-domicilio');
+                        }} 
+                        disabled={a6Status === 'Completado' ? !isViewer : (!isEpidemioLocal || !casoActual.anexoIII_completado || !isUserAssignedToERR)} 
+                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!isEpidemioLocal ? "Solo Epidemiólogo." : "Debe completar Logística (Anexo III).")}
+                        color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
+                      />
+                    </>
+                  );
+                })()}
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* TARJETA 2.5: CONTROL DE CALIDAD (Fase 5) */}
+          <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
+            <CardContent sx={{ p: 0 }}>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
+                <FactCheckIcon sx={{ color: '#ed6c02' }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#ed6c02' }}>Control de Calidad (Fase 5)</Typography>
+              </Box>
+              <Box sx={{ p: 2 }}>
                 <ActionRow 
-                  title="Checklist Logística (Anexo III)" 
-                  chipStatus={casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'Corrección' : (logisticaCompletada ? 'Completado' : 'Pendiente')} 
-                  btnText={casoActual.anexoRechazado === 'Anexo III (Logística)' ? "Modificar Anexo" : "Completar Logística"} 
-                  onClick={() => navigate('/anexo-logistica/' + id)} 
-                  disabled={!isEsaviLocal || !isUserAssignedToERR} 
-                  tooltipText={!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Referente ESAVI Local."} 
-                  color={casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'error' : 'secondary'}
-                />
-                <ActionRow 
-                  title="Evaluación Clínica (Anexo VII)" 
-                  chipStatus={casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'Corrección' : (isClinicoLlenado ? 'Completado' : 'Pendiente')} 
-                  btnText="Llenar Clínico" 
-                  onClick={() => navigate('/anexo-clinico')} 
-                  disabled={!isEsaviLocal || !isUserAssignedToERR} 
-                  tooltipText={!isUserAssignedToERR ? "No asignado." : "Solo Médico Clínico."} 
-                  color={casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'error' : 'secondary'}
-                />
-                <ActionRow 
-                  title="Puesto Vacunación (Anexo V)" 
-                  chipStatus={casoActual.anexoRechazado === 'Anexo V (Puesto de Vacunación)' ? 'Corrección' : (logisticaCompletada ? 'Pendiente' : 'Bloqueado')} 
-                  btnText="Llenar Anexo V" 
-                  onClick={() => navigate('/anexo-puesto')} 
-                  disabled={!isInmunoLocal || !logisticaCompletada || !isUserAssignedToERR} 
-                  tooltipText={!isInmunoLocal ? "Solo Inmunizaciones." : "Debe completar Logística (Anexo III)."} 
-                  color={casoActual.anexoRechazado === 'Anexo V (Puesto de Vacunación)' ? 'error' : 'secondary'}
-                />
-                <ActionRow 
-                  title="Inv. Domiciliaria (Anexo VI)" 
-                  chipStatus={casoActual.anexoRechazado === 'Anexo VI (Domiciliaria)' ? 'Corrección' : (logisticaCompletada ? 'Pendiente' : 'Bloqueado')} 
-                  btnText="Llenar Anexo VI" 
-                  onClick={() => navigate('/anexo-domicilio')} 
-                  disabled={!isEpidemioLocal || !logisticaCompletada || !isUserAssignedToERR} 
-                  tooltipText={!isEpidemioLocal ? "Solo Epidemiólogo." : "Debe completar Logística (Anexo III)."}
-                  color={casoActual.anexoRechazado === 'Anexo VI (Domiciliaria)' ? 'error' : 'secondary'}
+                  title="Auditoría de Anexos" 
+                  chipStatus={faseActual >= 4 ? 'Completado' : 'Pendiente'} 
+                  btnText="Realizar Auditoría de Anexos" 
+                  color="warning" 
+                  onClick={() => setOpenAuditoria(true)} 
+                  disabled={!(
+                    (isEsaviInstitucional && (casoActual.estadoFlujo === 'EN_INVESTIGACION' || casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL')) || 
+                    (isSecretariado && casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')
+                  )} 
+                  tooltipText="Solo habilitado para Jefatura/Secretariado en las fases correspondientes." 
                 />
               </Box>
             </CardContent>
@@ -271,19 +373,7 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow title="Control Calidad Anexos (Fase 5)" chipStatus={faseActual >= 4 ? 'Completado' : 'Pendiente'} btnText="Revisar y Aprobar" color="success" onClick={() => navigate('/dictamen/' + id)} disabled={!isSecretariado} tooltipText="Solo Secretariado." />
                 <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
-                
-                {isSecretariado && (
-                  <Box sx={{ mt: 2 }}>
-                    <Divider sx={{ my: 1 }} />
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button variant="outlined" color="error" size="small" onClick={() => setOpenRechazoModal(true)}>
-                        Devolver Expediente con Observaciones
-                      </Button>
-                    </Box>
-                  </Box>
-                )}
               </Box>
             </CardContent>
           </Card>
@@ -340,6 +430,125 @@ export default function CaseDetail() {
         </Box>
       )}
 
+      {/* TAB 3: AGENDA Y REUNIONES */}
+      {tabIndex === 3 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" color="primary">Agenda de Reuniones</Typography>
+            {(isJefe || isSecretariado) && (
+              <Button variant="contained" color="primary" onClick={() => setOpenAgendaModal(true)}>
+                + Agendar Reunión
+              </Button>
+            )}
+          </Box>
+
+          {casoActual.reuniones && casoActual.reuniones.length > 0 ? (
+            <Grid container spacing={2}>
+              {casoActual.reuniones.map((reunion) => (
+                <Grid size={{ xs: 12, md: 6 }} key={reunion.id}>
+                  <Card elevation={2}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="subtitle1" fontWeight="bold">{reunion.tema}</Typography>
+                        <Chip size="small" color={reunion.estado === 'PROGRAMADA' ? 'primary' : 'success'} label={reunion.estado} />
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">Fase: {reunion.faseRelacionada}</Typography>
+                      <Typography variant="body2" color="text.secondary">Fecha: {reunion.fecha} a las {reunion.hora}</Typography>
+                      <Typography variant="body2" color="text.secondary">Modalidad: {reunion.modalidad}</Typography>
+                      <Typography variant="body2" color="text.secondary">{reunion.modalidad === 'Virtual' ? 'Enlace' : 'Lugar'}: {reunion.enlaceOLugar}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Alert severity="info">No hay reuniones programadas para este expediente.</Alert>
+          )}
+        </Box>
+      )}
+
+      {/* MODAL: AGENDAR REUNIÓN */}
+      <Dialog open={openAgendaModal} onClose={() => setOpenAgendaModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>
+          Agendar Nueva Reunión
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Tema de la Reunión"
+            value={nuevaReunion.tema}
+            onChange={(e) => setNuevaReunion({ ...nuevaReunion, tema: e.target.value })}
+            sx={{ mb: 2, mt: 1 }}
+            required
+          />
+          <TextField
+            select
+            fullWidth
+            label="Fase Relacionada"
+            value={nuevaReunion.faseRelacionada}
+            onChange={(e) => setNuevaReunion({ ...nuevaReunion, faseRelacionada: e.target.value })}
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="Fase 2">Fase 2: Evaluación</MenuItem>
+            <MenuItem value="Fase 3">Fase 3: Asignación ERR</MenuItem>
+            <MenuItem value="Fase 6">Fase 6: Comité Externo</MenuItem>
+          </TextField>
+          <TextField
+            select
+            fullWidth
+            label="Modalidad"
+            value={nuevaReunion.modalidad}
+            onChange={(e) => setNuevaReunion({ ...nuevaReunion, modalidad: e.target.value as 'Virtual' | 'Presencial' })}
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="Virtual">Virtual</MenuItem>
+            <MenuItem value="Presencial">Presencial</MenuItem>
+          </TextField>
+          <TextField
+            fullWidth
+            label={nuevaReunion.modalidad === 'Virtual' ? "Enlace de la Reunión (URL)" : "Lugar / Sala"}
+            value={nuevaReunion.enlaceOLugar}
+            onChange={(e) => setNuevaReunion({ ...nuevaReunion, enlaceOLugar: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Fecha"
+                slotProps={{ inputLabel: { shrink: true } }}
+                value={nuevaReunion.fecha}
+                onChange={(e) => setNuevaReunion({ ...nuevaReunion, fecha: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                fullWidth
+                type="time"
+                label="Hora"
+                slotProps={{ inputLabel: { shrink: true } }}
+                value={nuevaReunion.hora}
+                onChange={(e) => setNuevaReunion({ ...nuevaReunion, hora: e.target.value })}
+                required
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setOpenAgendaModal(false)} variant="outlined" color="inherit">Cancelar</Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={handleGuardarReunion}
+            disabled={!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora}
+          >
+            Guardar Reunión
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* MODALES READ-ONLY */}
       <Dialog open={openNotif} onClose={() => setOpenNotif(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>Notificación Inicial - ESAVI (Fase 1)</DialogTitle>
@@ -370,62 +579,13 @@ export default function CaseDetail() {
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}><Button onClick={() => setOpenApertura(false)} variant="contained" color="secondary">Cerrar</Button></DialogActions>
       </Dialog>
 
-      {/* =====================================================================
-          NUEVO MODAL: DEVOLUCIÓN DE EXPEDIENTE AL STORE
-      ==================================================================== */}
-      <Dialog open={openRechazoModal} onClose={() => setOpenRechazoModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', mb: 2 }}>
-          Devolver Expediente a ESAVI Institucional
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="warning" sx={{ mb: 3 }}>
-            El expediente regresará a la Jefatura Institucional para que asigne las correcciones pertinentes al Equipo Local.
-          </Alert>
-          
-          <TextField
-            select
-            fullWidth
-            label="Sección / Anexo que requiere corrección"
-            value={anexoACorregir}
-            onChange={(e) => setAnexoACorregir(e.target.value)}
-            sx={{ mb: 3 }}
-          >
-            <MenuItem value="Anexo III (Logística)">Anexo III (Logística)</MenuItem>
-            <MenuItem value="Anexo V (Puesto de Vacunación)">Anexo V (Puesto de Vacunación)</MenuItem>
-            <MenuItem value="Anexo VI (Domiciliaria)">Anexo VI (Domiciliaria)</MenuItem>
-            <MenuItem value="Anexo VII (Clínico)">Anexo VII (Clínico)</MenuItem>
-          </TextField>
 
-          <TextField 
-            fullWidth 
-            multiline 
-            rows={4} 
-            label="Observaciones detalladas de Devolución" 
-            placeholder="Especifique qué información falta o debe ser corregida..."
-            value={motivoRechazo}
-            onChange={(e) => setMotivoRechazo(e.target.value)}
-            required
-          />
+      {/* MODAL: AUDITORÍA (Fase 5) */}
+      <Dialog open={openAuditoria} onClose={() => setOpenAuditoria(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 0 }}>Auditoría de Control de Calidad</DialogTitle>
+        <DialogContent sx={{ p: 3, pt: 4, bgcolor: '#f5f5f5' }}>
+          <ControlCalidad casoId={casoActual.id} />
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-          <Button onClick={() => setOpenRechazoModal(false)} variant="outlined" color="inherit">Cancelar</Button>
-          <Button 
-            variant="contained" 
-            color="error" 
-            disabled={motivoRechazo.trim() === ''}
-            onClick={() => {
-              // AQUÍ SE DISPARA LA MUTACIÓN GLOBAL
-              const msgNotif = `El Secretariado devolvió el caso ${casoActual.id} indicando corrección en: ${anexoACorregir}`;
-              devolverCaso(casoActual.id, 'DEVUELTO_A_INSTITUCIONAL', motivoRechazo, anexoACorregir, msgNotif);
-              
-              setMotivoRechazo('');
-              setOpenRechazoModal(false);
-              navigate('/'); // Lo sacamos del caso después de devolverlo
-            }}
-          >
-            Confirmar Devolución
-          </Button>
-        </DialogActions>
       </Dialog>
 
     </Box>

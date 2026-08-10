@@ -20,6 +20,7 @@ import ModuloAdministracion from './features/administration/ModuloAdministracion
 
 export default function App() {
   return (
+    // TODO (Deploy): Cambiar a BrowserRouter para producción
     <HashRouter>
       <Routes>
         {/* RUTA PÚBLICA */}

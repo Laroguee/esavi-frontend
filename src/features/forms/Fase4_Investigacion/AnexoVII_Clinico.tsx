@@ -146,31 +146,33 @@ export default function AnexoVII_Clinico() {
     navigate(-1);
   };
 
-  const RenderEquipoRow = ({ prefix, titulo }: { prefix: string, titulo: string }) => (
-    <TableRow>
-      <TableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>{titulo}</TableCell>
-      <TableCell>
-        <Controller name={`${prefix}_nombre` as any} control={control} render={({ field, fieldState }) => (
-          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
-        )}/>
-      </TableCell>
-      <TableCell>
-        <Controller name={`${prefix}_cargo` as any} control={control} render={({ field, fieldState }) => (
-          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
-        )}/>
-      </TableCell>
-      <TableCell>
-        <Controller name={`${prefix}_correo` as any} control={control} render={({ field, fieldState }) => (
-          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
-        )}/>
-      </TableCell>
-      <TableCell>
-        <Controller name={`${prefix}_tel` as any} control={control} render={({ field, fieldState }) => (
-          <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
-        )}/>
-      </TableCell>
-    </TableRow>
-  );
+  function RenderEquipoRow({ prefix, titulo }: { prefix: string, titulo: string }) {
+    return (
+      <TableRow>
+        <TableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>{titulo}</TableCell>
+        <TableCell>
+          <Controller name={`${prefix}_nombre` as any} control={control} render={({ field, fieldState }) => (
+            <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+          )}/>
+        </TableCell>
+        <TableCell>
+          <Controller name={`${prefix}_cargo` as any} control={control} render={({ field, fieldState }) => (
+            <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+          )}/>
+        </TableCell>
+        <TableCell>
+          <Controller name={`${prefix}_correo` as any} control={control} render={({ field, fieldState }) => (
+            <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+          )}/>
+        </TableCell>
+        <TableCell>
+          <Controller name={`${prefix}_tel` as any} control={control} render={({ field, fieldState }) => (
+            <TextField {...field} fullWidth size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+          )}/>
+        </TableCell>
+      </TableRow>
+    );
+  }
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>

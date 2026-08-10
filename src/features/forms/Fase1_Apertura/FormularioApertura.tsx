@@ -6,6 +6,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useCasesStore } from '../../../store/useCasesStore';
 
 // =======================================================
 // ESQUEMA ESTRICTO DE ZOD
@@ -53,11 +54,28 @@ export default function FormularioApertura() {
     setValue('idUnico', nuevoID); 
   }, [institucionSeleccionada, setValue]);
 
+  const { agendarReunion } = useCasesStore();
+
   const onSubmit = (data: AperturaFormValues) => {
     console.log("Datos Apertura:", data);
     if (anexoFile) {
       console.log("Archivo adjunto preparado para envío:", anexoFile.name);
     }
+
+    const [fechaStr, horaStr] = data.fechaReunion.split('T');
+
+    agendarReunion(data.idUnico, {
+      id: Date.now().toString(),
+      tema: "Convocatoria Inicial al Equipo Coordinador",
+      faseRelacionada: "Fase 2",
+      fecha: fechaStr || '',
+      hora: horaStr || '',
+      convocados: [],
+      estado: 'PROGRAMADA',
+      modalidad: data.tipoReunion as 'Virtual' | 'Presencial',
+      enlaceOLugar: 'Pendiente de asignar'
+    });
+
     alert(`Expediente Oficial ${data.idUnico} creado exitosamente.`);
     navigate('/caso/' + data.idUnico);
   };

@@ -65,6 +65,32 @@ export default function Dashboard() {
     return matchesSearch && matchesEstado && matchesRiesgo;
   });
 
+  const getEstadoChipProps = (estadoFlujo: string) => {
+    switch (estadoFlujo) {
+      case 'NUEVO':
+      case 'NOTIFICADO':
+        return { label: estadoFlujo === 'NUEVO' ? 'Nuevo' : 'Notificado', color: 'default' as const };
+      case 'EN_EVALUACION':
+        return { label: 'En Evaluación', color: 'info' as const };
+      case 'ASIGNADO_A_ERR':
+        return { label: 'Asignado a ERR', color: 'secondary' as const };
+      case 'EN_INVESTIGACION':
+        return { label: 'En Investigación', color: 'warning' as const };
+      case 'EN_REVISION_SECRETARIADO':
+        return { label: 'Revisión Secretariado', sx: { bgcolor: '#00bcd4', color: 'white' } };
+      case 'DEVUELTO_A_INSTITUCIONAL':
+      case 'DEVUELTO_A_ERR':
+      case 'CORREGIDO_POR_ERR':
+        return { label: 'Devuelto por Observaciones', color: 'error' as const, icon: <WarningAmberIcon fontSize="small" /> };
+      case 'EN_EVALUACION_COMITE':
+        return { label: 'En Comité', sx: { bgcolor: '#3f51b5', color: 'white' } };
+      case 'CERRADO_DICTAMINADO':
+        return { label: 'Cerrado', color: 'success' as const };
+      default:
+        return { label: 'Normal', color: 'default' as const };
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: 1200, margin: 'auto' }}>
       
@@ -187,18 +213,15 @@ export default function Dashboard() {
             {casosFiltrados.length > 0 ? (
               casosFiltrados.map((caso) => {
                 const sla = getSLAStatus(caso.fecha);
+                const isError = caso.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || caso.estadoFlujo === 'DEVUELTO_A_ERR';
                 return (
-                  <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: caso.estadoFlujo !== 'NORMAL' ? '#ffebee' : sla.rowColor, cursor: 'pointer' }}>
+                  <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: isError ? '#ffebee' : sla.rowColor, cursor: 'pointer' }}>
                     <TableCell>{caso.id}</TableCell>
                     <TableCell>{caso.paciente}</TableCell>
                     <TableCell><Chip label={caso.fase} size="small" /></TableCell>
                     
                     <TableCell>
-                      {caso.estadoFlujo !== 'NORMAL' ? (
-                        <Chip icon={<WarningAmberIcon />} label="Con Observaciones" color="error" size="small" variant="filled" />
-                      ) : (
-                        <Chip label="Normal" color="default" size="small" variant="outlined" />
-                      )}
+                      <Chip size="small" {...getEstadoChipProps(caso.estadoFlujo)} />
                     </TableCell>
 
                     <TableCell>

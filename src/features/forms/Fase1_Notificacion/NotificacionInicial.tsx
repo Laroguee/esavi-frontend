@@ -21,7 +21,7 @@ const notificacionSchema = z.object({
   pacienteFechaNacimiento: z.string().optional(),
   
   // Regla 1: Zod nativo, simple y compatible. La magia la hace el onChange del TextField
-  pacienteEdad: z.number().min(0, "La edad no puede ser negativa"),
+  pacienteEdad: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine(val => val >= 0, { message: "La edad no puede ser negativa" }),
   
   // Regla 2: Formato DUI Salvadoreño o estar vacío
   pacienteDUI: z.string()

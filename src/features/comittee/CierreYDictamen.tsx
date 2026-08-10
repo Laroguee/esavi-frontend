@@ -102,13 +102,14 @@ export default function CierreYDictamen() {
     navigate('/');
   };
 
-  // Componente de UI para datos de solo lectura
-  const DataField = ({ label, value, fullWidth = false }: { label: string, value: string, fullWidth?: boolean }) => (
-    <Grid size={{ xs: 12, md: fullWidth ? 12 : 4 }} sx={{ mb: 1 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: -0.5 }}>{label}</Typography>
-      <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.primary' }}>{value}</Typography>
-    </Grid>
-  );
+  function DataField({ label, value, fullWidth = false }: { label: string, value: string, fullWidth?: boolean }) {
+    return (
+      <Grid size={{ xs: 12, md: fullWidth ? 12 : 4 }} sx={{ mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: -0.5 }}>{label}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.primary' }}>{value}</Typography>
+      </Grid>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 1200, margin: 'auto', pb: 10 }}>

@@ -195,18 +195,20 @@ export default function AnexoVI_Domicilio() {
     { num: 8, elem: 'Percepción de la familia sobre la vacunación', desc: 'Actitudes, temores, experiencias previas, confianza en el sistema de salud.' }
   ];
 
-  const EntrevistaField = ({ name, label }: { name: string, label: string }) => (
-    <Controller name={name as any} control={control} render={({ field, fieldState }) => (
-      <TextField 
-        {...field} fullWidth size="small" sx={{ mb: 3 }} 
-        label={label} 
-        slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} 
-        multiline minRows={1}
-        error={!!fieldState.error}
-        helperText={fieldState.error?.message}
-      />
-    )}/>
-  );
+  function EntrevistaField({ name, label }: { name: string, label: string }) {
+    return (
+      <Controller name={name as any} control={control} render={({ field, fieldState }) => (
+        <TextField 
+          {...field} fullWidth size="small" sx={{ mb: 3 }} 
+          label={label} 
+          slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} 
+          multiline minRows={1}
+          error={!!fieldState.error}
+          helperText={fieldState.error?.message}
+        />
+      )}/>
+    );
+  }
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>

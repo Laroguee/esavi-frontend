@@ -6,16 +6,12 @@ import MapIcon from '@mui/icons-material/Map';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useAuthStore } from '../../store/useAuthStore';
 
-// --- MOCK DATA CON GEOGRAFÍA SALVADOREÑA ---
-const mockCasosCampo = [
-  { id: 'ESAVI-MINSAL-2025-042', paciente: 'Ana Gómez', municipio: 'San Miguel, San Miguel', estado: 'Pendiente de Investigación', completado: false },
-  { id: 'ESAVI-ISSS-2025-089', paciente: 'Luis Torres', municipio: 'Apopa, San Salvador', estado: 'En Proceso', completado: false },
-  { id: 'ESAVI-MINSAL-2025-104', paciente: 'Carmen Díaz', municipio: 'Chalatenango, Chalatenango', estado: 'Documentación Finalizada', completado: true },
-];
+import { useCasesStore } from '../../store/useCasesStore';
 
 export default function TrabajoCampo() {
   const navigate = useNavigate();
   const { currentRole } = useAuthStore();
+  const { casos } = useCasesStore();
 
   // Validación de acceso estricto a roles locales
   const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string);
@@ -64,20 +60,21 @@ export default function TrabajoCampo() {
     }
   };
 
-  // Componente interno para las tarjetas de métricas
-  const MetricCard = ({ title, value, icon, color }: any) => (
-    <Card elevation={2} sx={{ borderLeft: '4px solid', borderColor: color, height: '100%' }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Box sx={{ bgcolor: `${color}20`, p: 1.5, borderRadius: '50%', display: 'flex' }}>
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', color }}>{value}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>{title}</Typography>
-        </Box>
-      </CardContent>
-    </Card>
-  );
+  function MetricCard({ title, value, icon, color }: any) {
+    return (
+      <Card elevation={2} sx={{ borderLeft: '4px solid', borderColor: color, height: '100%' }}>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ bgcolor: `${color}20`, p: 1.5, borderRadius: '50%', display: 'flex' }}>
+            {icon}
+          </Box>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', color }}>{value}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>{title}</Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>
@@ -128,24 +125,45 @@ export default function TrabajoCampo() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {mockCasosCampo.map((caso) => (
-              <TableRow key={caso.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell sx={{ fontWeight: 'medium' }}>{caso.id}</TableCell>
-                <TableCell>{caso.paciente}</TableCell>
-                <TableCell>{caso.municipio}</TableCell>
-                <TableCell>
-                  <Chip 
-                    label={caso.estado} 
-                    size="small" 
-                    color={caso.completado ? 'success' : 'warning'} 
-                    variant={caso.completado ? 'filled' : 'outlined'} 
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  {getActionBtn(caso.id, caso.completado)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {(() => {
+              const casosParaMostrar = casos.filter(caso => 
+                caso.estadoFlujo === 'EN_INVESTIGACION' || 
+                caso.estadoFlujo === 'ASIGNADO_A_ERR' || 
+                caso.estadoFlujo === 'DEVUELTO_A_ERR'
+              );
+
+              return casosParaMostrar.length > 0 ? (
+                casosParaMostrar.map((caso) => {
+                  const isCompletado = false; // Estos estados son todos pendientes para el rol local
+                  const labelEstado = caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'Devuelto por Observaciones' : caso.estadoFlujo === 'ASIGNADO_A_ERR' ? 'Recién Asignado' : 'En Proceso';
+                  
+                  return (
+                    <TableRow key={caso.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell sx={{ fontWeight: 'medium' }}>{caso.id}</TableCell>
+                      <TableCell>{caso.paciente}</TableCell>
+                      <TableCell>{caso.establecimiento}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={labelEstado} 
+                          size="small" 
+                          color={caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'error' : 'warning'} 
+                          variant={isCompletado ? 'filled' : 'outlined'} 
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        {getActionBtn(caso.id, isCompletado)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                    <Typography color="text.secondary">No hay casos asignados a tu región en este momento.</Typography>
+                  </TableCell>
+                </TableRow>
+              );
+            })()}
           </TableBody>
         </Table>
       </TableContainer>

@@ -2,11 +2,13 @@ import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import jsPDF from 'jspdf';
+import { useReactToPrint } from 'react-to-print';
 import { useNavigate } from 'react-router-dom';
+import { useRef } from 'react';
 
 export default function MatrizRiesgo() {
   const navigate = useNavigate();
+  const componentRef = useRef<HTMLDivElement>(null);
 
   // Inicializamos todos los puntajes en 0 y las justificaciones vacías
   const { control, watch, handleSubmit } = useForm({
@@ -87,30 +89,12 @@ export default function MatrizRiesgo() {
   };
 
   // =========================================================================
-  // MISIÓN: FUNCIÓN GENERADORA DE REPORTE SITREP EN PDF
+  // MISIÓN: FUNCIÓN GENERADORA DE REPORTE SITREP USANDO REACT-TO-PRINT
   // =========================================================================
-  const generarSitRepPDF = () => {
-    const doc = new jsPDF();
-    
-    // Título centrado
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("Reporte de Situación Inicial (SitRep) - ESAVI", 105, 20, { align: 'center' });
-    
-    // Contenido del reporte
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Fecha y hora de generación: ${new Date().toLocaleString()}`, 20, 40);
-    doc.text(`Nivel de Riesgo Detectado: ${riesgoActual.etiqueta}`, 20, 50);
-    
-    // Texto estándar multilinea
-    const textoEstandar = "El presente reporte notifica la identificación de un evento adverso supuestamente atribuible a la vacunación e inmunización (ESAVI) que requiere movilización inmediata del Equipo de Respuesta Rápida (ERR).";
-    const lineas = doc.splitTextToSize(textoEstandar, 170);
-    doc.text(lineas, 20, 65);
-    
-    // Descarga automática
-    doc.save('SitRep_ESAVI.pdf');
-  };
+  const generarSitRepPDF = useReactToPrint({
+    content: () => componentRef.current,
+    documentTitle: 'SitRep_ESAVI',
+  });
 
   // Función de ayuda para renderizar las filas de la tabla
   const renderRow = (id: string, label: string, options: {val: number, label: string}[]) => (
@@ -150,7 +134,7 @@ export default function MatrizRiesgo() {
   ];
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ pb: 10 }}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ pb: 10 }} ref={componentRef}>
       
       {/* BARRA SUPERIOR FLOTANTE */}
       <Paper elevation={4} sx={{ p: 2, mb: 3, position: 'sticky', top: 64, zIndex: 100, borderBottom: '4px solid', borderColor: 'secondary.main' }}>
@@ -163,9 +147,9 @@ export default function MatrizRiesgo() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="h6">Puntaje Total:</Typography>
-              <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', marginRight: '8px' }}>
+              <Typography component="span" sx={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', mr: 1 }}>
                 {puntajeTotal}
-              </span>
+              </Typography>
               <Chip 
                 label={riesgoActual.etiqueta} 
                 color={riesgoActual.color} 
