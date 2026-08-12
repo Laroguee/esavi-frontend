@@ -2,7 +2,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Divider } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useCasesStore } from '../../../store/useCasesStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -77,6 +78,7 @@ type AnexoVFormValues = z.infer<typeof anexoVSchema>;
 
 export default function AnexoV_PuestoVacuna() {
   const navigate = useNavigate();
+  const { id } = useParams();
 
   const { control, handleSubmit } = useForm<AnexoVFormValues>({
     resolver: zodResolver(anexoVSchema),
@@ -98,6 +100,16 @@ export default function AnexoV_PuestoVacuna() {
   const onSubmit = (data: AnexoVFormValues) => {
     console.log("Anexo V Guardado:", data);
     alert("Guía del Puesto de Vacunación (Anexo V) guardada exitosamente.");
+    
+    if (id) {
+      const store = useCasesStore.getState();
+      store.marcarAnexoCompletado(id, 'V');
+      const casoActual = store.casos.find((c: any) => c.id === id);
+      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+      }
+    }
+    
     navigate(-1);
   };
 

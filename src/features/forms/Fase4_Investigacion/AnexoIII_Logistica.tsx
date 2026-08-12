@@ -4,6 +4,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useCasesStore } from '../../../store/useCasesStore';
 
 const checklistOficial = [
   { id: 'chk_1', text: 'Identifique la zona geográfica y conozca las condiciones ambientales, de acceso o comunicación y los riesgos de seguridad.' },
@@ -19,6 +20,7 @@ export default function AnexoIII_Logistica() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { setLogisticaCompletada } = useAuthStore();
+  const marcarAnexoCompletado = useCasesStore(state => state.marcarAnexoCompletado);
   
   const { control, handleSubmit } = useForm({
     defaultValues: {
@@ -29,13 +31,18 @@ export default function AnexoIII_Logistica() {
   });
 
   const onSubmit = (data: any) => {
-    console.log("Checklist Logístico Guardado:", data);
-    alert(`Logística de campo completada para el caso ${id}. Ahora el equipo puede proceder a llenar los Anexos V y VI.`);
-    
-    setLogisticaCompletada(true);
-    
-    // Regresa al expediente (Simulando que ya actualizó el flag en BD)
-    navigate('/caso/' + id);
+    if (id) {
+      marcarAnexoCompletado(id, 'III');
+      setLogisticaCompletada(true);
+      
+      const store = useCasesStore.getState();
+      const casoActual = store.casos.find((c: any) => c.id === id);
+      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+      }
+
+      navigate('/caso/' + id);
+    }
   };
 
   return (

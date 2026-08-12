@@ -7,7 +7,8 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useCasesStore } from '../../../store/useCasesStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -139,6 +140,7 @@ type AnexoVIFormValues = z.infer<typeof anexoVISchema>;
 
 export default function AnexoVI_Domicilio() {
   const navigate = useNavigate();
+  const { id } = useParams();
 
   const { control, handleSubmit } = useForm<AnexoVIFormValues>({
     resolver: zodResolver(anexoVISchema),
@@ -167,6 +169,16 @@ export default function AnexoVI_Domicilio() {
   const onSubmit = (data: AnexoVIFormValues) => {
     console.log("Anexo VI Guardado:", data);
     alert("Guía Domiciliaria (Anexo VI) guardada exitosamente.");
+
+    if (id) {
+      const store = useCasesStore.getState();
+      store.marcarAnexoCompletado(id, 'VI');
+      const casoActual = store.casos.find((c: any) => c.id === id);
+      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+      }
+    }
+
     navigate(-1);
   };
 

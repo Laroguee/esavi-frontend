@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Paper, Typography, Grid, Card, CardContent, FormControlLabel, RadioGroup, Radio, TextField, Button, Alert } from '@mui/material';
+import { Box, Paper, Typography, Grid, Card, CardContent, FormControlLabel, RadioGroup, Radio, TextField, Button, Alert, Checkbox } from '@mui/material';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 
 interface ControlCalidadProps {
   casoId: string;
+  onClose?: () => void;
 }
 
 type EvaluacionAnexo = {
@@ -15,7 +16,7 @@ type EvaluacionAnexo = {
   observacion: string;
 };
 
-export default function ControlCalidad({ casoId }: ControlCalidadProps) {
+export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps) {
   const navigate = useNavigate();
   const { currentRole } = useAuthStore();
   const { casos, devolverCaso, avanzarCaso } = useCasesStore();
@@ -28,6 +29,11 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
     'Anexo VI (Domiciliaria)': { estado: '', observacion: '' },
     'Anexo VII (Clínico)': { estado: '', observacion: '' },
   });
+
+  // --- CANDADOS NORMATIVOS POE FASE 5 ---
+  const [chkMinuta, setChkMinuta] = useState(false);
+  const [chkLineaTiempo, setChkLineaTiempo] = useState(false);
+  const [chkInformeFinal, setChkInformeFinal] = useState(false);
 
   const handleRadioChange = (anexo: string, value: string) => {
     setEvaluaciones(prev => ({
@@ -63,7 +69,7 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
 
     devolverCaso(casoId, nuevoEstado, evalData.observacion, nombreAnexo, msg);
     alert(`Expediente devuelto exitosamente a estado ${nuevoEstado}.`);
-    window.location.reload(); // Recargar modal/vista
+    if (onClose) onClose(); else navigate(`/caso/${casoId}`);
   };
 
   const handleAprobar = () => {
@@ -81,12 +87,12 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
     }
 
     const nuevoEstado = currentRole === 'ESAVI_INSTITUCIONAL' ? 'EN_REVISION_SECRETARIADO' : 'APROBADO_PARA_COMITE';
-    const nuevaFase = currentRole === 'ESAVI_INSTITUCIONAL' ? 'Fase 5: Control Calidad' : 'Fase 6: Dictamen';
+    const nuevaFase = currentRole === 'ESAVI_INSTITUCIONAL' ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
     const msg = `Expediente aprobado por ${currentRole}. Avanza a ${nuevoEstado}.`;
 
     avanzarCaso(casoId, nuevoEstado, nuevaFase, msg);
     alert(`Expediente aprobado. Pasa a estado: ${nuevoEstado}.`);
-    window.location.reload();
+    if (onClose) onClose(); else navigate(`/caso/${casoId}`);
   };
 
   if (!caso) return <Alert severity="error">Caso no encontrado</Alert>;
@@ -97,7 +103,7 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
     const msg = 'La Jefatura solicita correcciones en los anexos de campo.';
     devolverCaso(casoId, 'DEVUELTO_A_ERR', caso.observacionActual || '', caso.anexoRechazado || 'General', msg);
     alert(`Expediente devuelto exitosamente a estado DEVUELTO_A_ERR.`);
-    window.location.reload();
+    if (onClose) onClose(); else navigate(`/caso/${casoId}`);
   };
 
   return (
@@ -112,7 +118,7 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {isPaseDeMando ? (
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Alert severity="warning" sx={{ mb: 2, fontSize: '1.1rem' }}>
               <strong>Atención:</strong> El Secretariado ha devuelto este expediente con las siguientes observaciones: <br/>
               <em>{caso.observacionActual}</em>
@@ -120,7 +126,7 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
           </Grid>
         ) : (
           Object.entries(evaluaciones).map(([anexoNombre, evalData]) => (
-            <Grid item xs={12} key={anexoNombre}>
+            <Grid size={{ xs: 12 }} key={anexoNombre}>
               <Card elevation={2} sx={{ borderLeft: evalData.estado === 'observado' ? '4px solid #d32f2f' : evalData.estado === 'aprobado' ? '4px solid #2e7d32' : '4px solid #1976d2' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>{anexoNombre}</Typography>
@@ -157,6 +163,17 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
         )}
       </Grid>
 
+      {!isPaseDeMando && (
+        <Box sx={{ mb: 3, p: 2, bgcolor: '#f4f6f8', borderRadius: 1, border: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
+            Requisitos de Cierre Institucional (Paso 16 del POE)
+          </Typography>
+          <FormControlLabel control={<Checkbox checked={chkMinuta} onChange={(e) => setChkMinuta(e.target.checked)} />} label={<Typography variant="body2">Minuta de reunión de cierre elaborada</Typography>} />
+          <FormControlLabel control={<Checkbox checked={chkLineaTiempo} onChange={(e) => setChkLineaTiempo(e.target.checked)} />} label={<Typography variant="body2">Línea de tiempo del caso documentada</Typography>} />
+          <FormControlLabel control={<Checkbox checked={chkInformeFinal} onChange={(e) => setChkInformeFinal(e.target.checked)} />} label={<Typography variant="body2">Informe final consolidado en el Gestor de Evidencias</Typography>} />
+        </Box>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4, pt: 3, borderTop: '1px solid #e0e0e0' }}>
         {isPaseDeMando ? (
           <Button 
@@ -181,9 +198,10 @@ export default function ControlCalidad({ casoId }: ControlCalidadProps) {
               variant="contained" 
               color="success" 
               onClick={handleAprobar}
+              disabled={!chkMinuta || !chkLineaTiempo || !chkInformeFinal}
               sx={{ fontWeight: 'bold', px: 4 }}
             >
-              Aprobar Expediente
+              Aprobar y Enviar al Secretariado
             </Button>
           </>
         )}

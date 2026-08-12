@@ -3,7 +3,8 @@ import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, Chi
 import GavelIcon from '@mui/icons-material/Gavel';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useCasesStore } from '../../store/useCasesStore';
 
 interface FormDataCausalidad {
   clasificacionFinal: string;
@@ -14,6 +15,10 @@ interface FormDataCausalidad {
 
 export default function DictamenCausalidad() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const { avanzarCaso, casos } = useCasesStore();
+  
+  const casoActual = casos.find(c => c.id === id);
 
   const { control, handleSubmit } = useForm<FormDataCausalidad>({
     defaultValues: {
@@ -26,8 +31,13 @@ export default function DictamenCausalidad() {
 
   const onSubmit = (data: FormDataCausalidad) => {
     console.log("Acta de Causalidad:", data);
+    
+    if (id) {
+      avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.');
+    }
+    
     alert("Dictamen Final Guardado. El caso ESAVI ha sido CERRADO OFICIALMENTE.");
-    navigate('/');
+    navigate('/bandeja-comite');
   };
 
   return (
@@ -43,7 +53,7 @@ export default function DictamenCausalidad() {
       {/* ÁREA DE LECTURA */}
       <Paper elevation={2} sx={{ p: 4, mb: 4, bgcolor: '#f8f9fa' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>Expediente ESAVI-MINSAL-2025-001</Typography>
+          <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>Expediente {id}</Typography>
           <Chip label="APROBADO POR SECRETARIADO" color="success" icon={<CheckCircleIcon />} />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>

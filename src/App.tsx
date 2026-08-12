@@ -32,15 +32,15 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="nuevo-caso" element={<FormularioApertura />} />
             <Route path="caso/:id" element={<CaseDetail />} />
-            <Route path="matriz-riesgo" element={<MatrizRiesgo />} />
-            <Route path="anexo-clinico" element={<AnexoVII_Clinico />} />
-            <Route path="anexo-puesto" element={<AnexoV_PuestoVacuna />} />
-            <Route path="anexo-domicilio" element={<AnexoVI_Domicilio />} />
+            <Route path="matriz-riesgo/:id" element={<MatrizRiesgo />} />
+            <Route path="anexo-clinico/:id" element={<AnexoVII_Clinico />} />
+            <Route path="anexo-puesto/:id" element={<AnexoV_PuestoVacuna />} />
+            <Route path="anexo-domicilio/:id" element={<AnexoVI_Domicilio />} />
             <Route path="comite-causalidad" element={<DictamenCausalidad />} />
             <Route path="notificacion-inicial" element={<NotificacionInicial />} />
             <Route path="asignar-equipo/:id" element={<AsignacionERR />} />
             <Route path="anexo-logistica/:id" element={<AnexoIII_Logistica />} />
-            <Route path="dictamen/:id" element={<CierreYDictamen />} />
+            <Route path="dictamen/:id" element={<DictamenCausalidad />} />
             <Route path="trabajo-campo" element={<TrabajoCampo />} />
             <Route path="bandeja-comite" element={<BandejaComite />} />
             <Route path="administracion" element={<ModuloAdministracion />} />

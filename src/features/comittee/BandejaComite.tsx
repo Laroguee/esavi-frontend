@@ -2,14 +2,13 @@ import { Box, Paper, Typography, Table, TableBody, TableCell, TableContainer, Ta
 import GavelIcon from '@mui/icons-material/Gavel';
 import { useNavigate } from 'react-router-dom';
 
-// MOCK DATA: Exclusivo para casos aprobados por el Secretariado
-const mockCasosComite = [
-  { id: 'ESAVI-MINSAL-2025-045', paciente: 'Marta Rojas', vacuna: 'DPT', fechaAprobacion: '05/07/2026', estadoCierre: 'EN_COMITE' },
-  { id: 'ESAVI-ISSS-2025-088', paciente: 'Jorge Ramos', vacuna: 'COVID-19', fechaAprobacion: '06/07/2026', estadoCierre: 'EN_COMITE' }
-];
+import { useCasesStore } from '../../store/useCasesStore';
+import dayjs from 'dayjs';
 
 export default function BandejaComite() {
   const navigate = useNavigate();
+  const casos = useCasesStore(state => state.casos);
+  const casosComite = casos.filter(c => c.estadoFlujo === 'EN_EVALUACION_COMITE');
 
   return (
     <Box sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
@@ -40,14 +39,14 @@ export default function BandejaComite() {
           </TableHead>
           
           <TableBody>
-            {mockCasosComite.map((caso) => (
+            {casosComite.map((caso) => (
               <TableRow key={caso.id} hover>
                 <TableCell sx={{ fontWeight: 'bold' }}>{caso.id}</TableCell>
                 <TableCell>{caso.paciente}</TableCell>
                 <TableCell>{caso.vacuna}</TableCell>
-                <TableCell>{caso.fechaAprobacion}</TableCell>
+                <TableCell>{dayjs(caso.fecha).format('DD/MM/YYYY')}</TableCell>
                 <TableCell>
-                  <Chip label="Aprobado para Comité" color="success" size="small" />
+                  <Chip label="En Evaluación" color="secondary" size="small" />
                 </TableCell>
                 <TableCell align="center">
                   <Button 
@@ -63,7 +62,7 @@ export default function BandejaComite() {
               </TableRow>
             ))}
             
-            {mockCasosComite.length === 0 && (
+            {casosComite.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">No hay casos pendientes de evaluación.</Typography>

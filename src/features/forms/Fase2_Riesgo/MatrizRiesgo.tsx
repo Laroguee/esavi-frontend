@@ -3,11 +3,14 @@ import { Box, Paper, Typography, TextField, MenuItem, Button, Table, TableBody, 
 import CalculateIcon from '@mui/icons-material/Calculate';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useReactToPrint } from 'react-to-print';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useRef } from 'react';
+import { useCasesStore } from '../../../store/useCasesStore';
 
 export default function MatrizRiesgo() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const avanzarCaso = useCasesStore(state => state.avanzarCaso);
   const componentRef = useRef<HTMLDivElement>(null);
 
   // Inicializamos todos los puntajes en 0 y las justificaciones vacías
@@ -83,9 +86,14 @@ export default function MatrizRiesgo() {
   const riesgoActual = obtenerNivelRiesgo(puntajeTotal);
 
   const onSubmit = (data: any) => {
-    console.log("Matriz guardada:", data);
-    alert(`Matriz guardada. Puntaje Total: ${puntajeTotal} (${riesgoActual.nivelRespuesta})`);
-    navigate(-1);
+    if (id) {
+      const msg = `Se determinó nivel de riesgo ${riesgoActual.etiqueta} (${puntajeTotal} puntos). Caso asignado a ERR.`;
+      avanzarCaso(id, 'ASIGNADO_A_ERR', 'Fase 3: Asignación ERR', msg, riesgoActual.etiqueta);
+      navigate(`/caso/${id}`);
+    } else {
+      alert("Error: No se encontró el ID del expediente.");
+      navigate(-1);
+    }
   };
 
   // =========================================================================

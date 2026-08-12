@@ -65,7 +65,13 @@ export const useAuthStore = create<AuthState>()(
         casoAprobadoParaComite: false
       }),
       
-      setRole: (role: Role) => set({ currentRole: role }), 
+      setRole: (role: Role) => {
+        const mockUser = MOCK_USERS.find(u => u.role === role);
+        set({ 
+          currentRole: role, 
+          ...(mockUser ? { userEmail: mockUser.email, userName: mockUser.name } : {}) 
+        });
+      },
       setLogisticaCompletada: (estado) => set({ logisticaCompletada: estado }),
       setCasoAprobadoParaComite: (estado) => set({ casoAprobadoParaComite: estado }),
     }),

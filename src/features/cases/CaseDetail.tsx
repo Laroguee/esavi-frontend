@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem } from '@mui/material';
+import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem, Checkbox, FormControlLabel } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
@@ -9,6 +9,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
+import SendIcon from '@mui/icons-material/Send';
 import GestorEvidencias from '../cases/GestorEvidencias';
 import ControlCalidad from '../forms/Fase5_ControlCalidad/ControlCalidad';
 
@@ -33,22 +34,26 @@ const mockHistorial = [
 export default function CaseDetail() {
   const { id } = useParams(); 
   const navigate = useNavigate();
-  const { currentRole } = useAuthStore(); 
+  const { currentRole, userEmail } = useAuthStore(); 
 
   // --- CONEXIÓN AL STORE CENTRAL ---
-  const { casos, devolverCaso, agendarReunion } = useCasesStore();
+  const { casos, devolverCaso, agendarReunion, avanzarCaso } = useCasesStore();
   const casoActual = casos.find(c => c.id === id);
 
   // --- ESTADOS PARA MODALES (Read-Only) ---
   const [openNotif, setOpenNotif] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
 
+  // --- ESTADOS PARA CHECKLISTS NORMATIVOS ---
+  const [chkAnexoI, setChkAnexoI] = useState(false);
+  const [chkAnexoII, setChkAnexoII] = useState(false);
 
   // --- ESTADO PARA PESTAÑAS (TABS) ---
   const [tabIndex, setTabIndex] = useState(0);
 
   // --- NUEVOS ESTADOS PARA AGENDA Y REUNIONES ---
   const [openAgendaModal, setOpenAgendaModal] = useState(false);
+  const [openEnvioComiteModal, setOpenEnvioComiteModal] = useState(false);
   const [openAuditoria, setOpenAuditoria] = useState(false);
   const [nuevaReunion, setNuevaReunion] = useState<{
     tema: string;
@@ -68,7 +73,7 @@ export default function CaseDetail() {
 
   const handleGuardarReunion = () => {
     if (!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora) return;
-    agendarReunion(casoActual.id, {
+    agendarReunion(casoActual!.id, {
       id: Date.now().toString(),
       tema: nuevaReunion.tema,
       faseRelacionada: nuevaReunion.faseRelacionada,
@@ -82,11 +87,6 @@ export default function CaseDetail() {
     setOpenAgendaModal(false);
     setNuevaReunion({ tema: '', faseRelacionada: 'Fase 2', fecha: '', hora: '', modalidad: 'Virtual', enlaceOLugar: '' });
   };
-
-  // --- MOCK DE ESTADOS PARA LA UI Y ASIGNACIÓN ---
-  const isAperturado = true;
-  const isClinicoLlenado = true; // Simulamos que el médico ya llenó su parte
-  const isUserAssignedToERR = true; // Cambia a false para probar el bloqueo
 
   // =====================================================================
   // LÓGICA DINÁMICA DEL STEPPER BASADO EN EL STORE
@@ -112,6 +112,11 @@ export default function CaseDetail() {
       </Box>
     );
   }
+
+  // --- LÓGICA DE COMPLETITUD ---
+  const f2Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
+  const f3Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
+  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
 
   // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
@@ -253,11 +258,29 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow title="Matriz de Riesgo (Fase 2)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" onClick={() => navigate('/matriz-riesgo')} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas." />
-                <ActionRow title="Asignación Equipo ERR (Fase 3)" chipStatus={isAperturado ? 'Completado' : 'Pendiente'} btnText="Asignar Equipo" onClick={() => navigate('/asignar-equipo/' + id)} disabled={!isJefe} tooltipText="Acceso exclusivo para Jefaturas." />
+                {['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) && (
+                  <Box sx={{ mb: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'warning.dark' }}>Requisitos de Apertura (Pasos 1 y 2 del POE):</Typography>
+                    <FormControlLabel control={<Checkbox size="small" checked={chkAnexoI} onChange={(e) => setChkAnexoI(e.target.checked)} />} label={<Typography variant="body2">Carpeta digital organizada (Anexo I)</Typography>} />
+                    <FormControlLabel control={<Checkbox size="small" checked={chkAnexoII} onChange={(e) => setChkAnexoII(e.target.checked)} />} label={<Typography variant="body2">Plantilla de presentación completada (Anexo II)</Typography>} />
+                  </Box>
+                )}
+                <ActionRow title="Matriz de Riesgo (Fase 2)" chipStatus={f2Completado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" onClick={() => navigate(`/matriz-riesgo/${id}`)} disabled={!isJefe || !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) || (!f2Completado && (!chkAnexoI || !chkAnexoII))} tooltipText="Requiere marcar los Anexos I y II como completados." />
+                <ActionRow title="Asignación Equipo ERR (Fase 3)" chipStatus={f3Completado ? 'Completado' : 'Pendiente'} btnText="Asignar Equipo" onClick={() => navigate('/asignar-equipo/' + id)} disabled={!isJefe || casoActual.estadoFlujo !== 'ASIGNADO_A_ERR'} tooltipText="Acceso exclusivo para Jefaturas y en Fase 3." />
               </Box>
             </CardContent>
           </Card>
+
+          {/* PANEL DE DEPURACIÓN FASE 4 */}
+          <div style={{ background: '#333', color: '#0f0', padding: '10px', marginBottom: '10px', fontFamily: 'monospace', fontSize: '12px' }}>
+            <p>--- DEBUG PANEL FASE 4 ---</p>
+            <p>Rol Activo: {currentRole}</p>
+            <p>Email Activo: {userEmail}</p>
+            <p>Miembros ERR: {JSON.stringify(casoActual.miembrosERR)}</p>
+            <p>isUserAssignedToERR: {isUserAssignedToERR ? 'TRUE' : 'FALSE'}</p>
+            <p>Estado Caso: {casoActual.estadoFlujo}</p>
+            <p>Logística Terminada?: {casoActual.anexoIII_completado ? 'TRUE' : 'FALSE'}</p>
+          </div>
 
           {/* TARJETA 2: TRABAJO DE CAMPO (Fase 4) */}
           <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
@@ -291,8 +314,8 @@ export default function CaseDetail() {
                           if (a3Status === 'Completado') alert('Abriendo Anexo III en modo lectura...');
                           else navigate('/anexo-logistica/' + id);
                         }} 
-                        disabled={a3Status === 'Completado' ? !isViewer : (!isEsaviLocal || !isUserAssignedToERR)} 
-                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Referente ESAVI Local.")} 
+                        disabled={a3Status === 'Completado' ? !isViewer : (!isEsaviLocal || !isUserAssignedToERR || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR'].includes(casoActual.estadoFlujo))}
+                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!isEsaviLocal ? "Acceso exclusivo para Coordinador Local." : (!isUserAssignedToERR ? "No está asignado a este caso." : "Solo Fase 4."))} 
                         color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow 
@@ -302,10 +325,10 @@ export default function CaseDetail() {
                         variant={a7Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a7Status === 'Completado') alert('Abriendo Anexo VII en modo lectura...');
-                          else navigate('/anexo-clinico');
+                          else navigate(`/anexo-clinico/${id}`);
                         }} 
-                        disabled={a7Status === 'Completado' ? !isViewer : (!isEsaviLocal || !isUserAssignedToERR)} 
-                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!isUserAssignedToERR ? "No asignado." : "Solo Médico Clínico.")} 
+                        disabled={a7Status === 'Completado' ? !isViewer : (!isEsaviLocal || !isUserAssignedToERR || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR'].includes(casoActual.estadoFlujo) || !casoActual.anexoIII_completado)} 
+                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!isEsaviLocal ? "Acceso exclusivo para Referente Clínico." : (!casoActual.anexoIII_completado ? "Debe completar Logística (Anexo III) primero." : ""))} 
                         color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow 
@@ -315,10 +338,10 @@ export default function CaseDetail() {
                         variant={a5Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a5Status === 'Completado') alert('Abriendo Anexo V en modo lectura...');
-                          else navigate('/anexo-puesto');
+                          else navigate(`/anexo-puesto/${id}`);
                         }} 
-                        disabled={a5Status === 'Completado' ? !isViewer : (!isInmunoLocal || !casoActual.anexoIII_completado || !isUserAssignedToERR)} 
-                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!isInmunoLocal ? "Solo Inmunizaciones." : "Debe completar Logística (Anexo III).")} 
+                        disabled={a5Status === 'Completado' ? !isViewer : (!isInmunoLocal || !isUserAssignedToERR || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR'].includes(casoActual.estadoFlujo) || !casoActual.anexoIII_completado)} 
+                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!isInmunoLocal ? "Acceso exclusivo para Inmunizaciones." : (!casoActual.anexoIII_completado ? "Debe completar Logística (Anexo III) primero." : ""))} 
                         color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow 
@@ -328,10 +351,10 @@ export default function CaseDetail() {
                         variant={a6Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a6Status === 'Completado') alert('Abriendo Anexo VI en modo lectura...');
-                          else navigate('/anexo-domicilio');
+                          else navigate(`/anexo-domicilio/${id}`);
                         }} 
-                        disabled={a6Status === 'Completado' ? !isViewer : (!isEpidemioLocal || !casoActual.anexoIII_completado || !isUserAssignedToERR)} 
-                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!isEpidemioLocal ? "Solo Epidemiólogo." : "Debe completar Logística (Anexo III).")}
+                        disabled={a6Status === 'Completado' ? !isViewer : (!isEpidemioLocal || !isUserAssignedToERR || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR'].includes(casoActual.estadoFlujo) || !casoActual.anexoIII_completado)}  
+                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!isEpidemioLocal ? "Acceso exclusivo para Epidemiólogo." : (!casoActual.anexoIII_completado ? "Debe completar Logística (Anexo III) primero." : ""))}
                         color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                     </>
@@ -356,10 +379,10 @@ export default function CaseDetail() {
                   color="warning" 
                   onClick={() => setOpenAuditoria(true)} 
                   disabled={!(
-                    (isEsaviInstitucional && (casoActual.estadoFlujo === 'EN_INVESTIGACION' || casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL')) || 
+                    (isEsaviInstitucional && casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && (casoActual.estadoFlujo === 'EN_INVESTIGACION' || casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL')) || 
                     (isSecretariado && casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')
                   )} 
-                  tooltipText="Solo habilitado para Jefatura/Secretariado en las fases correspondientes." 
+                  tooltipText="Requiere que todos los anexos estén completados para habilitarse." 
                 />
               </Box>
             </CardContent>
@@ -373,7 +396,24 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow title="Acta Oficial Causalidad (Fase 6)" chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} btnText="Emitir Dictamen" color="primary" onClick={() => navigate('/dictamen/' + id)} disabled={!isComite} tooltipText="Solo Comité." />
+                <ActionRow 
+                  title="Acta Oficial Causalidad (Fase 6)" 
+                  chipStatus={faseActual >= 5 ? 'Completado' : 'Pendiente'} 
+                  btnText="Emitir Dictamen" 
+                  color="primary" 
+                  onClick={() => navigate('/dictamen/' + id)} 
+                  disabled={!isComite} 
+                  tooltipText="Solo Comité." 
+                />
+                <ActionRow 
+                  title="Sala de Espera (Fase 5)" 
+                  chipStatus={casoActual.estadoFlujo === 'APROBADO_PARA_COMITE' ? 'Completado' : 'Pendiente'} 
+                  btnText="Agendar para Comité" 
+                  color="secondary" 
+                  onClick={() => setOpenEnvioComiteModal(true)} 
+                  disabled={!isSecretariado || casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE'} 
+                  tooltipText="Solo Secretariado." 
+                />
               </Box>
             </CardContent>
           </Card>
@@ -584,8 +624,32 @@ export default function CaseDetail() {
       <Dialog open={openAuditoria} onClose={() => setOpenAuditoria(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 0 }}>Auditoría de Control de Calidad</DialogTitle>
         <DialogContent sx={{ p: 3, pt: 4, bgcolor: '#f5f5f5' }}>
-          <ControlCalidad casoId={casoActual.id} />
+          <ControlCalidad casoId={casoActual.id} onClose={() => setOpenAuditoria(false)} />
         </DialogContent>
+      </Dialog>
+
+      {/* MODAL: AGENDAR COMITÉ (Fase 5 -> 6) */}
+      <Dialog open={openEnvioComiteModal} onClose={() => setOpenEnvioComiteModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 0 }}>Agendar Sesión de Comité</DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            El expediente <strong>{casoActual.id}</strong> será enviado a la bandeja del Comité Externo de Vacunación Segura para su dictamen final.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setOpenEnvioComiteModal(false)} variant="outlined">Cancelar</Button>
+          <Button 
+            onClick={() => {
+              avanzarCaso(casoActual.id, 'EN_EVALUACION_COMITE', 'Fase 6: Evaluación de Comité', 'Caso agendado y enviado al Comité Externo.');
+              setOpenEnvioComiteModal(false);
+              navigate('/');
+            }} 
+            variant="contained" 
+            color="secondary"
+          >
+            Confirmar y Enviar al Comité
+          </Button>
+        </DialogActions>
       </Dialog>
 
     </Box>

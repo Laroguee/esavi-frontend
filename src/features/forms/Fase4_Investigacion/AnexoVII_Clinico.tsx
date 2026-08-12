@@ -10,7 +10,8 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import PregnantWomanIcon from '@mui/icons-material/PregnantWoman';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useCasesStore } from '../../../store/useCasesStore';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -113,6 +114,7 @@ function TabPanel(props: TabPanelProps) {
 
 export default function AnexoVII_Clinico() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [tabIndex, setTabIndex] = useState(0);
   const [esMujerFertil, setEsMujerFertil] = useState(false);
 
@@ -143,6 +145,16 @@ export default function AnexoVII_Clinico() {
   const onSubmit = (data: AnexoVIIFormValues) => {
     console.log("Anexo Guardado:", data);
     alert("Anexo VII Guardado Exitosamente.");
+
+    if (id) {
+      const store = useCasesStore.getState();
+      store.marcarAnexoCompletado(id, 'VII');
+      const casoActual = store.casos.find((c: any) => c.id === id);
+      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+      }
+    }
+
     navigate(-1);
   };
 

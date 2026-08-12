@@ -1,17 +1,31 @@
+import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, Alert, Checkbox, FormControlLabel } from '@mui/material';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import SaveIcon from '@mui/icons-material/Save';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useCasesStore } from '../../../store/useCasesStore';
 
 // --- MOCK DATA: Personal disponible por área ---
-const personalFarma = ['Dr. Mario Gómez', 'Dra. Elena Ramos', 'Dr. Roberto Cruz'];
-const personalInmuno = ['Lic. Karla Fuentes', 'Lic. Tomás Díaz', 'Enf. Patricia Silva'];
-const personalEpi = ['Dr. Armando Solis', 'Dra. Beatriz Vega', 'Dr. César Pineda'];
+const personalFarma = [
+  { nombre: 'Médico Clínico', email: 'medico.ss@minsal.gob.sv' }
+];
+const personalInmuno = [
+  { nombre: 'Personal de Enfermería', email: 'inmuno.puesto@minsal.gob.sv' }
+];
+const personalEpi = [
+  { nombre: 'Epidemiólogo Local', email: 'epidemio.local@minsal.gob.sv' }
+];
 
 export default function AsignacionERR() {
   const { id } = useParams(); // Rescatamos el ID del caso de la URL
   const navigate = useNavigate();
+  const avanzarCaso = useCasesStore(state => state.avanzarCaso);
+  const asignarMiembrosERR = useCasesStore(state => state.asignarMiembrosERR);
+  const casoActual = useCasesStore(state => state.casos.find(c => c.id === id));
+
+  const [chkReporte, setChkReporte] = useState(false);
+  const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico';
 
   const { control, handleSubmit } = useForm({
     defaultValues: {
@@ -23,11 +37,15 @@ export default function AsignacionERR() {
   });
 
   const onSubmit = (data: any) => {
-    console.log("Asignación de Equipo ERR:", data);
-    alert(`Equipo de Respuesta Rápida asignado exitosamente al caso ${id}. Se enviarán notificaciones al personal.`);
-    
-    // Regresa al expediente central
-    navigate('/caso/' + id);
+    if (id) {
+      // Guardar el equipo asignado en el estado global (como arreglo de correos)
+      const miembrosSeleccionados = [data.farmacovigilancia, data.inmunizaciones, data.epidemiologia].filter(Boolean);
+      asignarMiembrosERR(id, miembrosSeleccionados);
+
+      const msg = 'Equipo de Respuesta Rápida asignado. Comienza la investigación de campo.';
+      avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', msg);
+      navigate('/caso/' + id);
+    }
   };
 
   return (
@@ -55,8 +73,8 @@ export default function AsignacionERR() {
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Farmacovigilancia (Clínico)</Typography>
             <Controller name="farmacovigilancia" control={control} render={({ field }) => (
               <TextField {...field} select fullWidth size="small" label="Seleccione Referente Clínico" required>
-                {personalFarma.map((nombre) => (
-                  <MenuItem key={nombre} value={nombre}>{nombre}</MenuItem>
+                {personalFarma.map((persona) => (
+                  <MenuItem key={persona.email} value={persona.email}>{persona.nombre}</MenuItem>
                 ))}
               </TextField>
             )}/>
@@ -66,8 +84,8 @@ export default function AsignacionERR() {
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Inmunizaciones (Puesto de Vacunación)</Typography>
             <Controller name="inmunizaciones" control={control} render={({ field }) => (
               <TextField {...field} select fullWidth size="small" label="Seleccione Referente de Inmunizaciones" required>
-                {personalInmuno.map((nombre) => (
-                  <MenuItem key={nombre} value={nombre}>{nombre}</MenuItem>
+                {personalInmuno.map((persona) => (
+                  <MenuItem key={persona.email} value={persona.email}>{persona.nombre}</MenuItem>
                 ))}
               </TextField>
             )}/>
@@ -77,8 +95,8 @@ export default function AsignacionERR() {
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Epidemiología (Trabajo de Campo)</Typography>
             <Controller name="epidemiologia" control={control} render={({ field }) => (
               <TextField {...field} select fullWidth size="small" label="Seleccione Referente Epidemiológico" required>
-                {personalEpi.map((nombre) => (
-                  <MenuItem key={nombre} value={nombre}>{nombre}</MenuItem>
+                {personalEpi.map((persona) => (
+                  <MenuItem key={persona.email} value={persona.email}>{persona.nombre}</MenuItem>
                 ))}
               </TextField>
             )}/>
@@ -101,8 +119,23 @@ export default function AsignacionERR() {
         </Grid>
       </Paper>
 
+      {esRiesgoAlto && (
+        <Alert severity="warning" sx={{ mt: 3, p: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'warning.dark' }}>
+            ATENCIÓN: Nivel de Riesgo {casoActual?.riesgo.toUpperCase()} (Paso 4 del POE)
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Para niveles Alto o Crítico es obligatorio elaborar y notificar un Reporte de Situación antes de movilizar al equipo. Por favor súbalo al Gestor de Evidencias.
+          </Typography>
+          <FormControlLabel 
+            control={<Checkbox checked={chkReporte} onChange={(e) => setChkReporte(e.target.checked)} color="warning" />} 
+            label={<Typography variant="body2" fontWeight="bold">Reporte de Situación elaborado e informado a la SRS</Typography>} 
+          />
+        </Alert>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-        <Button variant="contained" color="secondary" type="submit" size="large" startIcon={<SaveIcon />}>
+        <Button variant="contained" color="secondary" type="submit" size="large" startIcon={<SaveIcon />} disabled={esRiesgoAlto && !chkReporte}>
           Confirmar Asignación
         </Button>
       </Box>
