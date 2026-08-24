@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Box, Typography, Paper, Tabs, Tab, Button, Table, TableBody, 
-  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Tooltip 
+  TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Grid
 } from '@mui/material';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import DomainAddIcon from '@mui/icons-material/DomainAdd';
@@ -9,16 +10,16 @@ import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
+import { useAuthStore, MockUser } from '../../store/useAuthStore';
 
-// =========================================================================
-// MOCK DATA (Simulando la Base de Datos del Administrador)
-// =========================================================================
-const mockUsuarios = [
-  { id: 1, nombre: 'Dr. Roberto Cruz', dui: '04587412-3', correo: 'rcruz@minsal.gob.sv', rol: 'ESAVI_LOCAL', institucion: 'MINSAL', activo: true },
-  { id: 2, nombre: 'Licda. Carmen Vega', dui: '06852147-9', correo: 'cvega@srs.gob.sv', rol: 'SECRETARIADO', institucion: 'SRS', activo: true },
-  { id: 3, nombre: 'Dr. Armando Solis', dui: '02145874-1', correo: 'asolis@isss.gob.sv', rol: 'EPIDEMIO_INSTITUCIONAL', institucion: 'ISSS', activo: false },
-  { id: 4, nombre: 'Enf. Patricia Silva', dui: '05874123-6', correo: 'psilva@minsal.gob.sv', rol: 'INMUNO_LOCAL', institucion: 'MINSAL', activo: true },
-];
+const MACRO_INSTITUCIONES = ['MINSAL', 'ISSS', 'FOSALUD', 'SRS', 'Sanidad Militar'];
+const DIC_ESTABLECIMIENTOS: Record<string, string[]> = {
+  'MINSAL': ['Hospital Nacional Rosales', 'Hospital Nacional Zacamil', 'Unidad de Salud Barrios', 'Región Metropolitana', 'Nivel Central'],
+  'ISSS': ['Hospital Médico Quirúrgico', 'Policlínico Zacamil'],
+  'FOSALUD': ['Unidad Médica Fosalud Centro'],
+  'SRS': ['Nivel Central SRS'],
+  'Sanidad Militar': ['Hospital Militar']
+};
 
 const mockEstablecimientos = [
   { id: 101, nombre: 'Hospital Nacional Rosales', tipo: 'Hospital Nivel III', sibasi: 'Centro (San Salvador)', institucion: 'MINSAL' },
@@ -26,7 +27,6 @@ const mockEstablecimientos = [
   { id: 103, nombre: 'Hospital Médico Quirúrgico', tipo: 'Hospital Especializado', sibasi: 'Centro (San Salvador)', institucion: 'ISSS' },
 ];
 
-// Componente Auxiliar para Pestañas
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -35,14 +35,49 @@ function TabPanel(props: TabPanelProps) {
 
 export default function ModuloAdministracion() {
   const [tabIndex, setTabIndex] = useState(0);
+  
+  const usuarios = useAuthStore(state => state.usuarios);
+  const agregarUsuario = useAuthStore(state => state.agregarUsuario);
+  const editarUsuario = useAuthStore(state => state.editarUsuario);
 
-  // Funciones de simulación de acciones CRUD
-  const handleEdit = (id: number, type: string) => {
-    alert(`Abriendo modal para EDITAR el ${type} con ID: ${id}`);
+  const [openModal, setOpenModal] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [formData, setFormData] = useState<Partial<MockUser>>({
+    name: '', dui: '', email: '', role: 'ESAVI_LOCAL', institucionMacro: '', establecimiento: '', activo: true
+  });
+
+  const handleOpenNew = () => {
+    setIsEdit(false);
+    setFormData({ name: '', dui: '', email: '', role: 'ESAVI_LOCAL', institucionMacro: '', establecimiento: '', activo: true });
+    setOpenModal(true);
   };
 
-  const handleDeactivate = (id: number, type: string) => {
-    alert(`Simulando DESACTIVACIÓN del ${type} con ID: ${id}`);
+  const handleEdit = (email: string) => {
+    const user = usuarios.find(u => u.email === email);
+    if (user) {
+      setIsEdit(true);
+      setFormData(user);
+      setOpenModal(true);
+    }
+  };
+
+  const handleSave = () => {
+    if (isEdit && formData.email) {
+      editarUsuario(formData.email, formData);
+    } else {
+      agregarUsuario({
+        id: Date.now(),
+        ...(formData as MockUser)
+      });
+    }
+    setOpenModal(false);
+  };
+
+  const handleDeactivate = (email: string) => {
+    const user = usuarios.find(u => u.email === email);
+    if (user) {
+      editarUsuario(email, { activo: !user.activo });
+    }
   };
 
   return (
@@ -82,7 +117,7 @@ export default function ModuloAdministracion() {
           <TabPanel value={tabIndex} index={0}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>Directorio de Personal Autorizado</Typography>
-              <Button variant="contained" color="secondary" startIcon={<PersonAddIcon />}>
+              <Button variant="contained" color="secondary" startIcon={<PersonAddIcon />} onClick={handleOpenNew}>
                 + Nuevo Usuario
               </Button>
             </Box>
@@ -95,35 +130,37 @@ export default function ModuloAdministracion() {
                     <TableCell sx={{ fontWeight: 'bold' }}>DUI</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Correo Institucional</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Rol / Nivel</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Institución</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Institución (Macro)</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Establecimiento</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>Acciones</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {mockUsuarios.map((user) => (
-                    <TableRow key={user.id} hover sx={{ opacity: user.activo ? 1 : 0.5 }}>
-                      <TableCell sx={{ fontWeight: 'medium' }}>{user.nombre}</TableCell>
-                      <TableCell>{user.dui}</TableCell>
-                      <TableCell>{user.correo}</TableCell>
+                  {usuarios.map((user) => (
+                    <TableRow key={user.email} hover sx={{ opacity: user.activo ? 1 : 0.5 }}>
+                      <TableCell sx={{ fontWeight: 'medium' }}>{user.name}</TableCell>
+                      <TableCell>{user.dui || 'N/A'}</TableCell>
+                      <TableCell>{user.email}</TableCell>
                       <TableCell>
                         <Chip 
-                          label={user.rol.replace('_', ' ')} 
+                          label={user.role.replace('_', ' ')} 
                           size="small" 
-                          color={user.rol.includes('INSTITUCIONAL') || user.rol === 'SECRETARIADO' ? 'primary' : 'default'}
+                          color={user.role.includes('INSTITUCIONAL') || user.role === 'SECRETARIADO' ? 'primary' : 'default'}
                           variant={user.activo ? 'filled' : 'outlined'} 
                         />
                       </TableCell>
                       <TableCell>
-                        <Chip label={user.institucion} size="small" variant="outlined" />
+                        <Chip label={user.institucionMacro || 'N/A'} size="small" variant="outlined" />
                       </TableCell>
+                      <TableCell>{user.establecimiento || 'N/A'}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="Editar Usuario">
-                          <IconButton color="primary" size="small" onClick={() => handleEdit(user.id, 'Usuario')}>
+                          <IconButton color="primary" size="small" onClick={() => handleEdit(user.email)}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title={user.activo ? "Desactivar Acceso" : "Usuario Desactivado"}>
-                          <IconButton color={user.activo ? "error" : "default"} size="small" onClick={() => handleDeactivate(user.id, 'Usuario')}>
+                          <IconButton color={user.activo ? "error" : "default"} size="small" onClick={() => handleDeactivate(user.email)}>
                             <BlockIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -168,7 +205,7 @@ export default function ModuloAdministracion() {
                       </TableCell>
                       <TableCell align="center">
                         <Tooltip title="Editar Establecimiento">
-                          <IconButton color="primary" size="small" onClick={() => handleEdit(estab.id, 'Establecimiento')}>
+                          <IconButton color="primary" size="small" onClick={() => alert('Editar estab')}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -182,6 +219,75 @@ export default function ModuloAdministracion() {
 
         </Box>
       </Paper>
+
+      {/* MODAL NUEVO/EDITAR USUARIO */}
+      <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{isEdit ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField 
+                fullWidth size="small" label="Nombre Completo" 
+                value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} 
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField 
+                fullWidth size="small" label="DUI" 
+                value={formData.dui || ''} onChange={(e) => setFormData({...formData, dui: e.target.value})} 
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField 
+                fullWidth size="small" label="Correo Institucional" disabled={isEdit}
+                value={formData.email || ''} onChange={(e) => setFormData({...formData, email: e.target.value})} 
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField 
+                select fullWidth size="small" label="Rol del Sistema" 
+                value={formData.role || ''} onChange={(e) => setFormData({...formData, role: e.target.value as any})}
+              >
+                <MenuItem value="ESAVI_LOCAL">ESAVI Local (Clínico)</MenuItem>
+                <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
+                <MenuItem value="EPIDEMIO_LOCAL">Epidemiología Local</MenuItem>
+                <MenuItem value="ESAVI_INSTITUCIONAL">ESAVI Nivel Central</MenuItem>
+                <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Central</MenuItem>
+                <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiología Central</MenuItem>
+                <MenuItem value="SECRETARIADO">Secretariado Técnico</MenuItem>
+                <MenuItem value="COMITE_EXTERNO">Comité Externo</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField 
+                select fullWidth size="small" label="Macro-Institución" 
+                value={formData.institucionMacro || ''} 
+                onChange={(e) => setFormData({...formData, institucionMacro: e.target.value, establecimiento: ''})}
+              >
+                {MACRO_INSTITUCIONES.map(inst => (
+                  <MenuItem key={inst} value={inst}>{inst}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField 
+                select fullWidth size="small" label="Establecimiento" 
+                value={formData.establecimiento || ''} 
+                disabled={!formData.institucionMacro}
+                onChange={(e) => setFormData({...formData, establecimiento: e.target.value})}
+              >
+                {formData.institucionMacro && DIC_ESTABLECIMIENTOS[formData.institucionMacro]?.map(est => (
+                  <MenuItem key={est} value={est}>{est}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenModal(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleSave}>Guardar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

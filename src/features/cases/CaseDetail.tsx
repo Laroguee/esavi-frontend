@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem, Checkbox, FormControlLabel } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useAuthStore, MOCK_USERS } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -116,7 +116,14 @@ export default function CaseDetail() {
   // --- LÓGICA DE COMPLETITUD ---
   const f2Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
   const f3Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
-  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
+  
+  // Flexibilidad para el prototipo: si el simulador de roles está activo, 
+  // permitimos acceso si el rol del usuario actual coincide con el rol de algún asignado.
+  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '') || 
+    casoActual.miembrosERR.some(email => {
+      const mockUserAssigned = MOCK_USERS.find(u => u.email === email);
+      return mockUserAssigned && mockUserAssigned.role === currentRole;
+    });
 
   // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
@@ -272,7 +279,7 @@ export default function CaseDetail() {
           </Card>
 
           {/* PANEL DE DEPURACIÓN FASE 4 */}
-          <div style={{ background: '#333', color: '#0f0', padding: '10px', marginBottom: '10px', fontFamily: 'monospace', fontSize: '12px' }}>
+          {/* <div style={{ background: '#333', color: '#0f0', padding: '10px', marginBottom: '10px', fontFamily: 'monospace', fontSize: '12px' }}>
             <p>--- DEBUG PANEL FASE 4 ---</p>
             <p>Rol Activo: {currentRole}</p>
             <p>Email Activo: {userEmail}</p>
@@ -280,7 +287,7 @@ export default function CaseDetail() {
             <p>isUserAssignedToERR: {isUserAssignedToERR ? 'TRUE' : 'FALSE'}</p>
             <p>Estado Caso: {casoActual.estadoFlujo}</p>
             <p>Logística Terminada?: {casoActual.anexoIII_completado ? 'TRUE' : 'FALSE'}</p>
-          </div>
+          </div> */}
 
           {/* TARJETA 2: TRABAJO DE CAMPO (Fase 4) */}
           <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>

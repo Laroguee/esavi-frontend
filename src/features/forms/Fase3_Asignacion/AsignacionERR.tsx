@@ -5,17 +5,7 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import SaveIcon from '@mui/icons-material/Save';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-
-// --- MOCK DATA: Personal disponible por área ---
-const personalFarma = [
-  { nombre: 'Médico Clínico', email: 'medico.ss@minsal.gob.sv' }
-];
-const personalInmuno = [
-  { nombre: 'Personal de Enfermería', email: 'inmuno.puesto@minsal.gob.sv' }
-];
-const personalEpi = [
-  { nombre: 'Epidemiólogo Local', email: 'epidemio.local@minsal.gob.sv' }
-];
+import { ESTABLECIMIENTOS_MOCK, MOCK_USERS } from '../../../store/useAuthStore';
 
 export default function AsignacionERR() {
   const { id } = useParams(); // Rescatamos el ID del caso de la URL
@@ -27,14 +17,19 @@ export default function AsignacionERR() {
   const [chkReporte, setChkReporte] = useState(false);
   const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico';
 
-  const { control, handleSubmit } = useForm({
+  const { control, handleSubmit, watch, setValue } = useForm({
     defaultValues: {
+      inst_farmacovigilancia: '',
       farmacovigilancia: '',
+      inst_inmunizaciones: '',
       inmunizaciones: '',
+      inst_epidemiologia: '',
       epidemiologia: '',
       instrucciones: ''
     }
   });
+
+  const valores = watch();
 
   const onSubmit = (data: any) => {
     if (id) {
@@ -71,35 +66,110 @@ export default function AsignacionERR() {
         <Grid container spacing={3}>
           <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Farmacovigilancia (Clínico)</Typography>
-            <Controller name="farmacovigilancia" control={control} render={({ field }) => (
-              <TextField {...field} select fullWidth size="small" label="Seleccione Referente Clínico" required>
-                {personalFarma.map((persona) => (
-                  <MenuItem key={persona.email} value={persona.email}>{persona.nombre}</MenuItem>
-                ))}
-              </TextField>
-            )}/>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller name="inst_farmacovigilancia" control={control} render={({ field }) => (
+                  <TextField 
+                    {...field} 
+                    select fullWidth size="small" label="Seleccione Institución"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setValue('farmacovigilancia', '');
+                    }}
+                  >
+                    {ESTABLECIMIENTOS_MOCK.map((inst) => (
+                      <MenuItem key={inst} value={inst}>{inst}</MenuItem>
+                    ))}
+                  </TextField>
+                )}/>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller name="farmacovigilancia" control={control} render={({ field }) => {
+                  const options = MOCK_USERS.filter(u => u.role.includes('ESAVI') && u.establecimiento === valores.inst_farmacovigilancia);
+                  return (
+                    <TextField {...field} select fullWidth size="small" label="Seleccione Referente Clínico" required disabled={!valores.inst_farmacovigilancia}>
+                      {options.length > 0 ? options.map((persona) => (
+                        <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
+                      )) : (
+                        <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
+                      )}
+                    </TextField>
+                  );
+                }}/>
+              </Grid>
+            </Grid>
           </Grid>
 
           <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Inmunizaciones (Puesto de Vacunación)</Typography>
-            <Controller name="inmunizaciones" control={control} render={({ field }) => (
-              <TextField {...field} select fullWidth size="small" label="Seleccione Referente de Inmunizaciones" required>
-                {personalInmuno.map((persona) => (
-                  <MenuItem key={persona.email} value={persona.email}>{persona.nombre}</MenuItem>
-                ))}
-              </TextField>
-            )}/>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller name="inst_inmunizaciones" control={control} render={({ field }) => (
+                  <TextField 
+                    {...field} 
+                    select fullWidth size="small" label="Seleccione Institución"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setValue('inmunizaciones', '');
+                    }}
+                  >
+                    {ESTABLECIMIENTOS_MOCK.map((inst) => (
+                      <MenuItem key={inst} value={inst}>{inst}</MenuItem>
+                    ))}
+                  </TextField>
+                )}/>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller name="inmunizaciones" control={control} render={({ field }) => {
+                  const options = MOCK_USERS.filter(u => u.role.includes('INMUNO') && u.establecimiento === valores.inst_inmunizaciones);
+                  return (
+                    <TextField {...field} select fullWidth size="small" label="Seleccione Referente de Inmunizaciones" required disabled={!valores.inst_inmunizaciones}>
+                      {options.length > 0 ? options.map((persona) => (
+                        <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
+                      )) : (
+                        <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
+                      )}
+                    </TextField>
+                  );
+                }}/>
+              </Grid>
+            </Grid>
           </Grid>
 
           <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Epidemiología (Trabajo de Campo)</Typography>
-            <Controller name="epidemiologia" control={control} render={({ field }) => (
-              <TextField {...field} select fullWidth size="small" label="Seleccione Referente Epidemiológico" required>
-                {personalEpi.map((persona) => (
-                  <MenuItem key={persona.email} value={persona.email}>{persona.nombre}</MenuItem>
-                ))}
-              </TextField>
-            )}/>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller name="inst_epidemiologia" control={control} render={({ field }) => (
+                  <TextField 
+                    {...field} 
+                    select fullWidth size="small" label="Seleccione Institución"
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setValue('epidemiologia', '');
+                    }}
+                  >
+                    {ESTABLECIMIENTOS_MOCK.map((inst) => (
+                      <MenuItem key={inst} value={inst}>{inst}</MenuItem>
+                    ))}
+                  </TextField>
+                )}/>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Controller name="epidemiologia" control={control} render={({ field }) => {
+                  const options = MOCK_USERS.filter(u => u.role.includes('EPIDEMIO') && u.establecimiento === valores.inst_epidemiologia);
+                  return (
+                    <TextField {...field} select fullWidth size="small" label="Seleccione Referente Epidemiológico" required disabled={!valores.inst_epidemiologia}>
+                      {options.length > 0 ? options.map((persona) => (
+                        <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
+                      )) : (
+                        <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
+                      )}
+                    </TextField>
+                  );
+                }}/>
+              </Grid>
+            </Grid>
           </Grid>
 
           <Grid size={{ xs: 12 }}>

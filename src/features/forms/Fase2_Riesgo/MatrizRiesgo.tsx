@@ -32,6 +32,9 @@ export default function MatrizRiesgo() {
       
       vacunaNueva: 0, just_vacunaNueva: '',
       errorProgramatico: 0, just_errorProgramatico: '',
+      
+      rumorComunidad: 0, just_rumorComunidad: '',
+      atencionMedios: 0, just_atencionMedios: '',
     }
   });
 
@@ -48,27 +51,62 @@ export default function MatrizRiesgo() {
   
   const subtotalVacuna = Number(valores.vacunaNueva) + Number(valores.errorProgramatico);
 
-  const puntajeTotal = subtotalEvento + subtotalPersona + subtotalVacuna;
+  const subtotalContexto = Number(valores.rumorComunidad) + Number(valores.atencionMedios);
 
-  // 1. FUNCIÓN PARA EVALUAR EL RIESGO SEGÚN EL PUNTAJE
-  const obtenerNivelRiesgo = (puntaje: number) => {
-    if (puntaje >= 21) {
+  // 1. Motor de Normalización (Puntaje Compuesto)
+  const maxEvento = 11 * 3; // 33
+  const maxPersona = 1 * 3; // 3
+  const maxVacuna = 2 * 3; // 6
+  const maxContexto = 2 * 3; // 6
+
+  const pctEvento = (subtotalEvento / maxEvento) * 40;
+  const pctPersona = (subtotalPersona / maxPersona) * 15;
+  const pctVacuna = (subtotalVacuna / maxVacuna) * 25;
+  const pctContexto = (subtotalContexto / maxContexto) * 20;
+
+  const puntajeCompuesto = Math.round(pctEvento + pctPersona + pctVacuna + pctContexto);
+
+  // 2. Lógica Bidimensional (Probabilidad y Consecuencia)
+  const calcularProbabilidad = (puntaje: number) => {
+    if (puntaje >= 86) return 5;
+    if (puntaje >= 71) return 4;
+    if (puntaje >= 51) return 3;
+    if (puntaje >= 31) return 2;
+    return 1;
+  };
+
+  const calcularConsecuencia = (puntaje: number) => {
+    if (puntaje >= 76) return 5;
+    if (puntaje >= 56) return 4;
+    if (puntaje >= 31) return 3;
+    if (puntaje >= 16) return 2;
+    return 1;
+  };
+
+  const probabilidad = calcularProbabilidad(puntajeCompuesto);
+  const consecuencia = calcularConsecuencia(puntajeCompuesto);
+
+  // 3. Matriz Final (Índice de Riesgo)
+  const indiceRiesgo = probabilidad * consecuencia; // 1 a 25
+
+  const obtenerNivelRiesgo = (indice: number) => {
+    if (indice >= 19) {
       return { 
         etiqueta: 'RIESGO CRÍTICO', 
         nivelRespuesta: 'NACIONAL',
         color: 'error' as const, 
         mensaje: 'Respuesta NACIONAL inmediata. Involucre al Nivel Central y elabore Reporte de Situación.' 
       };
-    } else if (puntaje >= 11) {
+    } else if (indice >= 13) {
       return { 
         etiqueta: 'RIESGO ALTO', 
         nivelRespuesta: 'REGIONAL',
         color: 'warning' as const, 
         mensaje: 'Respuesta REGIONAL. Defina plan de captura y notifique a la Jefatura Regional.' 
       };
-    } else if (puntaje >= 5) { 
+    } else if (indice >= 6) { 
       return { 
-        etiqueta: 'RIESGO MEDIO', 
+        etiqueta: 'RIESGO MODERADO', 
         nivelRespuesta: 'DEPARTAMENTAL',
         color: 'warning' as const, 
         mensaje: 'Respuesta DEPARTAMENTAL. La investigación y coordinación del caso se delega a la Jefatura Departamental correspondiente.' 
@@ -83,11 +121,11 @@ export default function MatrizRiesgo() {
     }
   };
 
-  const riesgoActual = obtenerNivelRiesgo(puntajeTotal);
+  const riesgoActual = obtenerNivelRiesgo(indiceRiesgo);
 
   const onSubmit = (data: any) => {
     if (id) {
-      const msg = `Se determinó nivel de riesgo ${riesgoActual.etiqueta} (${puntajeTotal} puntos). Caso asignado a ERR.`;
+      const msg = `Se determinó nivel de riesgo ${riesgoActual.etiqueta} (Ptje Compuesto: ${puntajeCompuesto}, Prob: ${probabilidad}, Cons: ${consecuencia}, Índice Final: ${indiceRiesgo}). Caso asignado a ERR.`;
       avanzarCaso(id, 'ASIGNADO_A_ERR', 'Fase 3: Asignación ERR', msg, riesgoActual.etiqueta);
       navigate(`/caso/${id}`);
     } else {
@@ -153,15 +191,27 @@ export default function MatrizRiesgo() {
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6">Puntaje Total:</Typography>
-              <Typography component="span" sx={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '1.5em', mr: 1 }}>
-                {puntajeTotal}
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, bgcolor: '#f5f5f5', p: 1, borderRadius: 1 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>Ptje. Compuesto</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{puntajeCompuesto}</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>Probabilidad</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{probabilidad}</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>Consecuencia</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{consecuencia}</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>Índice Final</Typography>
+                <Typography variant="h6" sx={{ color: '#d32f2f', fontWeight: 'bold', lineHeight: 1 }}>{indiceRiesgo}</Typography>
+              </Box>
               <Chip 
                 label={riesgoActual.etiqueta} 
                 color={riesgoActual.color} 
-                sx={{ fontWeight: 'bold', fontSize: '1rem', height: '32px' }} 
+                sx={{ fontWeight: 'bold', fontSize: '1rem', height: '40px', ml: 1 }} 
               />
             </Box>
             
@@ -183,8 +233,8 @@ export default function MatrizRiesgo() {
           Nivel de Respuesta: {riesgoActual.nivelRespuesta} ({riesgoActual.etiqueta}). {riesgoActual.mensaje}
         </Alert>
 
-        {/* BOTÓN CONDICIONAL SITREP (SOLO ALTO O CRÍTICO >= 11 puntos) */}
-        {puntajeTotal >= 11 && (
+        {/* BOTÓN CONDICIONAL SITREP (SOLO ALTO O CRÍTICO >= 13 de índice) */}
+        {indiceRiesgo >= 13 && (
           <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button 
               variant="contained" 
@@ -298,6 +348,33 @@ export default function MatrizRiesgo() {
               { val: 1, label: 'Evento aislado con posible error humano' },
               { val: 2, label: 'Evento sospechoso de EPRO reportado en establecimiento' },
               { val: 3, label: 'Fuerte sospecha de error programático repetitivo' }
+            ])}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* DIMENSIÓN 4: CONTEXTO (20%) */}
+      <TableContainer component={Paper} elevation={3} sx={{ mb: 4 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#ffb74d' }}>
+              <TableCell colSpan={3}>
+                <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 'bold' }}>Dimensión: CONTEXTO (20%) | Subtotal: {subtotalContexto}</Typography>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {renderRow('rumorComunidad', 'Rumor en la comunidad', [
+              { val: 0, label: 'Ninguno' },
+              { val: 1, label: 'Leve rumor local' },
+              { val: 2, label: 'Rumor generalizado en la comunidad' },
+              { val: 3, label: 'Fuerte rechazo comunitario o manifestaciones' }
+            ])}
+            {renderRow('atencionMedios', 'Atención mediática', [
+              { val: 0, label: 'Ninguna' },
+              { val: 1, label: 'Mención local en redes' },
+              { val: 2, label: 'Noticia en medios locales' },
+              { val: 3, label: 'Cobertura mediática nacional/internacional' }
             ])}
           </TableBody>
         </Table>
