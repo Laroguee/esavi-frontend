@@ -10,7 +10,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
-import { useAuthStore, MockUser } from '../../store/useAuthStore';
+import { useAuthStore, type MockUser } from '../../store/useAuthStore';
 
 const MACRO_INSTITUCIONES = ['MINSAL', 'ISSS', 'FOSALUD', 'SRS', 'Sanidad Militar'];
 const DIC_ESTABLECIMIENTOS: Record<string, string[]> = {

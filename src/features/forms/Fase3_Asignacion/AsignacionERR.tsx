@@ -199,7 +199,7 @@ export default function AsignacionERR() {
           </Typography>
           <FormControlLabel 
             control={<Checkbox checked={chkReporte} onChange={(e) => setChkReporte(e.target.checked)} color="warning" />} 
-            label={<Typography variant="body2" fontWeight="bold">Reporte de Situación elaborado e informado a la SRS</Typography>} 
+            label={<Typography variant="body2" sx={{ fontWeight: 'bold' }}>Reporte de Situación elaborado e informado a la SRS</Typography>} 
           />
         </Alert>
       )}

@@ -30,7 +30,7 @@ export default function AnexoIII_Logistica() {
     }
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (_data: any) => {
     if (id) {
       marcarAnexoCompletado(id, 'III');
       setLogisticaCompletada(true);

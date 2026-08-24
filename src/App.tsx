@@ -11,7 +11,6 @@ import DictamenCausalidad from './features/comittee/DictamenCausalidad';
 import NotificacionInicial from './features/forms/Fase1_Notificacion/NotificacionInicial';
 import AsignacionERR from './features/forms/Fase3_Asignacion/AsignacionERR';
 import AnexoIII_Logistica from './features/forms/Fase4_Investigacion/AnexoIII_Logistica';
-import CierreYDictamen from './features/comittee/CierreYDictamen';
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import TrabajoCampo from './features/cases/TrabajoCampo';

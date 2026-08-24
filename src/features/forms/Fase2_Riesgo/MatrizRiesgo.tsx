@@ -123,7 +123,7 @@ export default function MatrizRiesgo() {
 
   const riesgoActual = obtenerNivelRiesgo(indiceRiesgo);
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (_data: any) => {
     if (id) {
       const msg = `Se determinó nivel de riesgo ${riesgoActual.etiqueta} (Ptje Compuesto: ${puntajeCompuesto}, Prob: ${probabilidad}, Cons: ${consecuencia}, Índice Final: ${indiceRiesgo}). Caso asignado a ERR.`;
       avanzarCaso(id, 'ASIGNADO_A_ERR', 'Fase 3: Asignación ERR', msg, riesgoActual.etiqueta);
@@ -138,7 +138,7 @@ export default function MatrizRiesgo() {
   // MISIÓN: FUNCIÓN GENERADORA DE REPORTE SITREP USANDO REACT-TO-PRINT
   // =========================================================================
   const generarSitRepPDF = useReactToPrint({
-    content: () => componentRef.current,
+    contentRef: componentRef,
     documentTitle: 'SitRep_ESAVI',
   });
 

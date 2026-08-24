@@ -16,9 +16,7 @@ interface FormDataCausalidad {
 export default function DictamenCausalidad() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { avanzarCaso, casos } = useCasesStore();
-  
-  const casoActual = casos.find(c => c.id === id);
+  const { avanzarCaso } = useCasesStore();
 
   const { control, handleSubmit } = useForm<FormDataCausalidad>({
     defaultValues: {

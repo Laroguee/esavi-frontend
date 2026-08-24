@@ -4,6 +4,12 @@ import DownloadIcon from '@mui/icons-material/Download';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { useRef } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 // =======================================================
 // ESQUEMA ESTRICTO DE ZOD
@@ -20,8 +26,8 @@ const notificacionSchema = z.object({
   pacienteSexo: z.string().min(1, "Seleccione el sexo"),
   pacienteFechaNacimiento: z.string().optional(),
   
-  // Regla 1: Zod nativo, simple y compatible. La magia la hace el onChange del TextField
-  pacienteEdad: z.union([z.string(), z.number()]).transform((val) => Number(val)).refine(val => val >= 0, { message: "La edad no puede ser negativa" }),
+  // Regla 1: Zod nativo para que coincida con el hook-form.
+  pacienteEdad: z.number().min(0, "La edad no puede ser negativa"),
   
   // Regla 2: Formato DUI Salvadoreño o estar vacío
   pacienteDUI: z.string()
@@ -53,7 +59,7 @@ type NotificacionFormValues = z.infer<typeof notificacionSchema>;
 export default function NotificacionInicial() {
   const navigate = useNavigate();
 
-  const { control, handleSubmit, watch, reset } = useForm<NotificacionFormValues>({
+  const { control, handleSubmit, watch, reset, setValue } = useForm<NotificacionFormValues>({
     resolver: zodResolver(notificacionSchema),
     defaultValues: {
       fechaNotificacion: '', nombreNotificador: '', cargoNotificador: '', establecimientoNotificador: '', telefonoNotificador: '',
@@ -62,6 +68,149 @@ export default function NotificacionInicial() {
       eventoFechaInicio: '', eventoHoraInicio: '', eventoDescripcion: '', eventoGravedad: '', eventoCriterioGravedad: '', eventoDesenlace: ''
     }
   });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const procesarPDF = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+      let text = '';
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        
+        let lastY;
+        let pageText = '';
+        for (const item of textContent.items) {
+          if ('transform' in item) {
+             const y = item.transform[5];
+             if (lastY !== undefined && Math.abs(y - lastY) > 5) {
+               pageText += '\n';
+             } else if (lastY !== undefined) {
+               pageText += ' ';
+             }
+             pageText += (item as any).str;
+             lastY = y;
+          }
+        }
+        text += pageText + '\n';
+      }
+
+      console.log("Texto extraído del PDF:", text);
+
+      // Regex parsing según reglas FACEDRA mejorado con multiline (s flag) para saltos de línea
+      const pacienteMatch = text.match(/Nombre y Apellidos:\s*(.+?)(?=Nº de Expediente|Sexo|Edad)/is);
+      if (pacienteMatch) {
+        const full = pacienteMatch[1].replace(/\n/g, ' ').trim();
+        const parts = full.split(' ');
+        if (parts.length >= 3) {
+          setValue('pacienteNombres', parts.slice(0, 2).join(' '));
+          setValue('pacienteApellidos', parts.slice(2).join(' '));
+        } else if (parts.length === 2) {
+          setValue('pacienteNombres', parts[0]);
+          setValue('pacienteApellidos', parts[1]);
+        } else {
+          setValue('pacienteNombres', full);
+        }
+      }
+
+      const edadMatch = text.match(/Edad:\s*(\d+)/i);
+      if (edadMatch) setValue('pacienteEdad', parseInt(edadMatch[1]));
+
+      const sexoMatch = text.match(/Sexo:\s*(Femenino|Masculino)/i);
+      if (sexoMatch) setValue('pacienteSexo', sexoMatch[1]);
+
+      // Mapeo inteligente de vacunas
+      const vacunaMatch = text.match(/Medicamento:\s*(.+?)(?=Lote y fecha|Motivo|Dosis)/is);
+      if (vacunaMatch) {
+        const vacStr = vacunaMatch[1].replace(/\n/g, ' ').toUpperCase();
+        let mappedVac = 'Otra';
+        if (vacStr.includes('NEUMO')) mappedVac = 'Neumococo';
+        else if (vacStr.includes('COVID')) mappedVac = 'COVID-19';
+        else if (vacStr.includes('ROTA')) mappedVac = 'Rotavirus';
+        else if (vacStr.includes('PENTA')) mappedVac = 'Pentavalente';
+        else if (vacStr.includes('POLIO')) mappedVac = 'Polio';
+        else if (vacStr.includes('HEPATITIS')) mappedVac = 'Hepatitis B';
+        else if (vacStr.includes('DPT')) mappedVac = 'DPT';
+        else if (vacStr.includes('SRP')) mappedVac = 'SRP';
+        else if (vacStr.includes('INFLUENZA')) mappedVac = 'Influenza';
+        else if (vacStr.includes('BCG')) mappedVac = 'BCG';
+        else if (vacStr.includes('VPH')) mappedVac = 'VPH';
+        
+        setValue('vacunaNombre', mappedVac);
+      }
+
+      const loteMatch = text.match(/Lote y fecha de caducidad:\s*(.+?)(?=\n|Motivo|Dosis|-)/is);
+      if (loteMatch) {
+        const lote = loteMatch[1].replace(/\n/g, ' ').trim();
+        if (!lote.includes('NO DATOS')) {
+          setValue('vacunaLote', lote);
+        }
+      }
+
+      // Fechas (Hay dos en el documento: Vacuna y Evento)
+      const fechasMatch = [...text.matchAll(/Fecha [I|i]nicio:\s*(\d{2})\/(\d{2})\/(\d{4})/g)];
+      if (fechasMatch.length > 0) {
+        // Primera es de Vacunación (Sección Medicamento)
+        setValue('vacunaFecha', `${fechasMatch[0][3]}-${fechasMatch[0][2]}-${fechasMatch[0][1]}`);
+        
+        if (fechasMatch.length > 1) {
+          // Segunda es del Evento (Sección Reacciones)
+          setValue('eventoFechaInicio', `${fechasMatch[1][3]}-${fechasMatch[1][2]}-${fechasMatch[1][1]}`);
+        }
+      }
+
+      const eventoMatch = text.match(/Reacción adversa:\s*(.+?)(?=Fecha|Desenlace)/is);
+      if (eventoMatch) setValue('eventoDescripcion', eventoMatch[1].replace(/\n/g, ' ').trim());
+
+      const desenlaceMatch = text.match(/Desenlace:\s*(.+?)(?=\n|Observaciones)/is);
+      if (desenlaceMatch) {
+        const desStr = desenlaceMatch[1].trim().toUpperCase();
+        let mappedDes = 'Desconocido';
+        if (desStr.includes('RECUPERADO') && !desStr.includes('NO')) mappedDes = 'Recuperado';
+        else if (desStr.includes('EN RECUPERACIÓN') || desStr.includes('RECUPERANDO')) mappedDes = 'En recuperacion';
+        else if (desStr.includes('NO RECUPERADO')) mappedDes = 'No recuperado';
+        else if (desStr.includes('FATAL') || desStr.includes('FALLECIDO') || desStr.includes('MUERTE')) mappedDes = 'Fallecido';
+        
+        setValue('eventoDesenlace', mappedDes);
+      }
+
+      // Sección Notificador
+      const todasLasPersonas = [...text.matchAll(/Nombre y Apellidos:\s*(.+?)(?=Profesión|Especialidad|Correo)/igs)];
+      if (todasLasPersonas.length > 1) {
+         setValue('nombreNotificador', todasLasPersonas[todasLasPersonas.length - 1][1].replace(/\n/g, ' ').trim());
+      } else {
+         const matchNotif = text.match(/NOTIFICADOR[\s\S]*?Nombre y Apellidos:\s*(.+?)(?=Profesión|Especialidad)/is);
+         if (matchNotif) setValue('nombreNotificador', matchNotif[1].replace(/\n/g, ' ').trim());
+      }
+
+      const profesionMatch = text.match(/Profesión:\s*(.+?)(?=Especialidad|Correo)/is);
+      if (profesionMatch) setValue('cargoNotificador', profesionMatch[1].replace(/\n/g, ' ').trim());
+
+      const centroMatch = text.match(/Centro de trabajo:\s*(.+?)(?=Dirección|Departamento)/is);
+      if (centroMatch) setValue('establecimientoNotificador', centroMatch[1].replace(/\n/g, ' ').trim());
+
+      const telefonoMatch = text.match(/Teléfono de contacto:\s*([\d\-\s]+)/i);
+      if (telefonoMatch) setValue('telefonoNotificador', telefonoMatch[1].trim());
+
+      const fechaNotifMatch = text.match(/Fecha Notificación:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+      if (fechaNotifMatch) {
+        setValue('fechaNotificacion', `${fechaNotifMatch[3]}-${fechaNotifMatch[2]}-${fechaNotifMatch[1]}`);
+      }
+
+      alert("PDF importado exitosamente. Los datos detectados han sido autocompletados.");
+    } catch (error) {
+      console.error("Error al procesar PDF", error);
+      alert("Hubo un error al extraer los datos del PDF.");
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const gravedadActual = watch('eventoGravedad');
 
@@ -95,6 +244,25 @@ export default function NotificacionInicial() {
         <Typography variant="body1" color="text.secondary">
           Registro primario de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización.
         </Typography>
+
+        <Box sx={{ mt: 3 }}>
+          <input
+            type="file"
+            accept="application/pdf"
+            style={{ display: 'none' }}
+            ref={fileInputRef}
+            onChange={procesarPDF}
+          />
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<UploadFileIcon />}
+            onClick={() => fileInputRef.current?.click()}
+            sx={{ fontWeight: 'bold' }}
+          >
+            Importar PDF de Noti-FACEDRA (Autocompletado)
+          </Button>
+        </Box>
       </Box>
 
       {/* SECCIÓN A: Datos del Notificador */}
@@ -178,8 +346,8 @@ export default function NotificacionInicial() {
               {/* === SOLUCIÓN DEFINITIVA TS2353 === */}
               <Controller name="pacienteEdad" control={control} render={({ field, fieldState }) => (
                 <TextField 
-                  {...field} 
-                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  {...field}
+                  onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
                   fullWidth type="number" label="Edad" required 
                   error={!!fieldState.error} helperText={fieldState.error?.message} 
                 />
