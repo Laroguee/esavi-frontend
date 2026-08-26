@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, 
   ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, 
@@ -16,16 +16,33 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
+import { useCatalogStore } from '../../store/useCatalogStore';
+import { listarEstablecimientos } from '../../services/adminService';
 
 const drawerWidth = 260;
 
 export default function MainLayout() {
   const navigate = useNavigate();
   // Se extrae la función logout del store global
-  const { currentRole, setRole, logout } = useAuthStore();
+  const { currentRole, userName, logout, setRole } = useAuthStore();
 
   // --- CONEXIÓN AL STORE CENTRAL DE CASOS ---
-  const { notificaciones, marcarNotificacionLeida } = useCasesStore();
+  const { notificaciones, marcarNotificacionLeidaStore, cargarDatosBackend } = useCasesStore();
+
+  // --- CONEXIÓN AL STORE DE CATÁLOGOS ---
+  const { setEstablecimientos } = useCatalogStore();
+
+  useEffect(() => {
+    // Cargar catálogos al iniciar sesión
+    listarEstablecimientos().then(res => {
+      if(res.success && res.data) {
+        setEstablecimientos(res.data);
+      }
+    });
+
+    // Cargar casos y notificaciones de Google Sheets
+    cargarDatosBackend();
+  }, [setEstablecimientos, cargarDatosBackend, currentRole]);
 
   // --- ESTADOS PARA EL MENÚ DE NOTIFICACIONES ---
   const [anchorElNotif, setAnchorElNotif] = useState<null | HTMLElement>(null);
@@ -65,9 +82,9 @@ export default function MainLayout() {
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             
-            {/* SELECTOR DINÁMICO DE ROLES */}
+            {/* SELECTOR DINÁMICO DE ROLES (MODO DEV) */}
             <Box id="selector-roles-simulador" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ color: 'white' }}>Simular Rol:</Typography>
+              <Typography variant="body2" sx={{ color: 'white' }}>🧪 Simular Rol:</Typography>
               <FormControl size="small" variant="outlined">
                 <Select
                   value={currentRole}
@@ -94,6 +111,13 @@ export default function MainLayout() {
                   <MenuItem value="COMITE_EXTERNO">Comité Evaluador Externo</MenuItem>
                 </Select>
               </FormControl>
+            </Box>
+
+            {/* IDENTIFICACIÓN DE USUARIO (Reemplazo del simulador) */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+              <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
+                Hola, {userName || 'Usuario'}
+              </Typography>
             </Box>
 
             {/* CAMPANITA DE NOTIFICACIONES */}
@@ -130,7 +154,7 @@ export default function MainLayout() {
                 <Box key={notif.id}>
                   <MenuItem 
                     onClick={() => {
-                      marcarNotificacionLeida(notif.id);
+                      marcarNotificacionLeidaStore(notif.id);
                     }} 
                     sx={{ 
                       display: 'flex', alignItems: 'flex-start', py: 1.5, px: 2, gap: 1.5,

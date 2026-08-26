@@ -16,6 +16,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute';
 import TrabajoCampo from './features/cases/TrabajoCampo';
 import BandejaComite from './features/comittee/BandejaComite';
 import ModuloAdministracion from './features/administration/ModuloAdministracion';
+import ExpedienteDigital from './features/cases/ExpedienteDigital';
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="trabajo-campo" element={<TrabajoCampo />} />
             <Route path="bandeja-comite" element={<BandejaComite />} />
             <Route path="administracion" element={<ModuloAdministracion />} />
+            <Route path="caso/:id/expediente" element={<ExpedienteDigital />} />
           </Route>
         </Route>
       </Routes>

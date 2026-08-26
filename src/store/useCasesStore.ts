@@ -1,12 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import dayjs from 'dayjs';
+import { 
+  guardarEnSheets, 
+  listarCasos, 
+  actualizarCaso,
+  listarNotificaciones,
+  marcarNotificacionLeida,
+  agendarReunion
+} from '../services/googleSheetsService';
+import { useAuthStore } from './useAuthStore';
 
 // 1. Tipos de Datos
-export type EstadoFlujo = 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NUEVO' | 'NOTIFICADO' | 'EN_EVALUACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'CERRADO_DICTAMINADO';
+export type EstadoFlujo = 'PENDIENTE_OFICIALIZAR' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NUEVO' | 'NOTIFICADO' | 'EN_EVALUACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'CERRADO_DICTAMINADO';
 
 export interface AgendaReunion {
-  id: string;
+  id?: string;
   faseRelacionada: string;
   fecha: string;
   hora: string;
@@ -15,6 +24,9 @@ export interface AgendaReunion {
   estado: 'PROGRAMADA' | 'REALIZADA';
   modalidad: 'Virtual' | 'Presencial';
   enlaceOLugar: string;
+  archivoBase64?: string;
+  nombreArchivo?: string;
+  mimeType?: string;
 }
 
 export interface CasoESAVI {
@@ -35,6 +47,7 @@ export interface CasoESAVI {
   anexoV_completado?: boolean;
   anexoVI_completado?: boolean;
   anexoVII_completado?: boolean;
+  historial_cambios?: { id: string; fecha: string; usuario: string; accion: string; rol?: string }[];
 }
 
 export interface Notificacion {
@@ -47,128 +60,217 @@ export interface Notificacion {
 interface CasesState {
   casos: CasoESAVI[];
   notificaciones: Notificacion[];
+  isCargandoDatos: boolean;
   
   // Acciones (Mutaciones)
-  devolverCaso: (idCaso: string, nuevoEstado: EstadoFlujo, observacion: string, anexo: string, textoNotificacion: string) => void;
-  avanzarCaso: (idCaso: string, nuevoEstado: EstadoFlujo, nuevaFase: string, textoNotificacion: string, nuevoRiesgo?: string) => void;
-  marcarNotificacionLeida: (idNotif: number) => void;
-  agendarReunion: (casoId: string, nuevaReunion: AgendaReunion) => void;
-  marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => void;
-  asignarMiembrosERR: (idCaso: string, miembros: string[]) => void;
+  cargarDatosBackend: () => Promise<void>;
+  crearCaso: (nuevoCaso: CasoESAVI, datosCompletos?: any) => Promise<void>;
+  devolverCaso: (idCaso: string, nuevoEstado: EstadoFlujo, observacion: string, anexo: string, textoNotificacion: string) => Promise<void>;
+  avanzarCaso: (idCaso: string, nuevoEstado: EstadoFlujo, nuevaFase: string, textoNotificacion: string, nuevoRiesgo?: string) => Promise<void>;
+  marcarNotificacionLeidaStore: (idNotif: number) => Promise<void>;
+  agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
+  marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
+  asignarMiembrosERR: (idCaso: string, miembros: string[]) => Promise<void>;
 }
 
-// 2. Base de Datos Simulada Inicial
-const CASOS_INICIALES: CasoESAVI[] = [
-  { id: 'ESAVI-MINSAL-2025-001', paciente: 'Infante Desconocido', establecimiento: 'Hospital Rosales', vacuna: 'BCG', fase: 'Fase 1: Notificación', estadoFlujo: 'NUEVO', riesgo: 'Sin clasificar', fecha: dayjs().subtract(1, 'hour').toISOString(), reuniones: [], miembrosERR: [], anexoIII_completado: false, anexoV_completado: false, anexoVI_completado: false, anexoVII_completado: false },
-  { id: 'ESAVI-ISSS-2025-002', paciente: 'Ana Gómez', establecimiento: 'Policlínico Zacamil', vacuna: 'VPH', fase: 'Fase 1: Notificación', estadoFlujo: 'NOTIFICADO', riesgo: 'Bajo', fecha: dayjs().subtract(5, 'hour').toISOString(), reuniones: [], miembrosERR: [], anexoIII_completado: false, anexoV_completado: false, anexoVI_completado: false, anexoVII_completado: false },
-  { id: 'ESAVI-MINSAL-2025-003', paciente: 'Luis Torres', establecimiento: 'U.S. San Jacinto', vacuna: 'DPT', fase: 'Fase 2: Evaluación', estadoFlujo: 'EN_EVALUACION', riesgo: 'Medio', fecha: dayjs().subtract(1, 'day').toISOString(), reuniones: [], miembrosERR: [], anexoIII_completado: false, anexoV_completado: false, anexoVI_completado: false, anexoVII_completado: false },
-  { id: 'ESAVI-ISSS-2025-004', paciente: 'Marta Ríos', establecimiento: 'Hospital Amatepec', vacuna: 'COVID-19', fase: 'Fase 3: Asignación ERR', estadoFlujo: 'ASIGNADO_A_ERR', riesgo: 'Alto', fecha: dayjs().subtract(2, 'day').toISOString(), reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv'], anexoIII_completado: false, anexoV_completado: false, anexoVI_completado: false, anexoVII_completado: false },
-  { id: 'ESAVI-MINSAL-2025-005', paciente: 'Carlos Ruiz', establecimiento: 'U.S. Barrios', vacuna: 'Influenza', fase: 'Fase 4: Investigación', estadoFlujo: 'EN_INVESTIGACION', riesgo: 'Grave', fecha: dayjs().subtract(3, 'day').toISOString(), reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv', 'inmuno.puesto@minsal.gob.sv'], anexoIII_completado: false, anexoV_completado: false, anexoVI_completado: false, anexoVII_completado: false },
-  { id: 'ESAVI-SANIDAD-2025-006', paciente: 'Sgto. Pérez', establecimiento: 'Hospital Militar', vacuna: 'Fiebre Amarilla', fase: 'Fase 5: Control Calidad', estadoFlujo: 'EN_REVISION_SECRETARIADO', riesgo: 'Alto', fecha: dayjs().subtract(4, 'day').toISOString(), reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv', 'inmuno.puesto@minsal.gob.sv'], anexoIII_completado: true, anexoV_completado: true, anexoVI_completado: true, anexoVII_completado: true },
-  { id: 'ESAVI-ISSS-2025-007', paciente: 'Elena Castro', establecimiento: 'Hospital Médico Quirúrgico', vacuna: 'Rotavirus', fase: 'Fase 5: Control Calidad', estadoFlujo: 'DEVUELTO_A_INSTITUCIONAL', riesgo: 'Medio', fecha: dayjs().subtract(5, 'day').toISOString(), observacionActual: 'Falta firma en el Anexo VII', observacionRechazo: 'Falta firma en el Anexo VII', anexoRechazado: 'Anexo VII (Clínico)', reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv', 'inmuno.puesto@minsal.gob.sv'], anexoIII_completado: true, anexoV_completado: true, anexoVI_completado: true, anexoVII_completado: true },
-  { id: 'ESAVI-MINSAL-2025-008', paciente: 'Jorge Ramos', establecimiento: 'U.S. San Miguel', vacuna: 'Neumococo', fase: 'Fase 5: Control Calidad', estadoFlujo: 'DEVUELTO_A_ERR', riesgo: 'Bajo', fecha: dayjs().subtract(6, 'day').toISOString(), observacionActual: 'Completar dirección exacta', observacionRechazo: 'Completar dirección exacta', anexoRechazado: 'Anexo VI (Domiciliaria)', reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv', 'inmuno.puesto@minsal.gob.sv'], anexoIII_completado: true, anexoV_completado: true, anexoVI_completado: true, anexoVII_completado: true },
-  { id: 'ESAVI-ISSS-2025-009', paciente: 'Rosa Silva', establecimiento: 'Hospital Regional Santa Ana', vacuna: 'COVID-19', fase: 'Fase 6: Dictamen', estadoFlujo: 'EN_EVALUACION_COMITE', riesgo: 'Grave', fecha: dayjs().subtract(10, 'day').toISOString(), reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv', 'inmuno.puesto@minsal.gob.sv'], anexoIII_completado: true, anexoV_completado: true, anexoVI_completado: true, anexoVII_completado: true },
-  { id: 'ESAVI-MINSAL-2025-010', paciente: 'Fernando López', establecimiento: 'U.S. Unicentro', vacuna: 'Hepatitis B', fase: 'Fase 6: Dictamen', estadoFlujo: 'CERRADO_DICTAMINADO', riesgo: 'Bajo', fecha: dayjs().subtract(15, 'day').toISOString(), reuniones: [], miembrosERR: ['medico.ss@minsal.gob.sv', 'epidemio.local@minsal.gob.sv', 'inmuno.puesto@minsal.gob.sv'], anexoIII_completado: true, anexoV_completado: true, anexoVI_completado: true, anexoVII_completado: true },
-];
-
-const NOTIFICACIONES_INICIALES: Notificacion[] = [
-  { id: 1, texto: "Bienvenido al Sistema Nacional ESAVI.", leido: false, fecha: "Justo ahora" }
-];
-
-// 3. Creación del Store
+// 2. Creación del Store
 export const useCasesStore = create<CasesState>()(
   persist(
-    (set) => ({
-      casos: CASOS_INICIALES,
-      notificaciones: NOTIFICACIONES_INICIALES,
+    (set, get) => ({
+      casos: [],
+      notificaciones: [],
+      isCargandoDatos: false,
 
-      // LA MAGIA DE LA MÁQUINA DE ESTADOS:
-      devolverCaso: (idCaso, nuevoEstado, observacion, anexo, textoNotificacion) => 
+      cargarDatosBackend: async () => {
+        if (import.meta.env.VITE_USE_API !== 'true') return;
+        set({ isCargandoDatos: true });
+
+        const email = useAuthStore.getState().userEmail || '';
+        const role = useAuthStore.getState().currentRole || '';
+
+        try {
+          // 1. Cargar Casos
+          const resCasos = await listarCasos();
+          if (resCasos && resCasos.success) {
+            // Mapeo básico de Sheets a CasoESAVI
+            const mappedCasos: CasoESAVI[] = resCasos.data.map((row: any) => ({
+              id: row.id_caso,
+              paciente: row.nombre_paciente || row.identificador_paciente || 'Desconocido',
+              establecimiento: row.establecimiento_notificador || 'Desconocido',
+              vacuna: row.nombre_vacuna || 'Otra',
+              fase: row.estado_flujo === 'PENDIENTE_OFICIALIZAR' ? 'Fase 1: Notificación' : 'Fase Activa',
+              estadoFlujo: row.estado_flujo,
+              riesgo: row.riesgo || 'Sin clasificar',
+              fecha: row.fecha_notificacion || new Date().toISOString(),
+              miembrosERR: row.miembros_err ? JSON.parse(row.miembros_err) : [],
+              reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
+              anexoIII_completado: String(row.anexoIII) === 'true',
+              anexoV_completado: String(row.anexoV) === 'true',
+              anexoVI_completado: String(row.anexoVI) === 'true',
+              anexoVII_completado: String(row.anexoVII) === 'true',
+            }));
+
+            // Filtro institucional: Locales solo ven los casos de su establecimiento o si fueron asignados al ERR
+            let casosFiltrados = mappedCasos;
+            if (role.includes('LOCAL')) {
+              const myEstablecimiento = useAuthStore.getState().userEstablecimiento || '';
+              casosFiltrados = mappedCasos.filter(c => 
+                c.miembrosERR.includes(email) || 
+                c.establecimiento === myEstablecimiento ||
+                c.estadoFlujo === 'PENDIENTE_OFICIALIZAR' // Fase 1 que ellos crearon
+              ); 
+            }
+            
+            set({ casos: casosFiltrados });
+          }
+
+          // 2. Cargar Notificaciones
+          const resNotif = await listarNotificaciones(role, email);
+          if (resNotif && resNotif.success) {
+            const mappedNotifs: Notificacion[] = resNotif.data.map((n: any) => ({
+              id: Number(n.id),
+              texto: n.texto,
+              leido: String(n.leido).toLowerCase() === 'true',
+              fecha: dayjs(n.fecha_creacion).fromNow()
+            }));
+            set({ notificaciones: mappedNotifs });
+          }
+        } catch (error) {
+          console.error("Error cargando backend:", error);
+        } finally {
+          set({ isCargandoDatos: false });
+        }
+      },
+
+      crearCaso: async (nuevoCaso, datosCompletos) => {
+        set((state) => ({ casos: [nuevoCaso, ...state.casos] }));
+      },
+
+      devolverCaso: async (idCaso, nuevoEstado, observacion, anexo, textoNotificacion) => {
+        if (import.meta.env.VITE_USE_API === 'true') {
+          await actualizarCaso(idCaso, {
+            estado_flujo: nuevoEstado,
+            observacion_rechazo: observacion,
+            anexo_rechazado: anexo
+          });
+        }
+        
         set((state) => {
-          // 1. Actualizamos el caso
           const nuevosCasos = state.casos.map(caso => 
             caso.id === idCaso 
               ? { ...caso, estadoFlujo: nuevoEstado, observacionRechazo: observacion, anexoRechazado: anexo, observacionActual: observacion }
               : caso
           );
+          return { casos: nuevosCasos };
+        });
+      },
 
-      let finalNotifText = textoNotificacion;
-      if (nuevoEstado === 'DEVUELTO_A_INSTITUCIONAL') {
-        finalNotifText = "El Secretariado ha devuelto el expediente para revisión.";
-      } else if (nuevoEstado === 'DEVUELTO_A_ERR') {
-        finalNotifText = "La Jefatura solicita correcciones en los anexos de campo.";
-      }
-
-      // 2. Disparamos una nueva notificación
-      const nuevaNotif: Notificacion = {
-        id: Date.now(), // ID único
-        texto: finalNotifText,
-        leido: false,
-        fecha: "Hace un momento"
-      };
-
-      return {
-        casos: nuevosCasos,
-        notificaciones: [nuevaNotif, ...state.notificaciones] // Agregamos la nueva al inicio
-      };
-    }),
-
-  avanzarCaso: (idCaso, nuevoEstado, nuevaFase, textoNotificacion, nuevoRiesgo) => 
-    set((state) => {
-      const nuevosCasos = state.casos.map(caso => 
-        caso.id === idCaso 
-          ? { ...caso, estadoFlujo: nuevoEstado, fase: nuevaFase, observacionRechazo: undefined, anexoRechazado: undefined, observacionActual: undefined, ...(nuevoRiesgo ? { riesgo: nuevoRiesgo } : {}) }
-          : caso
-      );
-
-      const nuevaNotif: Notificacion = {
-        id: Date.now(),
-        texto: textoNotificacion,
-        leido: false,
-        fecha: "Hace un momento"
-      };
-
-      return {
-        casos: nuevosCasos,
-        notificaciones: [nuevaNotif, ...state.notificaciones]
-      };
-    }),
-
-  marcarNotificacionLeida: (idNotif) =>
-    set((state) => ({
-      notificaciones: state.notificaciones.map(n => 
-        n.id === idNotif ? { ...n, leido: true } : n
-      )
-    })),
-    
-  agendarReunion: (casoId, nuevaReunion) =>
-    set((state) => ({
-      casos: state.casos.map(caso =>
-        caso.id === casoId
-          ? { ...caso, reuniones: [...caso.reuniones, nuevaReunion] }
-          : caso
-      )
-    })),
-    
-  marcarAnexoCompletado: (idCaso, anexo) =>
-    set((state) => ({
-      casos: state.casos.map(caso => {
-        if (caso.id === idCaso) {
-          if (anexo === 'III') return { ...caso, anexoIII_completado: true };
-          if (anexo === 'V') return { ...caso, anexoV_completado: true };
-          if (anexo === 'VI') return { ...caso, anexoVI_completado: true };
-          if (anexo === 'VII') return { ...caso, anexoVII_completado: true };
+      avanzarCaso: async (idCaso, nuevoEstado, nuevaFase, textoNotificacion, nuevoRiesgo) => {
+        if (import.meta.env.VITE_USE_API === 'true') {
+          const updates: any = { estado_flujo: nuevoEstado };
+          if (nuevoRiesgo) updates.riesgo = nuevoRiesgo;
+          await actualizarCaso(idCaso, updates);
         }
-        return caso;
-      })
-    })),
-    
-  asignarMiembrosERR: (idCaso, miembros) =>
-    set((state) => ({
-      casos: state.casos.map(caso =>
-        caso.id === idCaso ? { ...caso, miembrosERR: miembros } : caso
-      )
-    }))
-  }),
-  { name: 'esavi-cases-storage' }
-));
+
+        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+        const userRole = useAuthStore.getState().currentRole || 'Sistema';
+
+        set((state) => {
+          const nuevosCasos = state.casos.map(caso => 
+            caso.id === idCaso 
+              ? { 
+                  ...caso, 
+                  estadoFlujo: nuevoEstado, 
+                  fase: nuevaFase, 
+                  observacionRechazo: undefined, 
+                  anexoRechazado: undefined, 
+                  observacionActual: undefined, 
+                  ...(nuevoRiesgo ? { riesgo: nuevoRiesgo } : {}),
+                  historial_cambios: [
+                    {
+                      id: Date.now().toString(),
+                      fecha: dayjs().format("DD/MM/YYYY HH:mm A"),
+                      usuario: userEmail,
+                      rol: userRole,
+                      accion: textoNotificacion
+                    },
+                    ...(caso.historial_cambios || [])
+                  ]
+                }
+              : caso
+          );
+          return { casos: nuevosCasos };
+        });
+      },
+
+      marcarNotificacionLeidaStore: async (idNotif) => {
+        if (import.meta.env.VITE_USE_API === 'true') {
+           await marcarNotificacionLeida(idNotif);
+        }
+        set((state) => ({
+          notificaciones: state.notificaciones.map(n => 
+            n.id === idNotif ? { ...n, leido: true } : n
+          )
+        }));
+      },
+        
+      agendarReunionStore: async (casoId, nuevaReunion) => {
+        let reunionFinal = { ...nuevaReunion };
+        if (import.meta.env.VITE_USE_API === 'true') {
+           const payloadReunion = {
+             id_caso: casoId,
+             fase_relacionada: nuevaReunion.faseRelacionada,
+             fecha: nuevaReunion.fecha,
+             hora: nuevaReunion.hora,
+             tema: nuevaReunion.tema,
+             modalidad: nuevaReunion.modalidad,
+             enlace_lugar: nuevaReunion.enlaceOLugar,
+             convocados: nuevaReunion.convocados
+           };
+           const res = await agendarReunion(payloadReunion);
+           if (res && res.id) reunionFinal.id = res.id;
+        }
+
+        set((state) => ({
+          casos: state.casos.map(caso =>
+            caso.id === casoId
+              ? { ...caso, reuniones: [...caso.reuniones, reunionFinal] }
+              : caso
+          )
+        }));
+      },
+        
+      marcarAnexoCompletado: async (idCaso, anexo) => {
+        const colMap: any = { 'III': 'anexoIII', 'V': 'anexoV', 'VI': 'anexoVI', 'VII': 'anexoVII' };
+        if (import.meta.env.VITE_USE_API === 'true') {
+           await actualizarCaso(idCaso, { [colMap[anexo]]: true });
+        }
+
+        set((state) => ({
+          casos: state.casos.map(caso => {
+            if (caso.id === idCaso) {
+              if (anexo === 'III') return { ...caso, anexoIII_completado: true };
+              if (anexo === 'V') return { ...caso, anexoV_completado: true };
+              if (anexo === 'VI') return { ...caso, anexoVI_completado: true };
+              if (anexo === 'VII') return { ...caso, anexoVII_completado: true };
+            }
+            return caso;
+          })
+        }));
+      },
+        
+      asignarMiembrosERR: async (idCaso, miembros) => {
+        if (import.meta.env.VITE_USE_API === 'true') {
+           await actualizarCaso(idCaso, { miembros_err: JSON.stringify(miembros) });
+        }
+
+        set((state) => ({
+          casos: state.casos.map(caso =>
+            caso.id === idCaso ? { ...caso, miembrosERR: miembros } : caso
+          )
+        }));
+      }
+    }),
+    { name: 'esavi-cases-storage' }
+  )
+);

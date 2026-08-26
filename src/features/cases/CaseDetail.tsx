@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem, Checkbox, FormControlLabel } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuthStore, MOCK_USERS } from '../../store/useAuthStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -22,14 +22,7 @@ const fases = [
   'Fase 6: Dictamen'
 ];
 
-// --- MOCK DE HISTORIAL DE CAMBIOS ---
-const mockHistorial = [
-  { id: 1, fecha: "15/07/2026 09:15 AM", usuario: "Dra. Carmen Pineda", rol: "Epidemiólogo Local", accion: "Completó y guardó el Anexo VI - Investigación Domiciliaria." },
-  { id: 2, fecha: "14/07/2026 14:30 PM", usuario: "Lic. Tomás Díaz", rol: "Inmunizaciones Local", accion: "Completó y guardó el Anexo V - Guía del Puesto de Vacunación." },
-  { id: 3, fecha: "14/07/2026 10:00 AM", usuario: "Dr. Roberto Méndez", rol: "Referente ESAVI Local", accion: "Completó y guardó el Anexo VII - Evaluación Clínica." },
-  { id: 4, fecha: "13/07/2026 16:45 PM", usuario: "Lic. Tomás Díaz", rol: "Inmunizaciones Local", accion: "Completó y guardó el Anexo III - Checklist de Logística de Campo." },
-  { id: 5, fecha: "12/07/2026 11:20 AM", usuario: "Dr. Alfredo Solis", rol: "Referente ESAVI Institucional", accion: "Realizó la asignación del Equipo de Respuesta Rápida (Fase 3)." },
-];
+// El historial se lee ahora directamente desde el Store
 
 export default function CaseDetail() {
   const { id } = useParams(); 
@@ -51,7 +44,6 @@ export default function CaseDetail() {
   // --- ESTADO PARA PESTAÑAS (TABS) ---
   const [tabIndex, setTabIndex] = useState(0);
 
-  // --- NUEVOS ESTADOS PARA AGENDA Y REUNIONES ---
   const [openAgendaModal, setOpenAgendaModal] = useState(false);
   const [openEnvioComiteModal, setOpenEnvioComiteModal] = useState(false);
   const [openAuditoria, setOpenAuditoria] = useState(false);
@@ -62,6 +54,9 @@ export default function CaseDetail() {
     hora: string;
     modalidad: 'Virtual' | 'Presencial';
     enlaceOLugar: string;
+    archivoBase64?: string;
+    nombreArchivo?: string;
+    mimeType?: string;
   }>({
     tema: '',
     faseRelacionada: 'Fase 2',
@@ -70,6 +65,23 @@ export default function CaseDetail() {
     modalidad: 'Virtual',
     enlaceOLugar: ''
   });
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setNuevaReunion(prev => ({
+          ...prev,
+          archivoBase64: result.includes('base64,') ? result.split('base64,')[1] : result,
+          nombreArchivo: file.name,
+          mimeType: file.type
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleGuardarReunion = () => {
     if (!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora) return;
@@ -82,10 +94,18 @@ export default function CaseDetail() {
       convocados: [],
       estado: 'PROGRAMADA',
       modalidad: nuevaReunion.modalidad,
-      enlaceOLugar: nuevaReunion.enlaceOLugar
+      enlaceOLugar: nuevaReunion.enlaceOLugar,
+      archivoBase64: nuevaReunion.archivoBase64,
+      nombreArchivo: nuevaReunion.nombreArchivo,
+      mimeType: nuevaReunion.mimeType
     });
     setOpenAgendaModal(false);
     setNuevaReunion({ tema: '', faseRelacionada: 'Fase 2', fecha: '', hora: '', modalidad: 'Virtual', enlaceOLugar: '' });
+
+    // Navegar directamente a la matriz de riesgo pasando la fecha y opcionalmente el archivo
+    if (casoActual?.estadoFlujo === 'PENDIENTE_OFICIALIZAR') {
+      navigate(`/matriz-riesgo/${casoActual!.id}`, { state: { fechaReunion: nuevaReunion.fecha } });
+    }
   };
 
   // =====================================================================
@@ -114,16 +134,11 @@ export default function CaseDetail() {
   }
 
   // --- LÓGICA DE COMPLETITUD ---
-  const f2Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
-  const f3Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
+  const f2Completado = !['PENDIENTE_OFICIALIZAR', 'NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
+  const f3Completado = !['PENDIENTE_OFICIALIZAR', 'NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
   
-  // Flexibilidad para el prototipo: si el simulador de roles está activo, 
-  // permitimos acceso si el rol del usuario actual coincide con el rol de algún asignado.
-  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '') || 
-    casoActual.miembrosERR.some(email => {
-      const mockUserAssigned = MOCK_USERS.find(u => u.email === email);
-      return mockUserAssigned && mockUserAssigned.role === currentRole;
-    });
+  // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
+  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
 
   // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
@@ -223,6 +238,9 @@ export default function CaseDetail() {
               <Button variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => setOpenApertura(true)} sx={{ width: '220px' }}>
                 Ver Datos de Apertura
               </Button>
+              <Button variant="contained" color="primary" size="small" onClick={() => navigate(`/caso/${casoActual.id}/expediente`)} sx={{ width: '220px', mt: 1 }}>
+                Abrir Expediente Digital
+              </Button>
             </Box>
           </Grid>
         </Grid>
@@ -265,14 +283,25 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                {['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) && (
+                {['PENDIENTE_OFICIALIZAR', 'NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) && (
                   <Box sx={{ mb: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'warning.dark' }}>Requisitos de Apertura (Pasos 1 y 2 del POE):</Typography>
                     <FormControlLabel control={<Checkbox size="small" checked={chkAnexoI} onChange={(e) => setChkAnexoI(e.target.checked)} />} label={<Typography variant="body2">Carpeta digital organizada (Anexo I)</Typography>} />
                     <FormControlLabel control={<Checkbox size="small" checked={chkAnexoII} onChange={(e) => setChkAnexoII(e.target.checked)} />} label={<Typography variant="body2">Plantilla de presentación completada (Anexo II)</Typography>} />
                   </Box>
                 )}
-                <ActionRow title="Matriz de Riesgo (Fase 2)" chipStatus={f2Completado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" onClick={() => navigate(`/matriz-riesgo/${id}`)} disabled={!isJefe || !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) || (!f2Completado && (!chkAnexoI || !chkAnexoII))} tooltipText="Requiere marcar los Anexos I y II como completados." />
+                <ActionRow 
+                  title="Oficialización del Expediente" 
+                  chipStatus={casoActual.estadoFlujo === 'PENDIENTE_OFICIALIZAR' ? 'Pendiente' : 'Completado'} 
+                  btnText="Agendar Reunión y Evaluar Matriz" 
+                  onClick={() => {
+                    setOpenAgendaModal(true);
+                  }} 
+                  disabled={!isJefe || casoActual.estadoFlujo !== 'PENDIENTE_OFICIALIZAR'} 
+                  tooltipText={!isJefe ? "Requiere rol de Jefatura." : "El caso ya está oficializado."} 
+                  color="success"
+                />
+                <ActionRow title="Matriz de Riesgo (Fase 2)" chipStatus={f2Completado ? 'Completado' : 'Pendiente'} btnText="Evaluar Riesgo" onClick={() => navigate(`/matriz-riesgo/${id}`)} disabled={!isJefe || !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) || (!f2Completado && (!chkAnexoI || !chkAnexoII))} tooltipText="Requiere marcar los Anexos I y II como completados y estar Oficializado." />
                 <ActionRow title="Asignación Equipo ERR (Fase 3)" chipStatus={f3Completado ? 'Completado' : 'Pendiente'} btnText="Asignar Equipo" onClick={() => navigate('/asignar-equipo/' + id)} disabled={!isJefe || casoActual.estadoFlujo !== 'ASIGNADO_A_ERR'} tooltipText="Acceso exclusivo para Jefaturas y en Fase 3." />
               </Box>
             </CardContent>
@@ -442,7 +471,7 @@ export default function CaseDetail() {
               <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Bitácora de Auditoría del Expediente</Typography>
             </Box>
             <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-              {mockHistorial.map((registro, index) => (
+              {(casoActual.historial_cambios || []).map((registro, index) => (
                 <Box key={registro.id}>
                   <ListItem alignItems="flex-start" sx={{ py: 2 }}>
                     <ListItemAvatar>
@@ -461,7 +490,7 @@ export default function CaseDetail() {
                           <Typography component="span" variant="body2" color="text.primary" sx={{ fontWeight: 'medium' }}>
                             {registro.usuario}
                           </Typography>
-                          {" — " + registro.rol}
+                          {registro.rol ? " — " + registro.rol : ""}
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                             {registro.fecha}
                           </Typography>
@@ -469,9 +498,12 @@ export default function CaseDetail() {
                       }
                     />
                   </ListItem>
-                  {index < mockHistorial.length - 1 && <Divider variant="inset" component="li" />}
+                  {index < (casoActual.historial_cambios?.length || 0) - 1 && <Divider variant="inset" component="li" />}
                 </Box>
               ))}
+              {(!casoActual.historial_cambios || casoActual.historial_cambios.length === 0) && (
+                <Alert severity="info" sx={{ m: 2 }}>No hay registros en el historial de auditoría para este expediente.</Alert>
+              )}
             </List>
           </Paper>
         </Box>
@@ -582,6 +614,19 @@ export default function CaseDetail() {
               />
             </Grid>
           </Grid>
+
+          {/* Subida de Archivo Base64 para Google Drive / Presentación */}
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button variant="outlined" component="label">
+              Adjuntar Presentación (Opcional)
+              <input type="file" hidden accept=".pdf,.ppt,.pptx" onChange={handleFileUpload} />
+            </Button>
+            {nuevaReunion.nombreArchivo && (
+              <Typography variant="body2" color="text.secondary">
+                {nuevaReunion.nombreArchivo}
+              </Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
           <Button onClick={() => setOpenAgendaModal(false)} variant="outlined" color="inherit">Cancelar</Button>

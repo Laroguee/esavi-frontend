@@ -2,13 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { 
   Box, Paper, Typography, Tabs, Tab, Grid, Button, 
   List, ListItem, ListItemIcon, ListItemText, IconButton, 
-  Divider, Chip 
+  Divider, Chip, CircularProgress 
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import { subirArchivoEvidencia } from '../../services/googleSheetsService';
 
 // Tipos de las categorías obligatorias del repositorio (Anexo I)
 type CategoriaEvidencia = 'clinica' | 'pni' | 'epidemiologica' | 'general';
@@ -63,6 +64,8 @@ const formatBytes = (bytes: number, decimals = 2) => {
 
 export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
   const [tabIndex, setTabIndex] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   
   // Estado que agrupa los archivos por categoría
   const [archivos, setArchivos] = useState<Record<CategoriaEvidencia, FileWithPreview[]>>({
@@ -132,9 +135,16 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
     });
   };
 
-  const handleSaveAll = () => {
-    console.log("Evidencias listas para subir a la API:", archivos);
-    
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSaveAll = async () => {
     const totalArchivos = Object.values(archivos).reduce((acc, catArr) => acc + catArr.length, 0);
     
     if (totalArchivos === 0) {
@@ -142,7 +152,51 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
       return;
     }
 
-    alert(`Simulando subida de ${totalArchivos} archivos al Repositorio del caso ${caseId}... ¡Guardado exitoso!`);
+    setIsUploading(true);
+    let successCount = 0;
+    
+    try {
+      // Recorremos las categorías
+      for (const [categoria, filesArray] of Object.entries(archivos)) {
+        if (filesArray.length === 0) continue;
+        
+        // Copiamos el array para irlo vaciando a medida que suben
+        const filesToUpload = [...filesArray];
+        
+        for (const fileObj of filesToUpload) {
+          setUploadProgress(`Subiendo: ${fileObj.file.name}...`);
+          
+          const base64Str = await readFileAsBase64(fileObj.file);
+          
+          const result = await subirArchivoEvidencia(
+            caseId, 
+            categoria, 
+            base64Str, 
+            fileObj.file.type, 
+            fileObj.file.name
+          );
+          
+          if (result.success) {
+            successCount++;
+            // Lo removemos exitosamente del estado
+            setArchivos(prev => {
+               const newArr = prev[categoria as CategoriaEvidencia].filter(f => f.file.name !== fileObj.file.name);
+               return { ...prev, [categoria as CategoriaEvidencia]: newArr };
+            });
+          } else {
+            console.error(`Fallo subida de ${fileObj.file.name}:`, result.error);
+            alert(`Hubo un error subiendo ${fileObj.file.name}`);
+          }
+        }
+      }
+      alert(`Se subieron ${successCount} de ${totalArchivos} archivos correctamente al Repositorio Digital de Drive.`);
+    } catch (error) {
+      console.error("Error general subiendo archivos:", error);
+      alert("Ocurrió un error inesperado al subir los archivos.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress('');
+    }
   };
 
   return (
@@ -286,9 +340,18 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
       </Box>
 
       {/* BOTÓN FINAL DE GUARDADO */}
-      <Box sx={{ p: 3, bgcolor: '#f4f6f8', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="contained" color="primary" size="large" startIcon={<SaveIcon />} onClick={handleSaveAll} sx={{ px: 4, fontWeight: 'bold' }}>
-          Guardar Evidencias en Repositorio
+      <Box sx={{ p: 3, bgcolor: '#f4f6f8', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
+        {isUploading && <Typography variant="body2" color="text.secondary">{uploadProgress}</Typography>}
+        <Button 
+          variant="contained" 
+          color="primary" 
+          size="large" 
+          startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} 
+          onClick={handleSaveAll} 
+          disabled={isUploading}
+          sx={{ px: 4, fontWeight: 'bold' }}
+        >
+          {isUploading ? 'Subiendo Archivos...' : 'Guardar Evidencias en Repositorio'}
         </Button>
       </Box>
 

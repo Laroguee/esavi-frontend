@@ -4,18 +4,23 @@ import CalculateIcon from '@mui/icons-material/Calculate';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useReactToPrint } from 'react-to-print';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useCasesStore } from '../../../store/useCasesStore';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { guardarEnSheets, registrarLog } from '../../../services/googleSheetsService';
 
 export default function MatrizRiesgo() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const userEmail = useAuthStore(state => state.userEmail);
   const avanzarCaso = useCasesStore(state => state.avanzarCaso);
   const componentRef = useRef<HTMLDivElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Inicializamos todos los puntajes en 0 y las justificaciones vacías
-  const { control, watch, handleSubmit } = useForm({
+  const { control, watch, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
+      fechaReunionEvaluacion: '',
       desenlaceFatal: 0, just_desenlaceFatal: '',
       hospitalizacion: 0, just_hospitalizacion: '',
       aborto: 0, just_aborto: '',
@@ -123,10 +128,47 @@ export default function MatrizRiesgo() {
 
   const riesgoActual = obtenerNivelRiesgo(indiceRiesgo);
 
-  const onSubmit = (_data: any) => {
+  const onSubmit = async (data: any) => {
+    if (!data.fechaReunionEvaluacion) {
+      alert("Debe indicar la Fecha de Reunión de Evaluación antes de guardar.");
+      return;
+    }
+
     if (id) {
-      const msg = `Se determinó nivel de riesgo ${riesgoActual.etiqueta} (Ptje Compuesto: ${puntajeCompuesto}, Prob: ${probabilidad}, Cons: ${consecuencia}, Índice Final: ${indiceRiesgo}). Caso asignado a ERR.`;
+      setIsSubmitting(true);
+      
+      const payloadMatriz = {
+        tabla: 'MATRIZ_RIESGO',
+        datos: {
+          id_matriz: `MATRIZ-${Date.now()}`,
+          id_caso: id,
+          fecha_reunion: data.fechaReunionEvaluacion,
+          puntaje_compuesto: puntajeCompuesto,
+          probabilidad: probabilidad,
+          consecuencia: consecuencia,
+          nivel_riesgo_final: riesgoActual.etiqueta
+        }
+      };
+
+      if (import.meta.env.VITE_USE_API === 'true') {
+        try {
+          await guardarEnSheets('MATRIZ_RIESGO', payloadMatriz.datos);
+          const msg = `Reunión de evaluación realizada el ${data.fechaReunionEvaluacion}. Nivel de riesgo: ${riesgoActual.etiqueta}.`;
+          await registrarLog(id, userEmail || 'desconocido', msg);
+        } catch (error) {
+          console.error("Error al guardar la matriz en Sheets", error);
+          alert("Hubo un error de conexión con la base de datos central. No se guardó el riesgo.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      const msg = `Reunión de evaluación realizada el ${data.fechaReunionEvaluacion}. Nivel de riesgo: ${riesgoActual.etiqueta} (Ptje: ${puntajeCompuesto}, Prob: ${probabilidad}, Cons: ${consecuencia}). El caso ha sido oficializado y asignado a ERR.`;
+      
+      // Oficializamos y avanzamos a Fase 3
       avanzarCaso(id, 'ASIGNADO_A_ERR', 'Fase 3: Asignación ERR', msg, riesgoActual.etiqueta);
+      
+      alert("Matriz guardada y caso oficializado correctamente");
       navigate(`/caso/${id}`);
     } else {
       alert("Error: No se encontró el ID del expediente.");
@@ -215,9 +257,9 @@ export default function MatrizRiesgo() {
               />
             </Box>
             
-            <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar y Volver</Button>
-            <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large">
-              Guardar Evaluación
+            <Button variant="outlined" onClick={() => navigate(-1)} disabled={isSubmitting}>Cancelar y Volver</Button>
+            <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : 'Guardar Evaluación'}
             </Button>
           </Box>
         </Box>
@@ -247,6 +289,27 @@ export default function MatrizRiesgo() {
           </Box>
         )}
 
+      </Paper>
+
+      <Paper elevation={3} sx={{ p: 3, mb: 4, bgcolor: '#f9fbe7' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>Información de la Evaluación (Obligatorio)</Typography>
+        <Controller
+          name="fechaReunionEvaluacion"
+          control={control}
+          rules={{ required: "Debe ingresar la fecha de la reunión" }}
+          render={({ field }) => (
+            <TextField 
+              {...field} 
+              type="date" 
+              label="Fecha de Reunión de Evaluación" 
+              slotProps={{ inputLabel: { shrink: true } }} 
+              error={!!errors.fechaReunionEvaluacion}
+              helperText={errors.fechaReunionEvaluacion ? String(errors.fechaReunionEvaluacion.message) : ""}
+              sx={{ width: { xs: '100%', md: '300px' }, bgcolor: 'white' }}
+              required
+            />
+          )}
+        />
       </Paper>
 
       {/* DIMENSIÓN 1: EVENTO (40%) */}

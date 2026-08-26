@@ -8,11 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 
-// --- MOCKS DE DATOS PENDIENTES (Intactos) ---
-const mockPendientes = [
-  { idLocal: 'NOTIF-089', paciente: 'Ana Gómez', establecimiento: 'U.S. San Miguel', fecha: dayjs().subtract(1, 'hour').toISOString() },
-  { idLocal: 'NOTIF-090', paciente: 'Luis Torres', establecimiento: 'Hospital Rosales', fecha: dayjs().subtract(4, 'hour').toISOString() }
-];
+// Se eliminan los mocks. Ahora todo viene del Store (casosGlobales)
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -54,7 +50,10 @@ export default function Dashboard() {
   // =========================================================================
   // LÓGICA DE FILTRADO (FRONTEND)
   // =========================================================================
-  const casosFiltrados = casosGlobales.filter((caso) => {
+  const casosPendientes = casosGlobales.filter((c) => c.estadoFlujo === 'PENDIENTE_OFICIALIZAR');
+  const casosActivos = casosGlobales.filter((c) => c.estadoFlujo !== 'PENDIENTE_OFICIALIZAR');
+
+  const casosFiltrados = casosActivos.filter((caso) => {
     const matchesSearch = 
       caso.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
       caso.paciente.toLowerCase().includes(searchTerm.toLowerCase());
@@ -120,14 +119,24 @@ export default function Dashboard() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {mockPendientes.map((notif) => (
-              <TableRow key={notif.idLocal} hover onClick={() => navigate('/nuevo-caso')} sx={{ cursor: 'pointer' }}>
-                <TableCell>{notif.idLocal}</TableCell>
-                <TableCell>{notif.paciente}</TableCell>
-                <TableCell>{notif.establecimiento}</TableCell>
-                <TableCell><Chip label="Oficializar" color="warning" size="small" variant="outlined" /></TableCell>
+            {casosPendientes.length > 0 ? (
+              casosPendientes.map((caso) => (
+                <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ cursor: 'pointer' }}>
+                  <TableCell>{caso.id}</TableCell>
+                  <TableCell>{caso.paciente}</TableCell>
+                  <TableCell>{caso.establecimiento}</TableCell>
+                  <TableCell><Chip label="Oficializar" color="warning" size="small" variant="outlined" /></TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No hay casos pendientes de oficializar.
+                  </Typography>
+                </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </TableContainer>

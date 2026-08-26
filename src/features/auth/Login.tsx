@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Card, CardContent, Typography, TextField, Button, Alert, InputAdornment } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, Alert, InputAdornment, CircularProgress } from '@mui/material';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { login } from '../../services/authService';
 
 type LoginFormData = {
   email: string;
@@ -14,8 +15,9 @@ type LoginFormData = {
 
 export default function Login() {
   const navigate = useNavigate();
-  const loginFn = useAuthStore((state) => state.login);
+  const setSession = useAuthStore((state) => state.setSession);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const { control, handleSubmit } = useForm<LoginFormData>({
     defaultValues: {
@@ -24,15 +26,20 @@ export default function Login() {
     }
   });
 
-  const onSubmit = (data: LoginFormData) => {
+  const onSubmit = async (data: LoginFormData) => {
     setErrorMsg(null); 
-    const isSuccess = loginFn(data.email, data.password);
+    setLoading(true);
+
+    const result = await login(data.email, data.password);
     
-    if (isSuccess) {
+    if (result.success && result.user) {
+      setSession(result.user);
       navigate('/'); 
     } else {
-      setErrorMsg("Credenciales incorrectas o usuario no autorizado por la SRS.");
+      setErrorMsg(result.error || "Credenciales incorrectas o usuario no autorizado por la SRS.");
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -113,8 +120,8 @@ export default function Login() {
               )}
             />
 
-            <Button type="submit" fullWidth variant="contained" color="secondary" size="large" sx={{ py: 1.5, fontWeight: 'bold' }}>
-              INICIAR SESIÓN
+            <Button type="submit" fullWidth variant="contained" color="secondary" size="large" sx={{ py: 1.5, fontWeight: 'bold' }} disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : 'INICIAR SESIÓN'}
             </Button>
           </Box>
 
