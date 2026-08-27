@@ -5,6 +5,9 @@ import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useCasesStore } from '../../../store/useCasesStore';
+import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { useReactToPrint } from 'react-to-print';
+import { useRef, useState } from 'react';
 
 const checklistOficial = [
   { id: 'chk_1', text: 'Identifique la zona geográfica y conozca las condiciones ambientales, de acceso o comunicación y los riesgos de seguridad.' },
@@ -21,7 +24,15 @@ export default function AnexoIII_Logistica() {
   const navigate = useNavigate();
   const { setLogisticaCompletada } = useAuthStore();
   const marcarAnexoCompletado = useCasesStore(state => state.marcarAnexoCompletado);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // === GENERACIÓN DE PDF ===
+  const componentRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Anexo_III_Logistica_${id}`,
+  });
+
   const { control, handleSubmit } = useForm({
     defaultValues: {
       chk_1: false, chk_2: false, chk_3: false, chk_4: false,
@@ -30,18 +41,37 @@ export default function AnexoIII_Logistica() {
     }
   });
 
-  const onSubmit = (_data: any) => {
-    if (id) {
-      marcarAnexoCompletado(id, 'III');
-      setLogisticaCompletada(true);
-      
-      const store = useCasesStore.getState();
-      const casoActual = store.casos.find((c: any) => c.id === id);
-      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
-        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
-      }
+  const onSubmit = async (data: any) => {
+    setIsSubmitting(true);
+    try {
+      if (id && import.meta.env.VITE_USE_API === 'true') {
+        const payload = {
+          id_caso: id,
+          ...data
+        };
+        await guardarEnSheets('ANEXO_III', payload);
 
+        await marcarAnexoCompletado(id, 'III');
+        setLogisticaCompletada(true);
+        
+        const store = useCasesStore.getState();
+        const casoActual = store.casos.find((c: any) => c.id === id);
+        if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+          store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+        }
+      } else if (id) {
+        // Fallback para modo sin API
+        marcarAnexoCompletado(id, 'III');
+        setLogisticaCompletada(true);
+      }
+      
+      alert("Checklist Logístico (Anexo III) guardado exitosamente.");
       navigate('/caso/' + id);
+    } catch (error) {
+      console.error("Error al guardar Anexo III:", error);
+      alert("Hubo un error de conexión al guardar el Anexo III.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -52,12 +82,18 @@ export default function AnexoIII_Logistica() {
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo III: Checklist Logístico
         </Typography>
-        <Button variant="outlined" onClick={() => navigate('/caso/' + id)}>
-          Cancelar
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
+            Descargar PDF
+          </Button>
+          <Button variant="outlined" onClick={() => navigate('/caso/' + id)}>
+            Cancelar
+          </Button>
+        </Box>
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 4, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
+      <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: 4, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
         <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
           <ChecklistRtlIcon /> Preparación para el Trabajo de Campo
         </Typography>
@@ -93,11 +129,12 @@ export default function AnexoIII_Logistica() {
             placeholder="Ej. Vehículo asignado placa Nacional-123. Zonas con señal celular intermitente..." 
           />
         )}/>
-      </Paper>
+        </Paper>
+      </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-        <Button variant="contained" color="secondary" type="submit" size="large" startIcon={<SaveIcon />}>
-          Guardar Logística de Campo
+        <Button variant="contained" color="secondary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando...' : 'Guardar Logística de Campo'}
         </Button>
       </Box>
 

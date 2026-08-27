@@ -7,13 +7,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRef, useState } from 'react';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { guardarEnSheets, registrarLog } from '../../../services/googleSheetsService';
+import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/googleSheetsService';
 
 export default function MatrizRiesgo() {
   const navigate = useNavigate();
   const { id } = useParams();
   const userEmail = useAuthStore(state => state.userEmail);
   const avanzarCaso = useCasesStore(state => state.avanzarCaso);
+  const agendarReunionStore = useCasesStore(state => state.agendarReunionStore);
   const componentRef = useRef<HTMLDivElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -155,6 +156,26 @@ export default function MatrizRiesgo() {
           await guardarEnSheets('MATRIZ_RIESGO', payloadMatriz.datos);
           const msg = `Reunión de evaluación realizada el ${data.fechaReunionEvaluacion}. Nivel de riesgo: ${riesgoActual.etiqueta}.`;
           await registrarLog(id, userEmail || 'desconocido', msg);
+
+          // 1. Agendar la reunión formalmente (POE)
+          await agendarReunionStore(id, {
+            faseRelacionada: 'Fase 2: Evaluación',
+            fecha: data.fechaReunionEvaluacion,
+            hora: '08:00', // Valor por defecto
+            tema: 'Evaluación de Triaje y Matriz de Riesgo ESAVI',
+            modalidad: 'Virtual',
+            estado: 'REALIZADA',
+            enlaceOLugar: 'Generado Automáticamente',
+            convocados: ['Equipo Coordinador']
+          });
+
+          // 2. Notificar al Secretariado (POE)
+          await crearNotificacion({
+            id_caso: id,
+            rol_destino: 'SECRETARIADO',
+            texto: `Se ha completado la Matriz de Riesgo para el caso ${id}. Nivel asignado: ${riesgoActual.etiqueta}. El caso avanza a Asignación de ERR.`
+          });
+
         } catch (error) {
           console.error("Error al guardar la matriz en Sheets", error);
           alert("Hubo un error de conexión con la base de datos central. No se guardó el riesgo.");

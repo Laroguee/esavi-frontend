@@ -7,12 +7,14 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function login(email: string, passwordPlain: string) {
-  const hashedPassword = await hashPassword(passwordPlain);
+  // NOTA: Para propósitos de testing y porque las contraseñas en Google Sheets
+  // están en texto plano actualmente, enviamos la contraseña original. 
+  // (Idealmente deberían hashearse también en la base de datos).
   
   const payload = {
     accion: 'LOGIN',
     email,
-    password: hashedPassword
+    password: passwordPlain
   };
 
   try {

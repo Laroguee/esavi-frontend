@@ -10,7 +10,7 @@ import { useCasesStore } from '../../store/useCasesStore';
 
 export default function TrabajoCampo() {
   const navigate = useNavigate();
-  const { currentRole } = useAuthStore();
+  const { currentRole, userEmail } = useAuthStore();
   const { casos } = useCasesStore();
 
   // Validación de acceso estricto a roles locales
@@ -96,77 +96,96 @@ export default function TrabajoCampo() {
       </Box>
 
       {/* DASHBOARD DE MÉTRICAS */}
-      <Grid container spacing={3} sx={{ mb: 5 }}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <MetricCard title="Casos Asignados a mi Región" value={14} color="#1976d2" icon={<MapIcon color="primary" fontSize="large" />} />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <MetricCard title="Fichas Pendientes de Llenar" value={3} color="#ed6c02" icon={<AssignmentLateIcon color="warning" fontSize="large" />} />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <MetricCard title="Formularios Completados (Mes)" value={11} color="#2e7d32" icon={<FactCheckIcon color="success" fontSize="large" />} />
-        </Grid>
-      </Grid>
+      {(() => {
+        const casosParaMostrar = casos.filter(caso => 
+          (caso.estadoFlujo === 'EN_INVESTIGACION' || 
+           caso.estadoFlujo === 'ASIGNADO_A_ERR' || 
+           caso.estadoFlujo === 'DEVUELTO_A_ERR') &&
+          caso.miembrosERR?.includes(userEmail || '')
+        );
 
-      {/* TABLA DE CASOS ASIGNADOS */}
-      <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>
-        Expedientes Asignados para Investigación de Campo
-      </Typography>
-      
-      <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 2 }}>
-        <Table>
-          <TableHead sx={{ bgcolor: '#f4f6f8' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>ID Caso</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Paciente</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Territorio / Municipio</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Estado del Flujo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>Acción Requerida</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {(() => {
-              const casosParaMostrar = casos.filter(caso => 
-                caso.estadoFlujo === 'EN_INVESTIGACION' || 
-                caso.estadoFlujo === 'ASIGNADO_A_ERR' || 
-                caso.estadoFlujo === 'DEVUELTO_A_ERR'
-              );
+        const fichasPendientes = casosParaMostrar.filter(c => {
+          if (currentRole === 'INMUNO_LOCAL') return !c.anexoV_completado;
+          if (currentRole === 'EPIDEMIO_LOCAL') return !c.anexoVI_completado;
+          if (currentRole === 'ESAVI_LOCAL') return !c.anexoVII_completado;
+          return true;
+        }).length;
 
-              return casosParaMostrar.length > 0 ? (
-                casosParaMostrar.map((caso) => {
-                  const isCompletado = false; // Estos estados son todos pendientes para el rol local
-                  const labelEstado = caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'Devuelto por Observaciones' : caso.estadoFlujo === 'ASIGNADO_A_ERR' ? 'Recién Asignado' : 'En Proceso';
-                  
-                  return (
-                    <TableRow key={caso.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell sx={{ fontWeight: 'medium' }}>{caso.id}</TableCell>
-                      <TableCell>{caso.paciente}</TableCell>
-                      <TableCell>{caso.establecimiento}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={labelEstado} 
-                          size="small" 
-                          color={caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'error' : 'warning'} 
-                          variant={isCompletado ? 'filled' : 'outlined'} 
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        {getActionBtn(caso.id, isCompletado)}
+        const casosAsignados = casosParaMostrar.length;
+        const formulariosCompletados = casosAsignados - fichasPendientes;
+
+        return (
+          <>
+            <Grid container spacing={3} sx={{ mb: 5 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <MetricCard title="Casos Asignados a mi Región" value={casosAsignados} color="#1976d2" icon={<MapIcon color="primary" fontSize="large" />} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <MetricCard title="Fichas Pendientes de Llenar" value={fichasPendientes} color="#ed6c02" icon={<AssignmentLateIcon color="warning" fontSize="large" />} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <MetricCard title="Formularios Completados (Mes)" value={formulariosCompletados} color="#2e7d32" icon={<FactCheckIcon color="success" fontSize="large" />} />
+              </Grid>
+            </Grid>
+
+            {/* TABLA DE CASOS ASIGNADOS */}
+            <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>
+              Expedientes Asignados para Investigación de Campo
+            </Typography>
+            
+            <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 2 }}>
+              <Table>
+                <TableHead sx={{ bgcolor: '#f4f6f8' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>ID Caso</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Paciente</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Territorio / Municipio</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Estado del Flujo</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>Acción Requerida</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {casosParaMostrar.length > 0 ? (
+                    casosParaMostrar.map((caso) => {
+                      let isCompletado = false;
+                      if (currentRole === 'INMUNO_LOCAL') isCompletado = !!caso.anexoV_completado;
+                      if (currentRole === 'EPIDEMIO_LOCAL') isCompletado = !!caso.anexoVI_completado;
+                      if (currentRole === 'ESAVI_LOCAL') isCompletado = !!caso.anexoVII_completado;
+
+                      const labelEstado = caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'Devuelto por Observaciones' : caso.estadoFlujo === 'ASIGNADO_A_ERR' ? 'Recién Asignado' : 'En Proceso';
+                      
+                      return (
+                        <TableRow key={caso.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                          <TableCell sx={{ fontWeight: 'medium' }}>{caso.id}</TableCell>
+                          <TableCell>{caso.paciente}</TableCell>
+                          <TableCell>{caso.establecimiento}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={labelEstado} 
+                              size="small" 
+                              color={caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'error' : 'warning'} 
+                              variant={isCompletado ? 'filled' : 'outlined'} 
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            {getActionBtn(caso.id, isCompletado)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                        <Typography color="text.secondary">No hay casos asignados a tu cuenta en este momento.</Typography>
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                    <Typography color="text.secondary">No hay casos asignados a tu región en este momento.</Typography>
-                  </TableCell>
-                </TableRow>
-              );
-            })()}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
+        );
+      })()}
 
     </Box>
   );

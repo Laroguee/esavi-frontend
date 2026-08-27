@@ -4,6 +4,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
+import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { useReactToPrint } from 'react-to-print';
+import { useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -79,6 +82,14 @@ type AnexoVFormValues = z.infer<typeof anexoVSchema>;
 export default function AnexoV_PuestoVacuna() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // === GENERACIÓN DE PDF ===
+  const componentRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Anexo_V_PuestoVacunacion_${id}`,
+  });
 
   const { control, handleSubmit } = useForm<AnexoVFormValues>({
     resolver: zodResolver(anexoVSchema),
@@ -97,20 +108,33 @@ export default function AnexoV_PuestoVacuna() {
     }
   });
 
-  const onSubmit = (data: AnexoVFormValues) => {
-    console.log("Anexo V Guardado:", data);
-    alert("Guía del Puesto de Vacunación (Anexo V) guardada exitosamente.");
-    
-    if (id) {
-      const store = useCasesStore.getState();
-      store.marcarAnexoCompletado(id, 'V');
-      const casoActual = store.casos.find((c: any) => c.id === id);
-      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
-        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+  const onSubmit = async (data: AnexoVFormValues) => {
+    setIsSubmitting(true);
+    try {
+      if (id && import.meta.env.VITE_USE_API === 'true') {
+        const payload = {
+          id_caso: id,
+          ...data
+        };
+        await guardarEnSheets('ANEXO_V', payload);
+
+        const store = useCasesStore.getState();
+        await store.marcarAnexoCompletado(id, 'V');
+        
+        const casoActual = store.casos.find((c: any) => c.id === id);
+        if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+          store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+        }
       }
+      
+      alert("Guía del Puesto de Vacunación (Anexo V) guardada exitosamente.");
+      navigate(-1);
+    } catch (error) {
+      console.error("Error al guardar Anexo V:", error);
+      alert("Hubo un error de conexión.");
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    navigate(-1);
   };
 
   const checklistItems = [
@@ -137,8 +161,15 @@ export default function AnexoV_PuestoVacuna() {
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo V: Guía de Puesto de Vacunación
         </Typography>
-        <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
+            Descargar PDF
+          </Button>
+          <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
+        </Box>
       </Box>
+
+      <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
 
       {/* ENCABEZADO */}
       <Paper elevation={2} sx={{ p: 4, mb: 4, borderTop: '4px solid', borderColor: 'primary.main' }}>
@@ -313,13 +344,13 @@ export default function AnexoV_PuestoVacuna() {
         </Button>
       </Paper>
 
-      {/* BOTÓN FINAL */}
-      <Box sx={{ textAlign: 'right' }}>
-        <Button type="submit" variant="contained" color="primary" startIcon={<SaveIcon />} size="large">
-          Finalizar y Guardar Anexo V
-        </Button>
       </Box>
 
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+        <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
+        </Button>
+      </Box>
     </Box>
   );
 }

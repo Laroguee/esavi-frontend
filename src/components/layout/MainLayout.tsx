@@ -82,36 +82,6 @@ export default function MainLayout() {
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             
-            {/* SELECTOR DINÁMICO DE ROLES (MODO DEV) */}
-            <Box id="selector-roles-simulador" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ color: 'white' }}>🧪 Simular Rol:</Typography>
-              <FormControl size="small" variant="outlined">
-                <Select
-                  value={currentRole}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                  sx={{ 
-                    color: 'white', bgcolor: 'rgba(255,255,255,0.1)',
-                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'secondary.main' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'white' },
-                    '.MuiSvgIcon-root': { color: 'secondary.main' }
-                  }}
-                >
-                  <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL INSTITUCIONAL</ListSubheader>
-                  <MenuItem value="ESAVI_INSTITUCIONAL">Referente ESAVI Institucional</MenuItem>
-                  <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiólogo Institucional</MenuItem>
-                  <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Institucional</MenuItem>
-                  
-                  <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL ERR (Campo)</ListSubheader>
-                  <MenuItem value="ESAVI_LOCAL">Referente ESAVI Local (Clínico)</MenuItem>
-                  <MenuItem value="EPIDEMIO_LOCAL">Epidemiólogo Local</MenuItem>
-                  <MenuItem value="INMUNO_LOCAL">Inmunizaciones Local</MenuItem>
-
-                  <ListSubheader sx={{ bgcolor: '#eee', lineHeight: '30px' }}>NIVEL CENTRAL / EXTERNO</ListSubheader>
-                  <MenuItem value="SECRETARIADO">Secretariado (SRS)</MenuItem>
-                  <MenuItem value="COMITE_EXTERNO">Comité Evaluador Externo</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
 
             {/* IDENTIFICACIÓN DE USUARIO (Reemplazo del simulador) */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>

@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 import { 
   guardarEnSheets, 
   listarCasos, 
   actualizarCaso,
   listarNotificaciones,
   marcarNotificacionLeida,
-  agendarReunion
+  agendarReunion,
+  crearNotificacion
 } from '../services/googleSheetsService';
 import { useAuthStore } from './useAuthStore';
 
@@ -38,6 +41,8 @@ export interface CasoESAVI {
   estadoFlujo: EstadoFlujo;
   riesgo: string;
   fecha: string;
+  edad?: number;
+  sexo?: string;
   observacionRechazo?: string;
   anexoRechazado?: string;
   observacionActual?: string;
@@ -102,6 +107,8 @@ export const useCasesStore = create<CasesState>()(
               estadoFlujo: row.estado_flujo,
               riesgo: row.riesgo || 'Sin clasificar',
               fecha: row.fecha_notificacion || new Date().toISOString(),
+              edad: row.edad ? Number(row.edad) : undefined,
+              sexo: row.sexo || undefined,
               miembrosERR: row.miembros_err ? JSON.parse(row.miembros_err) : [],
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
               anexoIII_completado: String(row.anexoIII) === 'true',
@@ -246,17 +253,41 @@ export const useCasesStore = create<CasesState>()(
            await actualizarCaso(idCaso, { [colMap[anexo]]: true });
         }
 
-        set((state) => ({
-          casos: state.casos.map(caso => {
+        set((state) => {
+          let casoActualizado = null;
+          const nuevosCasos = state.casos.map(caso => {
             if (caso.id === idCaso) {
-              if (anexo === 'III') return { ...caso, anexoIII_completado: true };
-              if (anexo === 'V') return { ...caso, anexoV_completado: true };
-              if (anexo === 'VI') return { ...caso, anexoVI_completado: true };
-              if (anexo === 'VII') return { ...caso, anexoVII_completado: true };
+              const updated = { ...caso };
+              if (anexo === 'III') updated.anexoIII_completado = true;
+              if (anexo === 'V') updated.anexoV_completado = true;
+              if (anexo === 'VI') updated.anexoVI_completado = true;
+              if (anexo === 'VII') updated.anexoVII_completado = true;
+              
+              casoActualizado = updated;
+              return updated;
             }
             return caso;
-          })
-        }));
+          });
+
+          return { casos: nuevosCasos };
+        });
+
+        // Orquestación: Si V, VI y VII están completados, avanzar de fase
+        const stateAfter = get();
+        const casoDespues = stateAfter.casos.find(c => c.id === idCaso);
+        
+        if (casoDespues && casoDespues.anexoV_completado && casoDespues.anexoVI_completado && casoDespues.anexoVII_completado && casoDespues.estadoFlujo === 'EN_INVESTIGACION') {
+          // Avanzamos el caso a revisión
+          await stateAfter.avanzarCaso(idCaso, 'EN_REVISION_SECRETARIADO', 'Fase 5: Revisión de la SRS', 'El trabajo de campo (Anexos V, VI, VII) ha sido completado por los tres investigadores.');
+          
+          if (import.meta.env.VITE_USE_API === 'true') {
+            await crearNotificacion({
+              id_caso: idCaso,
+              rol_destino: 'ESAVI_INSTITUCIONAL',
+              texto: `El trabajo de campo para el Caso ${idCaso} ha finalizado. Por favor revise el expediente para su envío al comité.`
+            });
+          }
+        }
       },
         
       asignarMiembrosERR: async (idCaso, miembros) => {

@@ -30,7 +30,7 @@ export default function CaseDetail() {
   const { currentRole, userEmail } = useAuthStore(); 
 
   // --- CONEXIÓN AL STORE CENTRAL ---
-  const { casos, devolverCaso, agendarReunion, avanzarCaso } = useCasesStore();
+  const { casos, devolverCaso, agendarReunionStore, avanzarCaso } = useCasesStore();
   const casoActual = casos.find(c => c.id === id);
 
   // --- ESTADOS PARA MODALES (Read-Only) ---
@@ -85,7 +85,7 @@ export default function CaseDetail() {
 
   const handleGuardarReunion = () => {
     if (!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora) return;
-    agendarReunion(casoActual!.id, {
+    agendarReunionStore(casoActual!.id, {
       id: Date.now().toString(),
       tema: nuevaReunion.tema,
       faseRelacionada: nuevaReunion.faseRelacionada,

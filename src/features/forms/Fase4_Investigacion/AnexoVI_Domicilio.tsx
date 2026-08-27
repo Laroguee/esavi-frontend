@@ -9,6 +9,9 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
+import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { useReactToPrint } from 'react-to-print';
+import { useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -141,6 +144,14 @@ type AnexoVIFormValues = z.infer<typeof anexoVISchema>;
 export default function AnexoVI_Domicilio() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // === GENERACIÓN DE PDF ===
+  const componentRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Anexo_VI_Domicilio_${id}`,
+  });
 
   const { control, handleSubmit } = useForm<AnexoVIFormValues>({
     resolver: zodResolver(anexoVISchema),
@@ -166,20 +177,33 @@ export default function AnexoVI_Domicilio() {
     }
   });
 
-  const onSubmit = (data: AnexoVIFormValues) => {
-    console.log("Anexo VI Guardado:", data);
-    alert("Guía Domiciliaria (Anexo VI) guardada exitosamente.");
+  const onSubmit = async (data: AnexoVIFormValues) => {
+    setIsSubmitting(true);
+    try {
+      if (id && import.meta.env.VITE_USE_API === 'true') {
+        const payload = {
+          id_caso: id,
+          ...data
+        };
+        await guardarEnSheets('ANEXO_VI', payload);
 
-    if (id) {
-      const store = useCasesStore.getState();
-      store.marcarAnexoCompletado(id, 'VI');
-      const casoActual = store.casos.find((c: any) => c.id === id);
-      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
-        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+        const store = useCasesStore.getState();
+        await store.marcarAnexoCompletado(id, 'VI');
+        
+        const casoActual = store.casos.find((c: any) => c.id === id);
+        if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+          store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+        }
       }
+      
+      alert("Guía Domiciliaria (Anexo VI) guardada exitosamente.");
+      navigate(-1);
+    } catch (error) {
+      console.error("Error al guardar Anexo VI:", error);
+      alert("Hubo un error de conexión.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    navigate(-1);
   };
 
   const tabla4 = [
@@ -226,11 +250,18 @@ export default function AnexoVI_Domicilio() {
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-          Anexo VI: Investigación Domiciliaria
+        <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
+          Anexo VI: Guía Domiciliaria y Comunitaria
         </Typography>
-        <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
+            Descargar PDF
+          </Button>
+          <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
+        </Box>
       </Box>
+
+      <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
 
       {/* ENCABEZADO FIJO */}
       <Paper elevation={2} sx={{ p: 4, mb: 3, borderTop: '4px solid', borderColor: 'primary.main' }}>
@@ -414,12 +445,13 @@ export default function AnexoVI_Domicilio() {
       </Accordion>
 
       {/* BOTÓN FINAL */}
-      <Box sx={{ textAlign: 'right' }}>
-        <Button type="submit" variant="contained" color="primary" startIcon={<SaveIcon />} size="large">
-          Finalizar y Guardar Anexo VI
+      </Box>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+        <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
         </Button>
       </Box>
-
     </Box>
   );
 }

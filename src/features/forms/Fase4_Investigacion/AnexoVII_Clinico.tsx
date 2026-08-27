@@ -12,6 +12,9 @@ import PregnantWomanIcon from '@mui/icons-material/PregnantWoman';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
+import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { useReactToPrint } from 'react-to-print';
+import { useRef, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -117,6 +120,25 @@ export default function AnexoVII_Clinico() {
   const { id } = useParams();
   const [tabIndex, setTabIndex] = useState(0);
   const [esMujerFertil, setEsMujerFertil] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // === GENERACIÓN DE PDF ===
+  const componentRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Anexo_VII_Clinico_${id}`,
+  });
+
+  // === LÓGICA DE MUJER FÉRTIL ===
+  useEffect(() => {
+    if (id) {
+      const store = useCasesStore.getState();
+      const caso = store.casos.find((c: any) => c.id === id);
+      if (caso && caso.sexo === 'Femenino' && caso.edad && caso.edad >= 12 && caso.edad <= 50) {
+        setEsMujerFertil(true);
+      }
+    }
+  }, [id]);
 
   const { control, handleSubmit, watch } = useForm<AnexoVIIFormValues>({
     resolver: zodResolver(anexoVIISchema),
@@ -142,20 +164,33 @@ export default function AnexoVII_Clinico() {
   const desenlace = watch('desenlaceEmbarazo');
   const instDiferente = watch('institucionDiferente');
 
-  const onSubmit = (data: AnexoVIIFormValues) => {
-    console.log("Anexo Guardado:", data);
-    alert("Anexo VII Guardado Exitosamente.");
+  const onSubmit = async (data: AnexoVIIFormValues) => {
+    setIsSubmitting(true);
+    try {
+      if (id && import.meta.env.VITE_USE_API === 'true') {
+        const payload = {
+          id_caso: id,
+          ...data
+        };
+        await guardarEnSheets('ANEXO_VII', payload);
 
-    if (id) {
-      const store = useCasesStore.getState();
-      store.marcarAnexoCompletado(id, 'VII');
-      const casoActual = store.casos.find((c: any) => c.id === id);
-      if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
-        store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+        const store = useCasesStore.getState();
+        await store.marcarAnexoCompletado(id, 'VII');
+        
+        const casoActual = store.casos.find((c: any) => c.id === id);
+        if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
+          store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
+        }
       }
+      
+      alert("Anexo VII Guardado Exitosamente.");
+      navigate(-1);
+    } catch (error) {
+      console.error("Error al guardar Anexo VII:", error);
+      alert("Hubo un error de conexión.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    navigate(-1);
   };
 
   function RenderEquipoRow({ prefix, titulo }: { prefix: string, titulo: string }) {
@@ -193,10 +228,16 @@ export default function AnexoVII_Clinico() {
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo VII: Evaluación Clínica
         </Typography>
-        <Button variant="outlined" size="small" onClick={() => navigate(-1)}>Cancelar</Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" color="secondary" size="small" onClick={() => handlePrint()}>
+            Descargar PDF
+          </Button>
+          <Button variant="outlined" size="small" onClick={() => navigate(-1)}>Cancelar</Button>
+        </Box>
       </Box>
 
-      <Paper elevation={3} sx={{ borderRadius: 2 }}>
+      <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
+        <Paper elevation={3} sx={{ borderRadius: 2 }}>
         {/* CORRECCIÓN: Se reemplazó (e, val) por (_, val) */}
         <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} indicatorColor="secondary" textColor="primary" variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fafafa' }}>
           <Tab icon={<AssignmentIcon />} label="A. Info Básica" sx={{ fontWeight: 'bold', minHeight: 60 }} />
@@ -714,6 +755,14 @@ export default function AnexoVII_Clinico() {
 
         </Box>
       </Paper>
+      </Box> {/* Cierre de componentRef */}
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+        <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
+        </Button>
+      </Box>
+
     </Box>
   );
 }

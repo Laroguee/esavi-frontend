@@ -65,7 +65,13 @@ const notificacionSchema = z.object({
   criterioGravedad: z.array(z.string()).optional(),
   desenlace: z.string().optional(),
   tratamientoRecibido: z.string().optional(),
-  antecedentesMedicosRelevantes: z.string().optional()
+  antecedentesMedicosRelevantes: z.string().optional(),
+  observacionesAdicionales: z.string().optional(),
+
+  // E. Nuevos campos de FACEDRA
+  viaAdministracion: z.string().optional(),
+  dosisYPosologia: z.string().optional(),
+  correoNotificador: z.string().optional(),
 });
 
 type NotificacionFormValues = z.infer<typeof notificacionSchema>;
@@ -88,11 +94,11 @@ export default function NotificacionInicial() {
   const { control, handleSubmit, watch, reset, setValue } = useForm<NotificacionFormValues>({
     resolver: zodResolver(notificacionSchema),
     defaultValues: {
-      fechaNotificacion: '', nombreNotificador: '', cargoNotificador: '', establecimientoNotificador: '', telefonoNotificador: '',
+      fechaNotificacion: '', nombreNotificador: '', cargoNotificador: '', establecimientoNotificador: '', telefonoNotificador: '', correoNotificador: '',
       nombrePaciente: '', genero: '', fechaNacimiento: '', edad: 0, unidadEdad: 'Años', expedienteClinico: '', 
       pesoKg: 0, alturaCm: 0, padeceOtrasEnfermedades: false, nombreEnfermedad: '', fechaDiagnostico: '', pacienteDUI: '', pacienteDireccion: '', pacienteResponsable: '',
-      nombreVacuna: '', fechaAdministracion: '', horaAdministracion: '', dosisAdministradas: '', lote: '', fabricante: '', fechaCaducidad: '', sitioAnatomico: '', establecimientoVacunacion: '', medidasTomadas: '',
-      fechaInicioReaccion: '', horaInicioReaccion: '', fechaFinReaccion: '', sintomasReaccion: '', eventoGravedad: '', criterioGravedad: [], desenlace: '', tratamientoRecibido: '', antecedentesMedicosRelevantes: ''
+      nombreVacuna: '', fechaAdministracion: '', horaAdministracion: '', dosisAdministradas: '', lote: '', fabricante: '', fechaCaducidad: '', sitioAnatomico: '', establecimientoVacunacion: '', medidasTomadas: '', viaAdministracion: '', dosisYPosologia: '',
+      fechaInicioReaccion: '', horaInicioReaccion: '', fechaFinReaccion: '', sintomasReaccion: '', eventoGravedad: '', criterioGravedad: [], desenlace: '', tratamientoRecibido: '', antecedentesMedicosRelevantes: '', observacionesAdicionales: ''
     }
   });
 
@@ -149,6 +155,12 @@ export default function NotificacionInicial() {
       const sexoMatch = text.match(/Sexo:\s*(Femenino|Masculino)/i);
       if (sexoMatch) setValue('genero', sexoMatch[1]);
 
+      const pesoMatch = text.match(/Peso\s*\(kg\):\s*([\d,.]+)/i);
+      if (pesoMatch) setValue('pesoKg', parseFloat(pesoMatch[1].replace(',', '.')));
+
+      const alturaMatch = text.match(/Altura\s*\(cm\):\s*([\d,.]+)/i);
+      if (alturaMatch) setValue('alturaCm', parseFloat(alturaMatch[1].replace(',', '.')));
+
       // Mapeo inteligente de vacunas
       const vacunaMatch = text.match(/Medicamento:\s*(.+?)(?=Lote y fecha|Motivo|Dosis)/is);
       if (vacunaMatch) {
@@ -178,6 +190,12 @@ export default function NotificacionInicial() {
         }
       }
 
+      const viaMatch = text.match(/Vía de administración:\s*(.+?)(?=\n|Medidas)/is);
+      if (viaMatch) setValue('viaAdministracion', viaMatch[1].replace(/\n/g, ' ').trim());
+
+      const dosisPosMatch = text.match(/Dosis y posología:\s*(.+?)(?=\n|Vía)/is);
+      if (dosisPosMatch) setValue('dosisYPosologia', dosisPosMatch[1].replace(/\n/g, ' ').trim());
+
       // Fechas (Hay dos en el documento: Vacuna y Evento)
       const fechasMatch = [...text.matchAll(/Fecha [I|i]nicio:\s*(\d{2})\/(\d{2})\/(\d{4})/g)];
       if (fechasMatch.length > 0) {
@@ -192,6 +210,21 @@ export default function NotificacionInicial() {
 
       const eventoMatch = text.match(/Reacción adversa:\s*(.+?)(?=Fecha|Desenlace)/is);
       if (eventoMatch) setValue('sintomasReaccion', eventoMatch[1].replace(/\n/g, ' ').trim());
+
+      const observacionesMatch = text.match(/Observaciones adicionales:\s*(.+?)(?=\nNOTIFICADOR|NOTIFICADOR|$)/is);
+      if (observacionesMatch) setValue('observacionesAdicionales', observacionesMatch[1].replace(/\n/g, ' ').trim());
+
+      // Detectar gravedad automáticamente
+      if (text.toLowerCase().includes('han sido la causa de su hospitalización')) {
+        setValue('eventoGravedad', 'Grave');
+        setValue('criterioGravedad', ['Causó hospitalización']);
+      } else if (text.toLowerCase().includes('puso en peligro su vida')) {
+        setValue('eventoGravedad', 'Grave');
+        setValue('criterioGravedad', ['Puso en peligro su vida']);
+      } else if (text.toLowerCase().includes('mortal') || text.toLowerCase().includes('fallecido')) {
+        setValue('eventoGravedad', 'Grave');
+        setValue('criterioGravedad', ['Mortal']);
+      }
 
       const desenlaceMatch = text.match(/Desenlace:\s*(.+?)(?=\n|Observaciones)/is);
       if (desenlaceMatch) {
@@ -223,6 +256,9 @@ export default function NotificacionInicial() {
       const telefonoMatch = text.match(/Teléfono de contacto:\s*([\d\-\s]+)/i);
       if (telefonoMatch) setValue('telefonoNotificador', telefonoMatch[1].trim());
 
+      const correoMatch = text.match(/Correo electrónico:\s*(.+?)(?=Tipo de centro|Centro de trabajo)/is);
+      if (correoMatch) setValue('correoNotificador', correoMatch[1].replace(/\n/g, ' ').trim());
+
       const fechaNotifMatch = text.match(/Fecha Notificación:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
       if (fechaNotifMatch) {
         setValue('fechaNotificacion', `${fechaNotifMatch[3]}-${fechaNotifMatch[2]}-${fechaNotifMatch[1]}`);
@@ -252,6 +288,7 @@ export default function NotificacionInicial() {
         fecha_notificacion: new Date().toISOString().split('T')[0],
         identificador_paciente: data.expedienteClinico || '',
         tiene_evidencias: true,
+        establecimiento_notificador: data.establecimientoNotificador || '',
         // Nuevos campos de Noti-FACEDRA integrados a la tabla principal
         nombre_paciente: data.nombrePaciente || '',
         edad: data.edad || '',
@@ -259,7 +296,14 @@ export default function NotificacionInicial() {
         nombre_vacuna: data.nombreVacuna || '',
         fecha_vacunacion: data.fechaAdministracion || '',
         sintomas: data.sintomasReaccion || '',
-        criterio_gravedad: data.criterioGravedad && data.criterioGravedad.length > 0 ? data.criterioGravedad.join(', ') : ''
+        criterio_gravedad: data.criterioGravedad && data.criterioGravedad.length > 0 ? data.criterioGravedad.join(', ') : '',
+        // Nuevas columnas requeridas para FACEDRA
+        peso_kg: data.pesoKg || '',
+        altura_cm: data.alturaCm || '',
+        via_administracion: data.viaAdministracion || '',
+        dosis_posologia: data.dosisYPosologia || '',
+        correo_notificador: data.correoNotificador || '',
+        observaciones_adicionales: data.observacionesAdicionales || ''
       }
     };
 
@@ -392,7 +436,12 @@ export default function NotificacionInicial() {
                 <TextField {...field} fullWidth label="Cargo" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Controller name="correoNotificador" control={control} render={({ field, fieldState }) => (
+                <TextField {...field} fullWidth label="Correo electrónico" type="email" error={!!fieldState.error} helperText={fieldState.error?.message} />
+              )}/>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Controller name="telefonoNotificador" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Teléfono de contacto" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
@@ -577,7 +626,17 @@ export default function NotificacionInicial() {
                 <TextField {...field} fullWidth label="Sitio anatómico de aplicación (Ej. Brazo izquierdo)" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Controller name="viaAdministracion" control={control} render={({ field, fieldState }) => (
+                <TextField {...field} fullWidth label="Vía de administración (Ej. Intramuscular)" error={!!fieldState.error} helperText={fieldState.error?.message} />
+              )}/>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Controller name="dosisYPosologia" control={control} render={({ field, fieldState }) => (
+                <TextField {...field} fullWidth label="Dosis y Posología (Ej. 0.5ML)" error={!!fieldState.error} helperText={fieldState.error?.message} />
+              )}/>
+            </Grid>
+            <Grid size={{ xs: 12, md: 8 }}>
               <Controller name="establecimientoVacunacion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Establecimiento de vacunación" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
@@ -669,6 +728,12 @@ export default function NotificacionInicial() {
             <Grid size={{ xs: 12 }}>
               <Controller name="sintomasReaccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth multiline rows={4} label="Síntomas / Diagnóstico de la Reacción" placeholder="Describa a detalle los signos, síntomas, texto diagnóstico..." required error={!!fieldState.error} helperText={fieldState.error?.message} />
+              )}/>
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
+              <Controller name="observacionesAdicionales" control={control} render={({ field, fieldState }) => (
+                <TextField {...field} fullWidth multiline rows={2} label="Observaciones Adicionales" placeholder="Notas extra provenientes de la notificación..." error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 

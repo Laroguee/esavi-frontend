@@ -17,6 +17,7 @@ export default function AsignacionERR() {
   const { establecimientos } = useCatalogStore();
   const avanzarCaso = useCasesStore(state => state.avanzarCaso);
   const asignarMiembrosERR = useCasesStore(state => state.asignarMiembrosERR);
+  const agendarReunionStore = useCasesStore(state => state.agendarReunionStore);
   const casoActual = useCasesStore(state => state.casos.find(c => c.id === id));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usuariosBD, setUsuariosBD] = useState<MockUser[]>([]);
@@ -79,6 +80,18 @@ export default function AsignacionERR() {
       // Guardar el equipo asignado en el estado global (como arreglo de correos)
       const miembrosSeleccionados = [data.farmacovigilancia, data.inmunizaciones, data.epidemiologia].filter(Boolean);
       asignarMiembrosERR(id, miembrosSeleccionados);
+
+      // Agendar la reunión de lineamientos automáticamente (POE)
+      await agendarReunionStore(id, {
+        faseRelacionada: 'Fase 3: Asignación ERR',
+        fecha: new Date().toISOString().split('T')[0],
+        hora: '14:00', // Valor por defecto
+        tema: 'Reunión de Lineamientos previos al Trabajo de Campo',
+        modalidad: 'Presencial',
+        estado: 'REALIZADA',
+        enlaceOLugar: 'Sede Institucional',
+        convocados: miembrosSeleccionados
+      });
 
       // Notificar a los miembros asignados
       if (import.meta.env.VITE_USE_API === 'true') {
