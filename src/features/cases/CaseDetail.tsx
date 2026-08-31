@@ -103,7 +103,7 @@ export default function CaseDetail() {
     setNuevaReunion({ tema: '', faseRelacionada: 'Fase 2', fecha: '', hora: '', modalidad: 'Virtual', enlaceOLugar: '' });
 
     // Navegar directamente a la matriz de riesgo pasando la fecha y opcionalmente el archivo
-    if (casoActual?.estadoFlujo === 'PENDIENTE_OFICIALIZAR') {
+    if (casoActual?.estadoFlujo === 'NUEVO' || casoActual?.estadoFlujo === 'EN_EVALUACION') {
       navigate(`/matriz-riesgo/${casoActual!.id}`, { state: { fechaReunion: nuevaReunion.fecha } });
     }
   };
@@ -134,8 +134,8 @@ export default function CaseDetail() {
   }
 
   // --- LÓGICA DE COMPLETITUD ---
-  const f2Completado = !['PENDIENTE_OFICIALIZAR', 'NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
-  const f3Completado = !['PENDIENTE_OFICIALIZAR', 'NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
+  const f2Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
+  const f3Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
   
   // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
   const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
@@ -283,7 +283,7 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                {['PENDIENTE_OFICIALIZAR', 'NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) && (
+                {['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo) && (
                   <Box sx={{ mb: 2, p: 2, bgcolor: '#fff3e0', borderRadius: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'warning.dark' }}>Requisitos de Apertura (Pasos 1 y 2 del POE):</Typography>
                     <FormControlLabel control={<Checkbox size="small" checked={chkAnexoI} onChange={(e) => setChkAnexoI(e.target.checked)} />} label={<Typography variant="body2">Carpeta digital organizada (Anexo I)</Typography>} />
@@ -292,12 +292,14 @@ export default function CaseDetail() {
                 )}
                 <ActionRow 
                   title="Oficialización del Expediente" 
-                  chipStatus={casoActual.estadoFlujo === 'PENDIENTE_OFICIALIZAR' ? 'Pendiente' : 'Completado'} 
+                  chipStatus={casoActual.estadoFlujo === 'NUEVO' ? 'Pendiente' : 'Completado'} 
                   btnText="Agendar Reunión y Evaluar Matriz" 
                   onClick={() => {
+                    // Update the state to EN_EVALUACION first!
+                    useCasesStore.getState().avanzarCaso(casoActual.id, 'EN_EVALUACION', 'Fase 2: Evaluación', 'El caso ha entrado en fase de evaluación y triaje.', 'Sin clasificar');
                     setOpenAgendaModal(true);
                   }} 
-                  disabled={!isJefe || casoActual.estadoFlujo !== 'PENDIENTE_OFICIALIZAR'} 
+                  disabled={!isJefe || casoActual.estadoFlujo !== 'NUEVO'} 
                   tooltipText={!isJefe ? "Requiere rol de Jefatura." : "El caso ya está oficializado."} 
                   color="success"
                 />
@@ -334,10 +336,10 @@ export default function CaseDetail() {
                 {(() => {
                   const isViewer = isEsaviInstitucional || isSecretariado || isComite || isUserAssignedToERR;
                   
-                  const a3Status = casoActual.anexoRechazado === 'Anexo III (Logística)' ? 'Corrección' : (casoActual.anexoIII_completado ? 'Completado' : 'Pendiente');
-                  const a7Status = casoActual.anexoRechazado === 'Anexo VII (Clínico)' ? 'Corrección' : (casoActual.anexoVII_completado ? 'Completado' : 'Pendiente');
-                  const a5Status = casoActual.anexoRechazado === 'Anexo V (Puesto de Vacunación)' ? 'Corrección' : (casoActual.anexoV_completado ? 'Completado' : (casoActual.anexoIII_completado ? 'Pendiente' : 'Bloqueado'));
-                  const a6Status = casoActual.anexoRechazado === 'Anexo VI (Domiciliaria)' ? 'Corrección' : (casoActual.anexoVI_completado ? 'Completado' : (casoActual.anexoIII_completado ? 'Pendiente' : 'Bloqueado'));
+                  const a3Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo III')) ? 'Corrección' : casoActual.anexoIII_completado ? 'Completado' : 'Pendiente';
+                  const a5Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo V')) ? 'Corrección' : casoActual.anexoV_completado ? 'Completado' : 'Pendiente';
+                  const a6Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo VI')) ? 'Corrección' : casoActual.anexoVI_completado ? 'Completado' : 'Pendiente';
+                  const a7Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo VII')) ? 'Corrección' : casoActual.anexoVII_completado ? 'Completado' : 'Pendiente';
 
                   return (
                     <>
@@ -347,11 +349,11 @@ export default function CaseDetail() {
                         btnText={a3Status === 'Completado' ? "VER ANEXO" : a3Status === 'Corrección' ? "Modificar Anexo" : "Completar Logística"} 
                         variant={a3Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
-                          if (a3Status === 'Completado') alert('Abriendo Anexo III en modo lectura...');
+                          if (a3Status === 'Completado') navigate(`/anexo-logistica/${id}?mode=view`);
                           else navigate('/anexo-logistica/' + id);
                         }} 
-                        disabled={a3Status === 'Completado' ? !isViewer : (!isEsaviLocal || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
-                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!isEsaviLocal ? "Acceso exclusivo para Coordinador Local." : "Solo Fase 4.")} 
+                        disabled={a3Status === 'Completado' ? !isViewer : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
+                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) ? "Acceso exclusivo para Coordinador Local." : "Solo Fase 4.")} 
                         color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow 
@@ -360,11 +362,11 @@ export default function CaseDetail() {
                         btnText={a7Status === 'Completado' ? "VER ANEXO" : a7Status === 'Corrección' ? "Modificar Anexo" : "Llenar Clínico"} 
                         variant={a7Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
-                          if (a7Status === 'Completado') alert('Abriendo Anexo VII en modo lectura...');
+                          if (a7Status === 'Completado') navigate(`/anexo-clinico/${id}?mode=view`);
                           else navigate(`/anexo-clinico/${id}`);
                         }} 
-                        disabled={a7Status === 'Completado' ? !isViewer : (!isEsaviLocal || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || !casoActual.anexoIII_completado)} 
-                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!isEsaviLocal ? "Acceso exclusivo para Referente Clínico." : (!casoActual.anexoIII_completado ? "Debe completar Logística (Anexo III) primero." : ""))} 
+                        disabled={a7Status === 'Completado' ? !isViewer : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))} 
+                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) ? "Acceso exclusivo para Referente Clínico (Farmacovigilancia)." : "")} 
                         color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow 
@@ -373,11 +375,11 @@ export default function CaseDetail() {
                         btnText={a5Status === 'Completado' ? "VER ANEXO" : a5Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo V"} 
                         variant={a5Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
-                          if (a5Status === 'Completado') alert('Abriendo Anexo V en modo lectura...');
+                          if (a5Status === 'Completado') navigate(`/anexo-puesto/${id}?mode=view`);
                           else navigate(`/anexo-puesto/${id}`);
                         }} 
-                        disabled={a5Status === 'Completado' ? !isViewer : (!isInmunoLocal || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || !casoActual.anexoIII_completado)} 
-                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!isInmunoLocal ? "Acceso exclusivo para Inmunizaciones." : (!casoActual.anexoIII_completado ? "Debe completar Logística (Anexo III) primero." : ""))} 
+                        disabled={a5Status === 'Completado' ? !isViewer : (!(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))} 
+                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) ? "Acceso exclusivo para Inmunizaciones." : "")} 
                         color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow 
@@ -386,11 +388,11 @@ export default function CaseDetail() {
                         btnText={a6Status === 'Completado' ? "VER ANEXO" : a6Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo VI"} 
                         variant={a6Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
-                          if (a6Status === 'Completado') alert('Abriendo Anexo VI en modo lectura...');
+                          if (a6Status === 'Completado') navigate(`/anexo-domicilio/${id}?mode=view`);
                           else navigate(`/anexo-domicilio/${id}`);
                         }} 
-                        disabled={a6Status === 'Completado' ? !isViewer : (!isEpidemioLocal || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || !casoActual.anexoIII_completado)}  
-                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!isEpidemioLocal ? "Acceso exclusivo para Epidemiólogo." : (!casoActual.anexoIII_completado ? "Debe completar Logística (Anexo III) primero." : ""))}
+                        disabled={a6Status === 'Completado' ? !isViewer : (!(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}  
+                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) ? "Acceso exclusivo para Epidemiólogo." : "")}
                         color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                     </>
@@ -415,7 +417,7 @@ export default function CaseDetail() {
                   color="warning" 
                   onClick={() => setOpenAuditoria(true)} 
                   disabled={!(
-                    (isEsaviInstitucional && casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && (casoActual.estadoFlujo === 'EN_INVESTIGACION' || casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL')) || 
+                    (isEsaviInstitucional && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && (casoActual.estadoFlujo === 'EN_REVISION_INSTITUCIONAL' || casoActual.estadoFlujo === 'EN_INVESTIGACION' || casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')) || 
                     (isSecretariado && casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')
                   )} 
                   tooltipText="Requiere que todos los anexos estén completados para habilitarse." 

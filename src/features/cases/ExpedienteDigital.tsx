@@ -141,7 +141,7 @@ export default function ExpedienteDigital() {
              {anexos && anexos.length > 0 ? (
                anexos.map((anexo: any, idx: number) => (
                  <Box key={idx} sx={{ mb: 4 }}>
-                   <VisorAnexoLectura dataString={anexo.data_json || anexo} titulo={`Anexo: ${anexo.tipo_anexo || 'Campo'}`} />
+                   <VisorAnexoLectura dataString={anexo.datos_formulario_json || anexo.data_json || anexo} titulo={`Anexo: ${anexo.tipo_anexo || 'Campo'}`} />
                    {idx < anexos.length - 1 && <Divider sx={{ my: 4 }} />}
                  </Box>
                ))

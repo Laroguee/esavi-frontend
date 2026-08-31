@@ -2,16 +2,17 @@ import { useForm, Controller } from 'react-hook-form';
 import { 
   Box, Paper, Typography, Grid, TextField, Button, Divider, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Accordion, AccordionSummary, AccordionDetails
+  Accordion, AccordionSummary, AccordionDetails, CircularProgress
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/googleSheetsService';
+import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -144,7 +145,11 @@ type AnexoVIFormValues = z.infer<typeof anexoVISchema>;
 export default function AnexoVI_Domicilio() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(isViewMode);
+  const { userEmail } = useAuthStore();
 
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
@@ -153,7 +158,7 @@ export default function AnexoVI_Domicilio() {
     documentTitle: `Anexo_VI_Domicilio_${id}`,
   });
 
-  const { control, handleSubmit } = useForm<AnexoVIFormValues>({
+  const { control, handleSubmit, reset } = useForm<AnexoVIFormValues>({
     resolver: zodResolver(anexoVISchema),
     defaultValues: {
       idUnico: 'ESAVI-MINSAL-2025-001', horaInicio: '', horaFin: '', fechaVisita: '',
@@ -177,15 +182,59 @@ export default function AnexoVI_Domicilio() {
     }
   });
 
+  useEffect(() => {
+    async function loadData() {
+      if (id) {
+        try {
+          const res = await obtenerExpediente(id);
+          if (res.success && res.data.anexos) {
+            const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('VI') || a.id_anexo?.includes('ANXVI'));
+            if (anexo && anexo.datos_formulario_json) {
+              const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
+              reset(parsed);
+            } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
+              // It's a new form, do nothing.
+            } else if (!anexo || !anexo.datos_formulario_json) {
+              setIsViewMode(false);
+              setSearchParams({});
+            }
+          } else {
+            if (isViewMode) {
+              setIsViewMode(false);
+              setSearchParams({});
+            }
+          }
+        } catch (error) {
+          console.error("Error cargando anexo:", error);
+          if (isViewMode) {
+            setIsViewMode(false);
+            setSearchParams({});
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [id, isViewMode, reset, setSearchParams]);
+
   const onSubmit = async (data: AnexoVIFormValues) => {
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
-        const payload = {
+        const payloadDatos = {
+          id_anexo: `ANXVI-${Date.now()}`,
           id_caso: id,
-          ...data
+          fecha_registro: new Date().toISOString(),
+          id_epidemio_autor: userEmail || 'UsuarioDesconocido',
+          rumores_comunidad: data.obs_rumores || 'No evaluado',
+          riesgo_ambiental_detectado: data.obs_ambiental || 'No evaluado',
+          almacena_medicamentos_riesgo: data.dom_almacenMedicina ? 'Sí' : 'No evaluado',
+          datos_formulario_json: JSON.stringify(data)
         };
-        await guardarEnSheets('ANEXO_VI', payload);
+        await guardarEnSheets('ANEXO_CAMPO', payloadDatos);
 
         const store = useCasesStore.getState();
         await store.marcarAnexoCompletado(id, 'VI');
@@ -231,6 +280,48 @@ export default function AnexoVI_Domicilio() {
     { num: 8, elem: 'Percepción de la familia sobre la vacunación', desc: 'Actitudes, temores, experiencias previas, confianza en el sistema de salud.' }
   ];
 
+  const [isUploading, setIsUploading] = useState(false);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!id) return alert('Debes guardar el caso antes de subir archivos.');
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const res = await subirArchivoEvidencia(id, 'epidemiologica', base64, file.type, file.name);
+        if (res.success) {
+          alert('Archivo subido exitosamente a la carpeta Epidemiológica del caso.');
+        } else {
+          alert('Error al subir el archivo: ' + res.error);
+        }
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert('Error procesando el archivo.');
+      setIsUploading(false);
+    }
+  };
+
+  function RenderRow({ titulo, nombreControl }: { titulo: string, nombreControl: keyof AnexoVIFormValues }) {
+    return (
+      <Controller name={nombreControl as any} control={control} render={({ field, fieldState }) => (
+        <TextField 
+          {...field} fullWidth size="small" sx={{ mb: 3 }} 
+          label={titulo} 
+          slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} 
+          multiline minRows={1}
+          error={!!fieldState.error}
+          helperText={fieldState.error?.message}
+        />
+      )}/>
+    );
+  }
+
   function EntrevistaField({ name, label }: { name: string, label: string }) {
     return (
       <Controller name={name as any} control={control} render={({ field, fieldState }) => (
@@ -245,10 +336,17 @@ export default function AnexoVI_Domicilio() {
       )}/>
     );
   }
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <CircularProgress size={60} thickness={4} sx={{ mb: 3 }} />
+        <Typography variant="h6" color="text.secondary">Cargando información del Anexo...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
-      
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo VI: Guía Domiciliaria y Comunitaria
@@ -264,6 +362,7 @@ export default function AnexoVI_Domicilio() {
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
 
       {/* ENCABEZADO FIJO */}
+      <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
       <Paper elevation={2} sx={{ p: 4, mb: 3, borderTop: '4px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -274,6 +373,7 @@ export default function AnexoVI_Domicilio() {
           </Grid>
         </Grid>
       </Paper>
+      </fieldset>
 
       {/* =========================================================
           ACORDEÓN 1: FASE I
@@ -283,6 +383,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>1. Fase I: Observación de la Comunidad</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 0 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -307,6 +408,7 @@ export default function AnexoVI_Domicilio() {
               </TableBody>
             </Table>
           </TableContainer>
+          </fieldset>
         </AccordionDetails>
       </Accordion>
 
@@ -318,6 +420,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>2. Fase II: Entrevista a Persona Afectada o Familia</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 4 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
           
           <Typography variant="subtitle2" color="secondary.main" sx={{ fontWeight: 'bold', mb: 2, fontSize: '1rem' }}>A. Sobre el evento y su evolución</Typography>
           <EntrevistaField name="entrevista_a1" label="¿Qué síntomas presentó y cuándo comenzaron?" />
@@ -372,6 +475,7 @@ export default function AnexoVI_Domicilio() {
           <EntrevistaField name="entrevista_g4" label="¿Ha tenido contacto cercano con alguien enfermo en los últimos días o semanas?" />
           <EntrevistaField name="entrevista_g5" label="¿Alguien en su entorno tuvo síntomas similares a los suyos?" />
 
+          </fieldset>
         </AccordionDetails>
       </Accordion>
 
@@ -383,6 +487,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>3. Fase II: Observación Directa en Domicilio</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 0 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -407,6 +512,7 @@ export default function AnexoVI_Domicilio() {
               </TableBody>
             </Table>
           </TableContainer>
+          </fieldset>
         </AccordionDetails>
       </Accordion>
 
@@ -418,6 +524,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>4. Fase III: Cierre Administrativo y Evidencia</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 4 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
           
           <Grid container spacing={4} sx={{ mb: 4 }}>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -436,22 +543,25 @@ export default function AnexoVI_Domicilio() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Fotografíe el carnet de vacunación, recetas médicas o entorno ambiental.
             </Typography>
-            <Button variant="contained" component="label" color="secondary" size="large">
-              TOMAR FOTO / SUBIR ARCHIVO
-              <input type="file" hidden multiple accept="image/*,.pdf" capture="environment" />
+            <Button variant="contained" component="label" color="secondary" size="large" disabled={isUploading}>
+              {isUploading ? 'SUBIENDO...' : 'TOMAR FOTO / SUBIR ARCHIVO'}
+              <input type="file" hidden multiple accept="image/*,.pdf" capture="environment" onChange={handleFileUpload} />
             </Button>
           </Box>
+          </fieldset>
         </AccordionDetails>
       </Accordion>
 
       {/* BOTÓN FINAL */}
       </Box>
       
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-        <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
-        </Button>
-      </Box>
+      {!isViewMode && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }

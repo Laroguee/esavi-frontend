@@ -284,7 +284,7 @@ export default function NotificacionInicial() {
       datos: {
         id_caso: idCasoNuevo,
         id_creador: userEmail || 'desconocido',
-        estado_flujo: 'PENDIENTE_OFICIALIZAR', // REGLA DE NEGOCIO ESTRICTA
+        estado_flujo: 'NUEVO', // REGLA DE NEGOCIO ESTRICTA
         fecha_notificacion: new Date().toISOString().split('T')[0],
         identificador_paciente: data.expedienteClinico || '',
         tiene_evidencias: true,
@@ -336,7 +336,7 @@ export default function NotificacionInicial() {
       establecimiento: data.establecimientoNotificador,
       vacuna: data.nombreVacuna,
       fase: 'Fase 1: Notificación',
-      estadoFlujo: 'PENDIENTE_OFICIALIZAR' as const,
+      estadoFlujo: 'NUEVO' as const,
       riesgo: 'Sin clasificar',
       fecha: new Date().toISOString(),
       reuniones: [],

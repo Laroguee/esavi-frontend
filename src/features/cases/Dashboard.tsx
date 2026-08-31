@@ -50,8 +50,8 @@ export default function Dashboard() {
   // =========================================================================
   // LÓGICA DE FILTRADO (FRONTEND)
   // =========================================================================
-  const casosPendientes = casosGlobales.filter((c) => c.estadoFlujo === 'PENDIENTE_OFICIALIZAR');
-  const casosActivos = casosGlobales.filter((c) => c.estadoFlujo !== 'PENDIENTE_OFICIALIZAR');
+  const casosPendientes = casosGlobales.filter((c) => c.estadoFlujo === 'NUEVO');
+  const casosActivos = casosGlobales.filter((c) => c.estadoFlujo !== 'NUEVO');
 
   const casosFiltrados = casosActivos.filter((caso) => {
     const matchesSearch = 
@@ -75,6 +75,8 @@ export default function Dashboard() {
         return { label: 'Asignado a ERR', color: 'secondary' as const };
       case 'EN_INVESTIGACION':
         return { label: 'En Investigación', color: 'warning' as const };
+      case 'EN_REVISION_INSTITUCIONAL':
+        return { label: 'Revisión Primaria', sx: { bgcolor: '#9c27b0', color: 'white' } };
       case 'EN_REVISION_SECRETARIADO':
         return { label: 'Revisión Secretariado', sx: { bgcolor: '#00bcd4', color: 'white' } };
       case 'DEVUELTO_A_INSTITUCIONAL':

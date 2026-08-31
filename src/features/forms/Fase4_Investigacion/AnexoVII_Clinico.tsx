@@ -3,16 +3,17 @@ import { useForm, Controller } from 'react-hook-form';
 import { 
   Box, Paper, Typography, Grid, TextField, Button, MenuItem, FormControlLabel, Switch, 
   Collapse, Divider, Checkbox, FormLabel, Tabs, Tab, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress 
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import PregnantWomanIcon from '@mui/icons-material/PregnantWoman';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/googleSheetsService';
+import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
 import { useRef, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -118,9 +119,13 @@ function TabPanel(props: TabPanelProps) {
 export default function AnexoVII_Clinico() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [tabIndex, setTabIndex] = useState(0);
   const [esMujerFertil, setEsMujerFertil] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(isViewMode);
+  const { userEmail } = useAuthStore();
 
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
@@ -140,7 +145,7 @@ export default function AnexoVII_Clinico() {
     }
   }, [id]);
 
-  const { control, handleSubmit, watch } = useForm<AnexoVIIFormValues>({
+  const { control, handleSubmit, watch, reset } = useForm<AnexoVIIFormValues>({
     resolver: zodResolver(anexoVIISchema),
     defaultValues: {
       fechaInicioLlenado: '', 
@@ -158,6 +163,44 @@ export default function AnexoVII_Clinico() {
     }
   });
 
+  useEffect(() => {
+    async function loadData() {
+      if (id) {
+        try {
+          const res = await obtenerExpediente(id);
+          if (res.success && res.data.anexos) {
+            const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('VII') || a.id_anexo?.includes('ANXVII'));
+            if (anexo && anexo.datos_formulario_json) {
+              const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
+              reset(parsed);
+            } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
+              // It's a new form, do nothing.
+            } else if (!anexo || !anexo.datos_formulario_json) {
+              setIsViewMode(false);
+              setSearchParams({});
+            }
+          } else {
+            if (isViewMode) {
+              setIsViewMode(false);
+              setSearchParams({});
+            }
+          }
+        } catch (error) {
+          console.error("Error cargando anexo:", error);
+          if (isViewMode) {
+            setIsViewMode(false);
+            setSearchParams({});
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [id, isViewMode, reset, setSearchParams]);
+
   const estadoActual = watch('estadoPaciente');
   const hizoAutopsia = watch('seRealizoAutopsia');
   const razonAutopsia = watch('razonNoAutopsia');
@@ -168,11 +211,18 @@ export default function AnexoVII_Clinico() {
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
-        const payload = {
+        const payloadDatos = {
+          id_anexo: `ANXVII-${Date.now()}`,
           id_caso: id,
-          ...data
+          fecha_registro: new Date().toISOString(),
+          id_medico_autor: userEmail || 'UsuarioDesconocido',
+          estado_paciente: data.estadoPaciente || 'Desconocido',
+          es_gestante: data.embarazada === 'SI' ? 'SI' : 'NO',
+          requirio_hospitalizacion: data.hosp30Dias === 'SI' ? 'SI' : 'NO',
+          diagnostico_final: data.diagnosticoFinal || 'Pendiente',
+          datos_formulario_json: JSON.stringify(data)
         };
-        await guardarEnSheets('ANEXO_VII', payload);
+        await guardarEnSheets('ANEXO_CLINICO', payloadDatos);
 
         const store = useCasesStore.getState();
         await store.marcarAnexoCompletado(id, 'VII');
@@ -190,6 +240,32 @@ export default function AnexoVII_Clinico() {
       alert("Hubo un error de conexión.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+  const [isUploading, setIsUploading] = useState(false);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!id) return alert('Debes guardar el caso antes de subir archivos.');
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const res = await subirArchivoEvidencia(id, 'clinica', base64, file.type, file.name);
+        if (res.success) {
+          alert('Archivo subido exitosamente a la carpeta clínica del caso.');
+        } else {
+          alert('Error al subir el archivo: ' + res.error);
+        }
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert('Error procesando el archivo.');
+      setIsUploading(false);
     }
   };
 
@@ -221,6 +297,15 @@ export default function AnexoVII_Clinico() {
     );
   }
 
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <CircularProgress size={60} thickness={4} sx={{ mb: 3 }} />
+        <Typography variant="h6" color="text.secondary">Cargando información del Anexo...</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>
       
@@ -246,6 +331,7 @@ export default function AnexoVII_Clinico() {
         </Tabs>
 
         <Box sx={{ p: 3 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
           {/* =========================================================
               PESTAÑA A: INFO BÁSICA
           ========================================================= */}
@@ -263,13 +349,13 @@ export default function AnexoVII_Clinico() {
                 <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f9f9f9' }}>
                   <FormLabel component="legend" sx={{ fontWeight: 'bold', mb: 0.5, fontSize: '0.85rem' }}>Fuentes de información consultadas:</FormLabel>
                   <Grid container spacing={0}>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_historiaClinica" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Historia clínica</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaVacunado" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Entrevista al vacunado</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaSalud" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Entrevista personal salud</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_registrosVac" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Registros de vacunación</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_historiaClinica" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Historia clínica</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaVacunado" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Entrevista al vacunado</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaSalud" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Entrevista personal salud</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_registrosVac" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Registros de vacunación</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
                     <Grid size={{ xs: 12, sm: 8 }}>
                       <Controller name="fuentes_otro" control={control} render={({ field, fieldState }) => (
                         <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
@@ -739,29 +825,28 @@ export default function AnexoVII_Clinico() {
               <CloudUploadIcon color="secondary" sx={{ fontSize: 32, mb: 0.5 }} />
               <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Adjuntar Evidencias Médicas</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>Historia Clínica, Exámenes o Autopsia (PDF/Foto).</Typography>
-              <Button variant="outlined" component="label" color="secondary" size="small">
-                Seleccionar Archivos
-                <input type="file" hidden multiple accept="image/*,.pdf" capture="environment" />
+              <Button variant="outlined" component="label" color="secondary" size="small" disabled={isUploading}>
+                {isUploading ? 'SUBIENDO...' : 'SELECCIONAR ARCHIVOS'}
+                <input type="file" hidden multiple accept="image/*,.pdf" capture="environment" onChange={handleFileUpload} />
               </Button>
             </Box>
 
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-start' }}>
               <Button variant="outlined" size="small" onClick={() => setTabIndex(1)}>&larr; Volver a Sección B</Button>
-              <Button type="submit" variant="contained" color="secondary" startIcon={<SaveIcon />} size="small">
-                GUARDAR Y ENVIAR ANEXO
-              </Button>
             </Box>
           </TabPanel>
-
+          </fieldset>
         </Box>
       </Paper>
       </Box> {/* Cierre de componentRef */}
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-        <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
-        </Button>
-      </Box>
+      {!isViewMode && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
+          </Button>
+        </Box>
+      )}
 
     </Box>
   );

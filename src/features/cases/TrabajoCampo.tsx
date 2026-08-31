@@ -32,7 +32,11 @@ export default function TrabajoCampo() {
   // --- LÓGICA DE RENDEREIZADO DE ACCIONES SEGÚN EL ROL ---
   const getActionBtn = (casoId: string, completado: boolean) => {
     if (completado) {
-      return <Chip label="Completado" color="success" size="small" />;
+      return (
+        <Button size="small" variant="outlined" color="success" onClick={() => navigate(`/caso/${casoId}`)}>
+          Ver / Modificar Caso
+        </Button>
+      );
     }
 
     if (currentRole === 'INMUNO_LOCAL') {

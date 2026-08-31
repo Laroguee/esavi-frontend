@@ -15,7 +15,7 @@ import {
 import { useAuthStore } from './useAuthStore';
 
 // 1. Tipos de Datos
-export type EstadoFlujo = 'PENDIENTE_OFICIALIZAR' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NUEVO' | 'NOTIFICADO' | 'EN_EVALUACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'CERRADO_DICTAMINADO';
+export type EstadoFlujo = 'NUEVO' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NOTIFICADO' | 'EN_EVALUACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_INSTITUCIONAL' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'CERRADO_DICTAMINADO';
 
 export interface AgendaReunion {
   id?: string;
@@ -103,7 +103,7 @@ export const useCasesStore = create<CasesState>()(
               paciente: row.nombre_paciente || row.identificador_paciente || 'Desconocido',
               establecimiento: row.establecimiento_notificador || 'Desconocido',
               vacuna: row.nombre_vacuna || 'Otra',
-              fase: row.estado_flujo === 'PENDIENTE_OFICIALIZAR' ? 'Fase 1: Notificación' : 'Fase Activa',
+              fase: row.estado_flujo === 'NUEVO' ? 'Fase 1: Notificación' : 'Fase Activa',
               estadoFlujo: row.estado_flujo,
               riesgo: row.riesgo || 'Sin clasificar',
               fecha: row.fecha_notificacion || new Date().toISOString(),
@@ -115,6 +115,8 @@ export const useCasesStore = create<CasesState>()(
               anexoV_completado: String(row.anexoV) === 'true',
               anexoVI_completado: String(row.anexoVI) === 'true',
               anexoVII_completado: String(row.anexoVII) === 'true',
+              anexoRechazado: row.anexo_rechazado || undefined,
+              observacionActual: row.observacion_rechazo || undefined,
             }));
 
             // Filtro institucional: Locales solo ven los casos de su establecimiento o si fueron asignados al ERR
@@ -124,7 +126,7 @@ export const useCasesStore = create<CasesState>()(
               casosFiltrados = mappedCasos.filter(c => 
                 c.miembrosERR.includes(email) || 
                 c.establecimiento === myEstablecimiento ||
-                c.estadoFlujo === 'PENDIENTE_OFICIALIZAR' // Fase 1 que ellos crearon
+                c.estadoFlujo === 'NUEVO' // Fase 1 que ellos crearon
               ); 
             }
             
@@ -277,14 +279,14 @@ export const useCasesStore = create<CasesState>()(
         const casoDespues = stateAfter.casos.find(c => c.id === idCaso);
         
         if (casoDespues && casoDespues.anexoV_completado && casoDespues.anexoVI_completado && casoDespues.anexoVII_completado && casoDespues.estadoFlujo === 'EN_INVESTIGACION') {
-          // Avanzamos el caso a revisión
-          await stateAfter.avanzarCaso(idCaso, 'EN_REVISION_SECRETARIADO', 'Fase 5: Revisión de la SRS', 'El trabajo de campo (Anexos V, VI, VII) ha sido completado por los tres investigadores.');
+          // Avanzamos el caso a revisión primaria (Institucional)
+          await stateAfter.avanzarCaso(idCaso, 'EN_REVISION_INSTITUCIONAL', 'Fase 5: Revisión Primaria', 'El trabajo de campo (Anexos V, VI, VII) ha sido completado por los tres investigadores.');
           
           if (import.meta.env.VITE_USE_API === 'true') {
             await crearNotificacion({
               id_caso: idCaso,
               rol_destino: 'ESAVI_INSTITUCIONAL',
-              texto: `El trabajo de campo para el Caso ${idCaso} ha finalizado. Por favor revise el expediente para su envío al comité.`
+              texto: `El trabajo de campo para el caso ${idCaso} ha finalizado. Por favor, inicie la Revisión Primaria.`
             });
           }
         }

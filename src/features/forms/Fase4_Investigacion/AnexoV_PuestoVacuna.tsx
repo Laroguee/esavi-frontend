@@ -1,12 +1,13 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Divider } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Divider, CircularProgress, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets } from '../../../services/googleSheetsService';
+import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/googleSheetsService';
+import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
@@ -82,7 +83,11 @@ type AnexoVFormValues = z.infer<typeof anexoVSchema>;
 export default function AnexoV_PuestoVacuna() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(isViewMode);
+  const { userEmail } = useAuthStore();
 
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
@@ -91,7 +96,7 @@ export default function AnexoV_PuestoVacuna() {
     documentTitle: `Anexo_V_PuestoVacunacion_${id}`,
   });
 
-  const { control, handleSubmit } = useForm<AnexoVFormValues>({
+  const { control, handleSubmit, reset } = useForm<AnexoVFormValues>({
     resolver: zodResolver(anexoVSchema),
     defaultValues: {
       idUnico: 'ESAVI-MINSAL-2025-001', nombrePuesto: '', fechaVisita: '', responsablePuesto: '',
@@ -108,15 +113,59 @@ export default function AnexoV_PuestoVacuna() {
     }
   });
 
+  useEffect(() => {
+    async function loadData() {
+      if (id) {
+        try {
+          const res = await obtenerExpediente(id);
+          if (res.success && res.data.anexos) {
+            const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('V (') || a.id_anexo?.includes('ANXV-'));
+            if (anexo && anexo.datos_formulario_json) {
+              const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
+              reset(parsed);
+            } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
+              // It's a new form, do nothing.
+            } else if (!anexo || !anexo.datos_formulario_json) {
+              setIsViewMode(false);
+              setSearchParams({});
+            }
+          } else {
+            if (isViewMode) {
+              setIsViewMode(false);
+              setSearchParams({});
+            }
+          }
+        } catch (error) {
+          console.error("Error cargando anexo:", error);
+          if (isViewMode) {
+            setIsViewMode(false);
+            setSearchParams({});
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [id, isViewMode, reset, setSearchParams]);
+
   const onSubmit = async (data: AnexoVFormValues) => {
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
-        const payload = {
+        const payloadDatos = {
+          id_anexo: `ANXV-${Date.now()}`,
           id_caso: id,
-          ...data
+          fecha_registro: new Date().toISOString(),
+          id_enfermero_autor: userEmail || 'UsuarioDesconocido',
+          cadena_frio_correcta: data.s1_chk_7 || 'No Evaluado',
+          kit_anafilaxia_disponible: data.s1_chk_13 || 'No Evaluado',
+          anomalias_detectadas: 'Pendiente de analizar',
+          datos_formulario_json: JSON.stringify(data)
         };
-        await guardarEnSheets('ANEXO_V', payload);
+        await guardarEnSheets('ANEXO_VACUNACION', payloadDatos);
 
         const store = useCasesStore.getState();
         await store.marcarAnexoCompletado(id, 'V');
@@ -137,6 +186,33 @@ export default function AnexoV_PuestoVacuna() {
     }
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!id) return alert('Debes guardar el caso antes de subir archivos.');
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const res = await subirArchivoEvidencia(id, 'pni', base64, file.type, file.name);
+        if (res.success) {
+          alert('Archivo subido exitosamente a la carpeta PNI del caso.');
+        } else {
+          alert('Error al subir el archivo: ' + res.error);
+        }
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      alert('Error procesando el archivo.');
+      setIsUploading(false);
+    }
+  };
+
   const checklistItems = [
     { num: 1, elemento: 'Identificación del puesto de vacunación', detalle: 'Nombre del establecimiento, ubicación, responsable del puesto, tipo (fijo o extramuro).' },
     { num: 2, elemento: 'Documentación de las vacunas', detalle: 'Verificar nombre comercial y genérico de los productos almacenados en el refrigerador del puesto de vacunación, concentración, dosis, presentación, fabricante y distribuidor.' },
@@ -154,6 +230,15 @@ export default function AnexoV_PuestoVacuna() {
     { num: 14, elemento: 'Inventario general', detalle: 'Revisar listado de medicamentos y materiales del servicio (parte de movimiento de medicamentos).' },
   ];
 
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <CircularProgress size={60} thickness={4} sx={{ mb: 3 }} />
+        <Typography variant="h6" color="text.secondary">Cargando información del Anexo...</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
       
@@ -170,6 +255,7 @@ export default function AnexoV_PuestoVacuna() {
       </Box>
 
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
+        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
 
       {/* ENCABEZADO */}
       <Paper elevation={2} sx={{ p: 4, mb: 4, borderTop: '4px solid', borderColor: 'primary.main' }}>
@@ -214,11 +300,19 @@ export default function AnexoV_PuestoVacuna() {
                 <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>{item.elemento}</TableCell>
                 <TableCell sx={{ fontSize: '0.875rem' }}>{item.detalle}</TableCell>
                 <TableCell>
-                  <Controller name={`s1_chk_${item.num}` as any} control={control} render={({ field, fieldState }) => (
-                    <TextField {...field} select fullWidth size="small" variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message}>
-                      <MenuItem value="SI">Sí</MenuItem>
-                      <MenuItem value="NO">No</MenuItem>
-                    </TextField>
+                  <Controller name={`s1_chk_${item.num}` as any} control={control} render={({ field }) => (
+                    <ToggleButtonGroup
+                      {...field}
+                      exclusive
+                      size="small"
+                      onChange={(_, newValue) => {
+                        if (newValue !== null) field.onChange(newValue);
+                      }}
+                      color="primary"
+                    >
+                      <ToggleButton value="SI" sx={{ fontWeight: 'bold' }}>SÍ</ToggleButton>
+                      <ToggleButton value="NO" sx={{ fontWeight: 'bold' }}>NO</ToggleButton>
+                    </ToggleButtonGroup>
                   )}/>
                 </TableCell>
                 <TableCell>
@@ -338,19 +432,22 @@ export default function AnexoV_PuestoVacuna() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Documentar con fotografías, copias de registros y observaciones detalladas cualquier hallazgo relevante.
         </Typography>
-        <Button variant="contained" component="label" color="secondary" size="large">
-          TOMAR FOTO / SUBIR ARCHIVO
-          <input type="file" hidden multiple accept="image/*" capture="environment" />
+        <Button variant="contained" component="label" color="secondary" size="large" disabled={isUploading}>
+          {isUploading ? 'SUBIENDO...' : 'TOMAR FOTO / SUBIR ARCHIVO'}
+          <input type="file" hidden multiple accept="image/*" capture="environment" onChange={handleFileUpload} />
         </Button>
       </Paper>
 
+        </fieldset>
       </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-        <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
-        </Button>
-      </Box>
+      {!isViewMode && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }

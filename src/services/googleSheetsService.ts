@@ -1,5 +1,12 @@
 export async function guardarEnSheets(tabla: string, datos: any) {
-  const payload = { tabla, datos };
+  let payload: any = { tabla, datos };
+  if (tabla.startsWith('ANEXO')) {
+    payload = {
+      accion: 'GUARDAR_ANEXO',
+      tipo_anexo: tabla,
+      datos: datos
+    };
+  }
   try {
     const response = await fetch(import.meta.env.VITE_APPS_SCRIPT_URL, {
       method: 'POST',
