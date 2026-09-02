@@ -10,7 +10,8 @@ import {
   listarNotificaciones,
   marcarNotificacionLeida,
   agendarReunion,
-  crearNotificacion
+  crearNotificacion,
+  listarReuniones
 } from '../services/googleSheetsService';
 import { useAuthStore } from './useAuthStore';
 
@@ -98,26 +99,40 @@ export const useCasesStore = create<CasesState>()(
           const resCasos = await listarCasos();
           if (resCasos && resCasos.success) {
             // Mapeo básico de Sheets a CasoESAVI
-            const mappedCasos: CasoESAVI[] = resCasos.data.map((row: any) => ({
+            const currentCasos = get().casos;
+            const pasosStr = ['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'CORREGIDO_POR_ERR', 'EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'];
+
+            const mappedCasos: CasoESAVI[] = resCasos.data.map((row: any) => {
+              const existingCaso = currentCasos.find(c => c.id === row.id_caso);
+              
+              const dbEstadoIndex = pasosStr.indexOf(row.estado_flujo || 'NUEVO');
+              const localEstadoIndex = pasosStr.indexOf(existingCaso?.estadoFlujo || 'NUEVO');
+              
+              const isDbRechazo = row.estado_flujo === 'DEVUELTO_A_INSTITUCIONAL' || row.estado_flujo === 'DEVUELTO_A_ERR';
+              const usarLocal = !!existingCaso && !isDbRechazo && (localEstadoIndex > dbEstadoIndex);
+
+              return {
               id: row.id_caso,
               paciente: row.nombre_paciente || row.identificador_paciente || 'Desconocido',
               establecimiento: row.establecimiento_notificador || 'Desconocido',
               vacuna: row.nombre_vacuna || 'Otra',
-              fase: row.estado_flujo === 'NUEVO' ? 'Fase 1: Notificación' : 'Fase Activa',
-              estadoFlujo: row.estado_flujo,
-              riesgo: row.riesgo || 'Sin clasificar',
+              fase: usarLocal ? (existingCaso?.fase || '') : (row.estado_flujo === 'NUEVO' ? 'Fase 1: Notificación' : 'Fase Activa'),
+              estadoFlujo: usarLocal ? existingCaso!.estadoFlujo : row.estado_flujo,
+              riesgo: usarLocal ? (existingCaso?.riesgo || 'Sin clasificar') : (row.riesgo || 'Sin clasificar'),
               fecha: row.fecha_notificacion || new Date().toISOString(),
               edad: row.edad ? Number(row.edad) : undefined,
               sexo: row.sexo || undefined,
-              miembrosERR: row.miembros_err ? JSON.parse(row.miembros_err) : [],
+              miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
-              anexoIII_completado: String(row.anexoIII) === 'true',
-              anexoV_completado: String(row.anexoV) === 'true',
-              anexoVI_completado: String(row.anexoVI) === 'true',
-              anexoVII_completado: String(row.anexoVII) === 'true',
+              historial_cambios: row.historial_cambios ? (typeof row.historial_cambios === 'string' ? JSON.parse(row.historial_cambios) : row.historial_cambios) : (existingCaso?.historial_cambios || []),
+              anexoIII_completado: usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII) === 'true'),
+              anexoV_completado: usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV) === 'true'),
+              anexoVI_completado: usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI) === 'true'),
+              anexoVII_completado: usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII) === 'true'),
               anexoRechazado: row.anexo_rechazado || undefined,
               observacionActual: row.observacion_rechazo || undefined,
-            }));
+            };
+            });
 
             // Filtro institucional: Locales solo ven los casos de su establecimiento o si fueron asignados al ERR
             let casosFiltrados = mappedCasos;
@@ -143,6 +158,30 @@ export const useCasesStore = create<CasesState>()(
               fecha: dayjs(n.fecha_creacion).fromNow()
             }));
             set({ notificaciones: mappedNotifs });
+          }
+
+          // 3. Cargar Reuniones y adjuntarlas a los casos
+          const resReuniones = await listarReuniones();
+          if (resReuniones && resReuniones.success && resReuniones.data) {
+            set((state) => {
+              const casosConReuniones = state.casos.map(caso => {
+                const reunionesDelCaso = resReuniones.data
+                  .filter((r: any) => String(r.id_caso) === String(caso.id))
+                  .map((r: any) => ({
+                    id: r.id,
+                    faseRelacionada: r.fase_relacionada,
+                    fecha: r.fecha,
+                    hora: r.hora,
+                    tema: r.tema,
+                    modalidad: r.modalidad,
+                    enlaceOLugar: r.enlace_lugar,
+                    estado: 'PROGRAMADA', // o según lógica
+                    convocados: (typeof r.convocados === 'string') ? JSON.parse(r.convocados || '[]') : []
+                  }));
+                return { ...caso, reuniones: reunionesDelCaso };
+              });
+              return { casos: casosConReuniones };
+            });
           }
         } catch (error) {
           console.error("Error cargando backend:", error);
@@ -176,9 +215,16 @@ export const useCasesStore = create<CasesState>()(
 
       avanzarCaso: async (idCaso, nuevoEstado, nuevaFase, textoNotificacion, nuevoRiesgo) => {
         if (import.meta.env.VITE_USE_API === 'true') {
-          const updates: any = { estado_flujo: nuevoEstado };
+          const updates: any = { 
+            estado_flujo: nuevoEstado,
+            observacion_rechazo: '',
+            anexo_rechazado: ''
+          };
           if (nuevoRiesgo) updates.riesgo = nuevoRiesgo;
-          await actualizarCaso(idCaso, updates);
+          const res = await actualizarCaso(idCaso, updates);
+          if (res && !res.success) {
+            throw new Error(res.error || 'Error al actualizar el estado del caso en el backend');
+          }
         }
 
         const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
@@ -243,7 +289,7 @@ export const useCasesStore = create<CasesState>()(
         set((state) => ({
           casos: state.casos.map(caso =>
             caso.id === casoId
-              ? { ...caso, reuniones: [...caso.reuniones, reunionFinal] }
+              ? { ...caso, reuniones: [...(caso.reuniones || []), reunionFinal] }
               : caso
           )
         }));

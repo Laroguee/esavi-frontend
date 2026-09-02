@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, Chip } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, Chip, CircularProgress } from '@mui/material';
 import GavelIcon from '@mui/icons-material/Gavel';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -17,6 +18,7 @@ export default function DictamenCausalidad() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { avanzarCaso } = useCasesStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { control, handleSubmit } = useForm<FormDataCausalidad>({
     defaultValues: {
@@ -27,15 +29,23 @@ export default function DictamenCausalidad() {
     }
   });
 
-  const onSubmit = (data: FormDataCausalidad) => {
-    console.log("Acta de Causalidad:", data);
-    
-    if (id) {
-      avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.');
+  const onSubmit = async (data: FormDataCausalidad) => {
+    setIsSubmitting(true);
+    try {
+      console.log("Acta de Causalidad:", data);
+      
+      if (id) {
+        await avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.');
+      }
+      
+      alert("Dictamen Final Guardado. El caso ESAVI ha sido CERRADO OFICIALMENTE.");
+      navigate('/bandeja-comite');
+    } catch (error) {
+      console.error("Error cerrando el caso:", error);
+      alert("Hubo un error al guardar el dictamen. Intente nuevamente.");
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    alert("Dictamen Final Guardado. El caso ESAVI ha sido CERRADO OFICIALMENTE.");
-    navigate('/bandeja-comite');
   };
 
   return (
@@ -60,17 +70,17 @@ export default function DictamenCausalidad() {
 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 4 }}>
-            <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />}>Ver Anexo VII (Clínico)</Button>
+            <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/anexo-clinico/${id}?mode=view`)}>Ver Anexo VII (Clínico)</Button>
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />}>Ver Anexo V (Puesto Vacuna)</Button>
+            <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/anexo-puesto/${id}?mode=view`)}>Ver Anexo V (Puesto Vacuna)</Button>
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />}>Ver Anexo VI (Domiciliario)</Button>
+            <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/anexo-domicilio/${id}?mode=view`)}>Ver Anexo VI (Domiciliario)</Button>
           </Grid>
           <Grid size={{ xs: 12 }} sx={{ mt: 1 }}>
-            <Button fullWidth variant="outlined" color="secondary" startIcon={<FileDownloadIcon />}>
-              Descargar Evidencias (Fotos y Laboratorios)
+            <Button fullWidth variant="outlined" color="secondary" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/caso/${id}/expediente`)}>
+              Ir al Gestor de Evidencias (Fotos y Laboratorios)
             </Button>
           </Grid>
         </Grid>
@@ -121,8 +131,8 @@ export default function DictamenCausalidad() {
            <Typography variant="caption" sx={{ display: 'block', mb: 2 }}>
              Al hacer clic en el botón de cierre, el Comité certifica haber revisado la evidencia sin conflictos de interés y dictamina la causalidad oficial del evento. Este caso no podrá ser modificado posteriormente.
            </Typography>
-           <Button type="submit" variant="contained" color="primary" startIcon={<GavelIcon />} size="large">
-              DICTAMINAR Y CERRAR CASO
+           <Button type="submit" variant="contained" color="primary" startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <GavelIcon />} size="large" disabled={isSubmitting}>
+              {isSubmitting ? 'GUARDANDO DICTAMEN...' : 'DICTAMINAR Y CERRAR CASO'}
            </Button>
         </Box>
       </Paper>

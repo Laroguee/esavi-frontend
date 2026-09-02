@@ -194,8 +194,33 @@ export async function listarCasos() {
   return apiRequest(payload);
 }
 
+export async function listarReuniones() {
+  const payload = { accion: 'LISTAR_REUNIONES' };
+  return apiRequest(payload);
+}
+
 export async function actualizarCaso(id_caso: string, updates: any) {
   const payload = { accion: 'ACTUALIZAR_CASO', id_caso, updates };
+  return apiRequest(payload);
+}
+
+export async function asignarCaso(id_caso: string, rol_destino: string, email_destino: string, notificacion_texto: string) {
+  const payload = {
+    accion: 'ASIGNAR_CASO',
+    id_caso,
+    rol_destino,
+    email_destino,
+    notificacion_texto
+  };
+  return apiRequest(payload);
+}
+
+// NUEVO: Obtener todo el expediente (datos base, anexos, matriz) para Fase 6
+export async function obtenerExpedienteCompleto(id_caso: string) {
+  const payload = {
+    accion: 'OBTENER_EXPEDIENTE',
+    id_caso
+  };
   return apiRequest(payload);
 }
 
@@ -220,7 +245,7 @@ export async function agendarReunion(item: any) {
 }
 
 // Helper genérico para peticiones fetch
-async function apiRequest(payload: any) {
+export async function apiRequest(payload: any) {
   try {
     const response = await fetch(import.meta.env.VITE_APPS_SCRIPT_URL, {
       method: 'POST',

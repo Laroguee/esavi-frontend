@@ -86,6 +86,15 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
       return;
     }
 
+    const isPaseDeMando = currentRole === 'ESAVI_INSTITUCIONAL' && caso?.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL';
+
+    if (!isPaseDeMando) {
+      if (!chkMinuta || !chkLineaTiempo || !chkInformeFinal) {
+        alert("Debe confirmar todos los Requisitos de Cierre Institucional marcando las casillas.");
+        return;
+      }
+    }
+
     const nuevoEstado = currentRole === 'ESAVI_INSTITUCIONAL' ? 'EN_REVISION_SECRETARIADO' : 'APROBADO_PARA_COMITE';
     const nuevaFase = currentRole === 'ESAVI_INSTITUCIONAL' ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
     const msg = `Expediente aprobado por ${currentRole}. Avanza a ${nuevoEstado}.`;

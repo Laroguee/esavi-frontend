@@ -58,7 +58,15 @@ export default function Dashboard() {
       caso.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
       caso.paciente.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesEstado = filtroEstado === 'Todos' || caso.fase === filtroEstado;
+    const matchesEstado = filtroEstado === 'Todos' || (
+      (filtroEstado === 'Fase 1: Notificación' && ['NUEVO', 'NOTIFICADO'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Fase 2: Evaluación' && caso.estadoFlujo === 'EN_EVALUACION') ||
+      (filtroEstado === 'Fase 3: Asignación ERR' && caso.estadoFlujo === 'ASIGNADO_A_ERR') ||
+      (filtroEstado === 'Fase 4: Investigación' && caso.estadoFlujo === 'EN_INVESTIGACION') ||
+      (filtroEstado === 'Fase 5: Revisión Primaria' && ['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Fase 6: Evaluación de Comité' && caso.estadoFlujo === 'EN_EVALUACION_COMITE') ||
+      (filtroEstado === 'Cerrado' && caso.estadoFlujo === 'CERRADO_DICTAMINADO')
+    );
     const matchesRiesgo = filtroRiesgo === 'Todos' || caso.riesgo === filtroRiesgo;
 
     return matchesSearch && matchesEstado && matchesRiesgo;
@@ -90,6 +98,17 @@ export default function Dashboard() {
       default:
         return { label: 'Normal', color: 'default' as const };
     }
+  };
+
+  const getFaseName = (estadoFlujo: string) => {
+    if (['NUEVO', 'NOTIFICADO'].includes(estadoFlujo)) return 'Fase 1: Notificación';
+    if (estadoFlujo === 'EN_EVALUACION') return 'Fase 2: Evaluación';
+    if (estadoFlujo === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación ERR';
+    if (estadoFlujo === 'EN_INVESTIGACION') return 'Fase 4: Trabajo de Campo';
+    if (['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(estadoFlujo)) return 'Fase 5: Revisión Institucional';
+    if (estadoFlujo === 'EN_EVALUACION_COMITE') return 'Fase 6: Comité Causalidad';
+    if (estadoFlujo === 'CERRADO_DICTAMINADO') return 'Cerrado';
+    return 'Fase Activa';
   };
 
   return (
@@ -179,12 +198,14 @@ export default function Dashboard() {
               onChange={(e) => setFiltroEstado(e.target.value)}
               sx={{ bgcolor: 'white' }}
             >
-              <MenuItem value="Todos">Todos los Estados</MenuItem>
-              <MenuItem value="Fase 2: Riesgo">Fase 2: Evaluación Riesgo</MenuItem>
-              <MenuItem value="Fase 3: Asignación ERR">Fase 3: Asignación</MenuItem>
-              <MenuItem value="Fase 4: Investigación">Fase 4: Investigación</MenuItem>
-              <MenuItem value="Fase 5: Control Calidad">Fase 5: Control Calidad</MenuItem>
-              <MenuItem value="Fase 6: Dictamen">Fase 6: Comité Causalidad</MenuItem>
+              <MenuItem value="Todos">Todas las Fases</MenuItem>
+              <MenuItem value="Fase 1: Notificación">Fase 1: Notificación</MenuItem>
+              <MenuItem value="Fase 2: Evaluación">Fase 2: Evaluación Riesgo</MenuItem>
+              <MenuItem value="Fase 3: Asignación ERR">Fase 3: Asignación ERR</MenuItem>
+              <MenuItem value="Fase 4: Investigación">Fase 4: Trabajo de Campo</MenuItem>
+              <MenuItem value="Fase 5: Revisión Primaria">Fase 5: Revisión Institucional</MenuItem>
+              <MenuItem value="Fase 6: Evaluación de Comité">Fase 6: Comité de Causalidad</MenuItem>
+              <MenuItem value="Cerrado">Casos Cerrados</MenuItem>
             </TextField>
           </Grid>
           <Grid size={{ xs: 12, md: 3 }}>
@@ -198,10 +219,10 @@ export default function Dashboard() {
               sx={{ bgcolor: 'white' }}
             >
               <MenuItem value="Todos">Todos los Riesgos</MenuItem>
-              <MenuItem value="Bajo">Riesgo Bajo (Local)</MenuItem>
-              <MenuItem value="Medio">Riesgo Medio (Dept.)</MenuItem>
-              <MenuItem value="Alto">Riesgo Alto (Regional)</MenuItem>
-              <MenuItem value="Crítico">Riesgo Crítico (Nacional)</MenuItem>
+              <MenuItem value="RIESGO BAJO">Riesgo Bajo (Local)</MenuItem>
+              <MenuItem value="RIESGO MODERADO">Riesgo Moderado (Dept.)</MenuItem>
+              <MenuItem value="RIESGO ALTO">Riesgo Alto (Regional)</MenuItem>
+              <MenuItem value="RIESGO CRÍTICO">Riesgo Crítico (Nacional)</MenuItem>
             </TextField>
           </Grid>
         </Grid>
@@ -229,7 +250,7 @@ export default function Dashboard() {
                   <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: isError ? '#ffebee' : sla.rowColor, cursor: 'pointer' }}>
                     <TableCell>{caso.id}</TableCell>
                     <TableCell>{caso.paciente}</TableCell>
-                    <TableCell><Chip label={caso.fase} size="small" /></TableCell>
+                    <TableCell><Chip label={getFaseName(caso.estadoFlujo)} size="small" /></TableCell>
                     
                     <TableCell>
                       <Chip size="small" {...getEstadoChipProps(caso.estadoFlujo)} />

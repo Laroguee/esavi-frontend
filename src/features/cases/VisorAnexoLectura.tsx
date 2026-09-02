@@ -58,7 +58,7 @@ export default function VisorAnexoLectura({ dataString, titulo }: VisorAnexoLect
       
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {Object.entries(data).map(([key, value]) => (
-          <Grid item xs={12} sm={6} md={4} key={key}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={key}>
             <Box sx={{ p: 1.5, bgcolor: 'grey.50', borderRadius: 1, height: '100%' }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 'medium' }}>
                 {formatearLlave(key)}

@@ -13,6 +13,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/googleSheetsService';
+import { listarUsuarios } from '../../../services/adminService';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
 import { useRef, useEffect } from 'react';
@@ -124,7 +125,7 @@ export default function AnexoVII_Clinico() {
   const [tabIndex, setTabIndex] = useState(0);
   const [esMujerFertil, setEsMujerFertil] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(isViewMode);
+  const [isLoading, setIsLoading] = useState(!!id);
   const { userEmail } = useAuthStore();
 
   // === GENERACIÓN DE PDF ===
@@ -145,12 +146,12 @@ export default function AnexoVII_Clinico() {
     }
   }, [id]);
 
-  const { control, handleSubmit, watch, reset } = useForm<AnexoVIIFormValues>({
+  const { control, handleSubmit, watch, reset, getValues } = useForm<AnexoVIIFormValues>({
     resolver: zodResolver(anexoVIISchema),
     defaultValues: {
-      fechaInicioLlenado: '', 
+      fechaInicioLlenado: new Date().toISOString().split('T')[0], 
       fuentes_historiaClinica: false, fuentes_entrevistaVacunado: false, fuentes_entrevistaSalud: false, fuentes_registrosVac: false, fuentes_autopsia: false, fuentes_autopsiaVerbal: false, fuentes_comunitaria: false, fuentes_otro: '',
-      idUnico: 'ESAVI-MINSAL-2025-001', lugarVacunacion: '', lugarVacunacionOtro: '', direccionVacunacion: '', 
+      idUnico: id || '', lugarVacunacion: '', lugarVacunacionOtro: '', direccionVacunacion: '', 
       eq_farma_nombre: '', eq_farma_cargo: '', eq_farma_correo: '', eq_farma_tel: '',
       eq_inmuno_nombre: '', eq_inmuno_cargo: '', eq_inmuno_correo: '', eq_inmuno_tel: '',
       eq_epi_nombre: '', eq_epi_cargo: '', eq_epi_correo: '', eq_epi_tel: '',
@@ -168,23 +169,89 @@ export default function AnexoVII_Clinico() {
       if (id) {
         try {
           const res = await obtenerExpediente(id);
+          
+          let fetchedFormValues: any = null;
           if (res.success && res.data.anexos) {
             const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('VII') || a.id_anexo?.includes('ANXVII'));
             if (anexo && anexo.datos_formulario_json) {
-              const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
-              reset(parsed);
+              fetchedFormValues = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
             } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
-              // It's a new form, do nothing.
+              // Nuevo formulario, se llenarán valores por defecto abajo
             } else if (!anexo || !anexo.datos_formulario_json) {
               setIsViewMode(false);
               setSearchParams({});
             }
-          } else {
-            if (isViewMode) {
-              setIsViewMode(false);
-              setSearchParams({});
-            }
+          } else if (res.success && isViewMode) {
+            setIsViewMode(false);
+            setSearchParams({});
           }
+
+          // === AUTOCOMPLETAR DATOS DEL ERR ===
+          // Si es un formulario nuevo (o si faltan los nombres), intentamos autocompletarlos
+          let finalValues = fetchedFormValues ? { ...fetchedFormValues } : {};
+          
+          if (!isViewMode && res.success && res.data.asignaciones && (!finalValues.eq_farma_nombre || !finalValues.eq_epi_nombre)) {
+             try {
+                const asigParsed = typeof res.data.asignaciones === 'string' ? JSON.parse(res.data.asignaciones) : res.data.asignaciones;
+                const usuariosRes = await listarUsuarios();
+                if (usuariosRes.success && usuariosRes.data) {
+                   const usuarios = usuariosRes.data;
+                   const findUser = (email: string) => usuarios.find((u: any) => u.email === email);
+                   
+                   const farmaUser = findUser(asigParsed.id_clinico);
+                   if (farmaUser) {
+                      finalValues.eq_farma_nombre = farmaUser.name || farmaUser.nombre || '';
+                      finalValues.eq_farma_cargo = farmaUser.role || farmaUser.cargo || 'Farmacovigilancia';
+                      finalValues.eq_farma_correo = farmaUser.email;
+                      finalValues.eq_farma_tel = farmaUser.telefono || '';
+                   }
+                   const inmunoUser = findUser(asigParsed.id_inmuno);
+                   if (inmunoUser) {
+                      finalValues.eq_inmuno_nombre = inmunoUser.name || inmunoUser.nombre || '';
+                      finalValues.eq_inmuno_cargo = inmunoUser.role || inmunoUser.cargo || 'Inmunizaciones';
+                      finalValues.eq_inmuno_correo = inmunoUser.email;
+                      finalValues.eq_inmuno_tel = inmunoUser.telefono || '';
+                   }
+                   const epiUser = findUser(asigParsed.id_epidemio);
+                   if (epiUser) {
+                      finalValues.eq_epi_nombre = epiUser.name || epiUser.nombre || '';
+                      finalValues.eq_epi_cargo = epiUser.role || epiUser.cargo || 'Epidemiología';
+                      finalValues.eq_epi_correo = epiUser.email;
+                      finalValues.eq_epi_tel = epiUser.telefono || '';
+                   }
+                }
+             } catch (e) {
+                console.warn("No se pudo autocompletar el ERR:", e);
+             }
+          }
+
+          // === AUTOCOMPLETAR DATOS DE LA INSTITUCIÓN INICIAL ===
+          if (!isViewMode && res.success && res.data.expediente && !finalValues.instInicial) {
+             try {
+                const exp = typeof res.data.expediente === 'string' ? JSON.parse(res.data.expediente) : res.data.expediente;
+                finalValues.instInicial = exp.establecimiento_notificador || exp.establecimiento_vacunacion || '';
+                finalValues.medicoInicial = exp.nombre_notificador || '';
+                
+                const contactoArr = [];
+                if (exp.telefono_notificador) contactoArr.push(exp.telefono_notificador);
+                if (exp.correo_notificador) contactoArr.push(exp.correo_notificador);
+                finalValues.contactoInicial = contactoArr.join(' / ');
+
+                // Referencia familiar
+                if (!finalValues.contactoConoceDetalles) {
+                   const familiar = exp.paciente_responsable ? `Responsable: ${exp.paciente_responsable}` : `Paciente: ${exp.nombre_paciente || ''}`;
+                   const tel = exp.paciente_direccion ? `\nDirección/Contacto: ${exp.paciente_direccion}` : '';
+                   finalValues.contactoConoceDetalles = `${familiar}${tel}`.trim();
+                }
+             } catch (e) {
+                console.warn("No se pudo autocompletar la institución inicial:", e);
+             }
+          }
+
+          if (Object.keys(finalValues).length > 0) {
+            reset({ ...getValues(), ...finalValues, idUnico: id || '' });
+          }
+
         } catch (error) {
           console.error("Error cargando anexo:", error);
           if (isViewMode) {
@@ -342,7 +409,7 @@ export default function AnexoVII_Clinico() {
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Fecha inicio llenado de ficha</Typography>
                 <Controller name="fechaInicioLlenado" control={control} render={({ field, fieldState }) => (
                   // CORRECCIÓN: slotProps en lugar de InputLabelProps
-                  <TextField {...field} fullWidth type="date" size="small" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <TextField {...field} fullWidth type="date" size="small" slotProps={{ htmlInput: { readOnly: true }, inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )}/>
               </Grid>
               <Grid size={{ xs: 12, md: 8 }}>

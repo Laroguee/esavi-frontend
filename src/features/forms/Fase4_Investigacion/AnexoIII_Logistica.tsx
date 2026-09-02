@@ -27,7 +27,7 @@ export default function AnexoIII_Logistica() {
   const { setLogisticaCompletada, userEmail } = useAuthStore();
   const marcarAnexoCompletado = useCasesStore(state => state.marcarAnexoCompletado);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(isViewMode);
+  const [isLoading, setIsLoading] = useState(!!id);
   
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);

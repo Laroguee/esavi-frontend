@@ -86,7 +86,7 @@ export default function AnexoV_PuestoVacuna() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(isViewMode);
+  const [isLoading, setIsLoading] = useState(!!id);
   const { userEmail } = useAuthStore();
 
   // === GENERACIÓN DE PDF ===
@@ -99,7 +99,7 @@ export default function AnexoV_PuestoVacuna() {
   const { control, handleSubmit, reset } = useForm<AnexoVFormValues>({
     resolver: zodResolver(anexoVSchema),
     defaultValues: {
-      idUnico: 'ESAVI-MINSAL-2025-001', nombrePuesto: '', fechaVisita: '', responsablePuesto: '',
+      idUnico: id || '', nombrePuesto: '', fechaVisita: new Date().toISOString().split('T')[0], responsablePuesto: '',
       s1_chk_1: '', s1_obs_1: '', s1_chk_2: '', s1_obs_2: '', s1_chk_3: '', s1_obs_3: '',
       s1_chk_4: '', s1_obs_4: '', s1_chk_5: '', s1_obs_5: '', s1_chk_6: '', s1_obs_6: '',
       s1_chk_7: '', s1_obs_7: '', s1_chk_8: '', s1_obs_8: '', s1_chk_9: '', s1_obs_9: '',
@@ -122,7 +122,11 @@ export default function AnexoV_PuestoVacuna() {
             const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('V (') || a.id_anexo?.includes('ANXV-'));
             if (anexo && anexo.datos_formulario_json) {
               const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
-              reset(parsed);
+              reset({
+                ...parsed,
+                idUnico: id || '',
+                fechaVisita: parsed.fechaVisita || new Date().toISOString().split('T')[0]
+              });
             } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
               // It's a new form, do nothing.
             } else if (!anexo || !anexo.datos_formulario_json) {
@@ -267,7 +271,7 @@ export default function AnexoV_PuestoVacuna() {
             <Controller name="nombrePuesto" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth label="Nombre del Puesto / Establecimiento visitado" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
-            <Controller name="fechaVisita" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="date" label="Fecha de la visita" slotProps={{ inputLabel: { shrink: true } }} focused error={!!fieldState.error} helperText={fieldState.error?.message} />} />
+            <Controller name="fechaVisita" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="date" label="Fecha de la visita" slotProps={{ htmlInput: { readOnly: true }, inputLabel: { shrink: true } }} focused error={!!fieldState.error} helperText={fieldState.error?.message} />} />
           </Grid>
           <Grid size={{ xs: 12, md: 8 }}>
             <Controller name="responsablePuesto" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth label="Nombre del Responsable del Puesto" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />

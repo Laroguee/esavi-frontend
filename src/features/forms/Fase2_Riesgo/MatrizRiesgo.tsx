@@ -21,7 +21,7 @@ export default function MatrizRiesgo() {
   // Inicializamos todos los puntajes en 0 y las justificaciones vacías
   const { control, watch, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
-      fechaReunionEvaluacion: '',
+      fechaReunionEvaluacion: new Date().toISOString().split('T')[0],
       desenlaceFatal: 0, just_desenlaceFatal: '',
       hospitalizacion: 0, just_hospitalizacion: '',
       aborto: 0, just_aborto: '',
@@ -323,7 +323,7 @@ export default function MatrizRiesgo() {
               {...field} 
               type="date" 
               label="Fecha de Reunión de Evaluación" 
-              slotProps={{ inputLabel: { shrink: true } }} 
+              slotProps={{ htmlInput: { readOnly: true }, inputLabel: { shrink: true } }} 
               error={!!errors.fechaReunionEvaluacion}
               helperText={errors.fechaReunionEvaluacion ? String(errors.fechaReunionEvaluacion.message) : ""}
               sx={{ width: { xs: '100%', md: '300px' }, bgcolor: 'white' }}

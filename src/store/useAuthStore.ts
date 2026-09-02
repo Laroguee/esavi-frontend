@@ -26,13 +26,11 @@ interface AuthState {
   userName: string | null;
   userEstablecimiento: string | null;
   logisticaCompletada: boolean;
-  casoAprobadoParaComite: boolean;
   
   setSession: (user: MockUser) => void;
   setRole: (role: Role) => void;
   logout: () => void;
   setLogisticaCompletada: (estado: boolean) => void;
-  setCasoAprobadoParaComite: (estado: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -44,7 +42,6 @@ export const useAuthStore = create<AuthState>()(
       userName: null,
       userEstablecimiento: null,
       logisticaCompletada: false,
-      casoAprobadoParaComite: false,
 
       setSession: (user: MockUser) => set({
         isAuthenticated: true,
@@ -62,12 +59,10 @@ export const useAuthStore = create<AuthState>()(
         userEmail: null, 
         userName: null,
         userEstablecimiento: null,
-        logisticaCompletada: false,
-        casoAprobadoParaComite: false
+        logisticaCompletada: false
       }),
       
-      setLogisticaCompletada: (estado) => set({ logisticaCompletada: estado }),
-      setCasoAprobadoParaComite: (estado) => set({ casoAprobadoParaComite: estado }),
+      setLogisticaCompletada: (estado: boolean) => set({ logisticaCompletada: estado }),
     }),
     {
       name: 'esavi-auth-storage',

@@ -1,4 +1,5 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 interface VisorArchivosProps {
   url: string;
@@ -27,15 +28,29 @@ export default function VisorArchivos({ url }: VisorArchivosProps) {
   }
 
   return (
-    <Box sx={{ width: '100%', height: '70vh', borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-      <iframe 
-        src={previewUrl} 
-        width="100%" 
-        height="100%" 
-        style={{ border: 'none' }}
-        allow="autoplay"
-        title="Visor de Archivo"
-      />
+    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button 
+          variant="outlined" 
+          startIcon={<OpenInNewIcon />} 
+          component="a" 
+          href={url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+        >
+          Abrir en pestaña nueva
+        </Button>
+      </Box>
+      <Box sx={{ width: '100%', height: '70vh', borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+        <iframe 
+          src={previewUrl} 
+          width="100%" 
+          height="100%" 
+          style={{ border: 'none' }}
+          allow="autoplay"
+          title="Visor de Archivo"
+        />
+      </Box>
     </Box>
   );
 }

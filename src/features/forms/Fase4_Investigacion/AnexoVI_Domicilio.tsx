@@ -148,7 +148,7 @@ export default function AnexoVI_Domicilio() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(isViewMode);
+  const [isLoading, setIsLoading] = useState(!!id);
   const { userEmail } = useAuthStore();
 
   // === GENERACIÓN DE PDF ===
@@ -161,7 +161,7 @@ export default function AnexoVI_Domicilio() {
   const { control, handleSubmit, reset } = useForm<AnexoVIFormValues>({
     resolver: zodResolver(anexoVISchema),
     defaultValues: {
-      idUnico: 'ESAVI-MINSAL-2025-001', horaInicio: '', horaFin: '', fechaVisita: '',
+      idUnico: id || '', horaInicio: '', horaFin: '', fechaVisita: new Date().toISOString().split('T')[0],
       fase1_nota_1: '', fase1_nota_2: '', fase1_nota_3: '', fase1_nota_4: '', fase1_nota_5: '', 
       fase1_nota_6: '', fase1_nota_7: '', fase1_nota_8: '', fase1_nota_9: '', fase1_nota_10: '', fase1_nota_11: '',
       entrevista_a1: '', entrevista_a2: '', entrevista_a3: '', entrevista_a4: '', entrevista_a5: '', entrevista_a6: '',
@@ -191,7 +191,11 @@ export default function AnexoVI_Domicilio() {
             const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('VI') || a.id_anexo?.includes('ANXVI'));
             if (anexo && anexo.datos_formulario_json) {
               const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
-              reset(parsed);
+              reset({
+                ...parsed,
+                idUnico: id || '',
+                fechaVisita: parsed.fechaVisita || new Date().toISOString().split('T')[0]
+              });
             } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
               // It's a new form, do nothing.
             } else if (!anexo || !anexo.datos_formulario_json) {
@@ -369,7 +373,7 @@ export default function AnexoVI_Domicilio() {
             <Controller name="idUnico" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth label="ID ESAVI" disabled variant="filled" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-             <Controller name="fechaVisita" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="date" label="Fecha de la visita" slotProps={{ inputLabel: { shrink: true } }} focused error={!!fieldState.error} helperText={fieldState.error?.message} />} />
+             <Controller name="fechaVisita" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth type="date" label="Fecha de la visita" slotProps={{ htmlInput: { readOnly: true }, inputLabel: { shrink: true } }} focused error={!!fieldState.error} helperText={fieldState.error?.message} />} />
           </Grid>
         </Grid>
       </Paper>

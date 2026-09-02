@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Alert } from '@mui/material';
 import GavelIcon from '@mui/icons-material/Gavel';
@@ -6,9 +6,12 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import PrintIcon from '@mui/icons-material/Print';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import { CircularProgress } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useCasesStore } from '../../store/useCasesStore';
+import { obtenerExpedienteCompleto, actualizarCaso } from '../../services/googleSheetsService';
 
 // Interface para el formulario del Comité
 interface FormDataCausalidad {
@@ -23,8 +26,12 @@ export default function CierreYDictamen() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Extraemos el rol y el estado simulado del caso desde Zustand
-  const { currentRole, casoAprobadoParaComite, setCasoAprobadoParaComite } = useAuthStore();
+  const { currentRole } = useAuthStore();
+  const { casos, avanzarCaso } = useCasesStore();
+  
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
+  
+  const casoActual = casos.find(c => c.id === id);
   
   const componentRef = useRef<HTMLDivElement>(null);
 
@@ -38,68 +45,80 @@ export default function CierreYDictamen() {
     `,
   });
 
-  // =========================================================================
-  // MOCK DATA COMPLETO (INFORME TÉCNICO)
-  // =========================================================================
-  const casoData = {
-    id: id || 'ESAVI-MINSAL-2025-001',
-    fechaInforme: '10/07/2026',
-    pais: 'El Salvador',
-    nivelSubnacionalReporte: 'Región Metropolitana',
-    nivelSubnacionalResidencia: 'San Salvador',
-    institucionNotificadora: 'MINSAL - Hospital Rosales',
-    edad: '34 años',
-    sexo: 'Masculino',
-    fechaNacimiento: '15/05/1992',
-    fechaUltimaVacunacion: '01/07/2026',
-    diagnostico: 'Anafilaxia Severa',
-    nivelCerteza: 'Nivel 1 (Certeza Alta)',
-    fechaInicioSintomas: '01/07/2026',
-    fechaHospitalizacion: '01/07/2026',
-    fechaDefuncion: 'N/A',
-    fechaNotificacionNacional: '02/07/2026',
-    resumenEjecutivo: 'Paciente masculino de 34 años presenta cuadro de anafilaxia severa 15 minutos posteriores a la administración de vacuna COVID-19. Requirió hospitalización en UCI y uso de adrenalina. Evolución favorable, dado de alta a los 5 días.',
-    antClinicos: 'Hipertensión arterial controlada. Alergia conocida a penicilina.',
-    antQuirurgicos: 'Apendicectomía (2010).',
-    antPerinatales: 'No aplica.',
-    antMedicamentos: 'Enalapril 20mg diarios.',
-    antSustancias: 'Negativo a drogas o alcohol.',
-    antFamiliares: 'Madre hipertensa.',
-    epiViajes: 'Sin viajes en los últimos 6 meses.',
-    epiAmbientales: 'Residente en zona urbana, sin exposición a químicos agrícolas.',
-    epiVirus: 'Sin contacto conocido con personas infectadas.',
-    resumenCaso: 'El 01/07/2026 a las 10:00 am se administra vacuna. A las 10:15 am inicia con rash generalizado, dificultad respiratoria e hipotensión. Es trasladado a emergencia, se diagnostica anafilaxia, se intuba y pasa a UCI. Extubado al 3er día.',
-    hallazgosClinicos: 'Criterios de Brighton Nivel 1 para Anafilaxia cumplidos. Exámenes de laboratorio muestran triptasa elevada.',
-    hallazgosNecropsia: 'No aplica.',
-    hallazgosVacuna: 'Lote de vacuna verificado sin alertas de calidad internacionales. Cadena de frío mantenida a 4°C comprobada con data loggers.',
-    hallazgosPuesto: 'Personal vacunador capacitado. Se omitió la pregunta sobre alergias previas durante el triage inicial (Error programático leve).',
-    seguimientoVacunados: '30 personas recibieron el mismo lote ese día sin presentar ESAVI.',
-    hallazgosEpi: 'No se reportan clusters comunitarios ni ambientales relacionados.',
-    riesgoEvento: 'ALTO (Evaluación Fase 2: 7 puntos).',
-    situacionComunicacional: 'Sin impacto en medios locales. Rumores contenidos por el personal del hospital.',
-    vacunas: [
-      { nombre: 'COVID-19 Pfizer', fecha: '01/07/2026', fab: 'Pfizer', lote: 'FA1234', sitio: 'Brazo izquierdo' },
-      { nombre: '-', fecha: '-', fab: '-', lote: '-', sitio: '-' }
-    ]
-  };
-
   const { control, handleSubmit } = useForm<FormDataCausalidad>({
     defaultValues: { clasificacionFinal: '', comentariosComite: '', recomendaciones: '', fechaEvaluacion: '', firmasExpertos: '' }
   });
 
-  // =========================================================================
-  // HANDLERS DE ACCIÓN
-  // =========================================================================
-  const onSubmitDictamen = (data: FormDataCausalidad) => {
-    console.log("Dictamen Oficial de Causalidad:", data);
-    alert(`Expediente ${casoData.id} CERRADO OFICIALMENTE por el Comité de Expertos.`);
-    navigate('/');
+  if (!casoActual) {
+    return <Alert severity="error">Caso no encontrado en el estado global. Por favor, vuelva al inicio.</Alert>;
+  }
+
+  // Mapear datos reales al formato del informe
+  const casoData = {
+    id: casoActual.id,
+    fechaInforme: new Date().toLocaleDateString(),
+    pais: 'El Salvador',
+    nivelSubnacionalReporte: 'N/A', // Estos datos provienen de los anexos profundos
+    nivelSubnacionalResidencia: 'N/A',
+    institucionNotificadora: casoActual.establecimiento || 'No especificada',
+    edad: casoActual.edad ? `${casoActual.edad} años` : 'N/A',
+    sexo: casoActual.sexo || 'N/A',
+    fechaNacimiento: 'N/A', 
+    fechaUltimaVacunacion: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : 'N/A',
+    diagnostico: casoActual.sintomas || 'N/A',
+    nivelCerteza: 'N/A',
+    fechaInicioSintomas: 'N/A',
+    fechaHospitalizacion: 'N/A',
+    fechaDefuncion: 'N/A',
+    fechaNotificacionNacional: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : 'N/A',
+    resumenEjecutivo: 'Ver detalles en Anexo VII y Gestor de Evidencias.',
+    antClinicos: 'Ver detalles clínicos completos en el Gestor de Evidencias.',
+    antQuirurgicos: 'N/A',
+    antPerinatales: 'N/A',
+    antMedicamentos: 'N/A',
+    antSustancias: 'N/A',
+    antFamiliares: 'N/A',
+    epiViajes: 'N/A',
+    epiAmbientales: 'N/A',
+    epiVirus: 'N/A',
+    resumenCaso: 'Ver línea de tiempo en el informe final de cierre institucional.',
+    hallazgosClinicos: 'N/A',
+    hallazgosNecropsia: 'N/A',
+    hallazgosVacuna: 'Ver Anexo V',
+    hallazgosPuesto: 'Ver Anexo VI',
+    seguimientoVacunados: 'N/A',
+    hallazgosEpi: 'Ver Anexo III',
+    riesgoEvento: casoActual.riesgo || 'N/A',
+    situacionComunicacional: 'N/A',
+    vacunas: [
+      { nombre: casoActual.vacuna || 'N/A', fecha: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : 'N/A', fab: 'N/A', lote: 'N/A', sitio: 'N/A' },
+      { nombre: '-', fecha: '-', fab: '-', lote: '-', sitio: '-' }
+    ]
   };
 
-  const handleAprobarSecretariado = () => {
-    setCasoAprobadoParaComite(true);
-    alert("Expediente verificado. El estado del caso ha cambiado a 'EN COMITÉ' y se ha notificado a los expertos.");
-    navigate('/');
+  const onSubmitDictamen = async (data: FormDataCausalidad) => {
+    setLoadingSubmit(true);
+    try {
+      // 1. Guardar los datos del dictamen en el expediente
+      await actualizarCaso(casoActual.id, {
+        dictamen_clasificacion: data.clasificacionFinal,
+        dictamen_comentarios: data.comentariosComite,
+        dictamen_recomendaciones: data.recomendaciones,
+        dictamen_fecha: data.fechaEvaluacion,
+        dictamen_firmas: data.firmasExpertos
+      });
+
+      // 2. Avanzar el caso a estado CERRADO
+      await avanzarCaso(casoActual.id, 'CERRADO', 'Fase 6: Cerrado por Comité', 'El Comité Externo ha emitido el dictamen final.');
+      
+      alert(`Expediente ${casoActual.id} CERRADO OFICIALMENTE por el Comité de Expertos.`);
+      navigate('/');
+    } catch (error) {
+      console.error(error);
+      alert("Error al guardar el dictamen");
+    } finally {
+      setLoadingSubmit(false);
+    }
   };
 
   function DataField({ label, value, fullWidth = false }: { label: string, value: string, fullWidth?: boolean }) {
@@ -238,36 +257,11 @@ export default function CierreYDictamen() {
       {/* ===== FIN DEL CONTENEDOR IMPRIMIBLE ===== */}
 
       {/* =========================================================
-          ROL: SECRETARIADO (Aprobación Administrativa)
-      ========================================================= */}
-      {currentRole === 'SECRETARIADO' && !casoAprobadoParaComite && (
-        <Paper elevation={4} sx={{ p: 5, borderTop: '6px solid', borderColor: 'success.main', borderRadius: 2, bgcolor: '#f0fdf4' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <TaskAltIcon color="success" sx={{ fontSize: 40 }} />
-            <Typography variant="h5" color="success.main" sx={{ fontWeight: 'bold' }}>Verificación Administrativa del Secretariado</Typography>
-          </Box>
-          <Typography variant="body1" sx={{ mb: 4 }}>
-            Confirme que el informe consolidado contiene todos los hallazgos necesarios de la investigación de campo. 
-            Al aprobar el expediente, este será enviado y agendado para la revisión del Comité Externo de Expertos.
-          </Typography>
-          <Box sx={{ textAlign: 'center' }}>
-            <Button variant="contained" color="success" size="large" sx={{ px: 5, py: 1.5, fontWeight: 'bold' }} onClick={handleAprobarSecretariado}>
-              APROBAR EXPEDIENTE Y AGENDAR PARA COMITÉ
-            </Button>
-          </Box>
-        </Paper>
-      )}
-
-      {currentRole === 'SECRETARIADO' && casoAprobadoParaComite && (
-        <Alert severity="success" sx={{ fontWeight: 'bold' }}>Este expediente ya fue aprobado y se encuentra en revisión por el Comité Externo.</Alert>
-      )}
-
-      {/* =========================================================
           ROL: COMITÉ EXTERNO (Dictamen Final)
       ========================================================= */}
       {currentRole === 'COMITE_EXTERNO' && (
         <>
-          {!casoAprobadoParaComite ? (
+          {casoActual.estadoFlujo !== 'EN_EVALUACION_COMITE' ? (
             <Alert severity="info" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
               Este caso está en proceso de consolidación y se encuentra en espera de ser agendado por el Secretariado Técnico. No puede emitir dictamen aún.
             </Alert>
@@ -337,8 +331,8 @@ export default function CierreYDictamen() {
                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                    Al hacer clic en el botón de cierre, el Comité certifica haber revisado la evidencia sin conflictos de interés y dictamina la causalidad oficial del evento. Este caso no podrá ser modificado posteriormente.
                  </Typography>
-                 <Button type="submit" variant="contained" color="primary" size="large" sx={{ px: 5, py: 1.5 }}>
-                    DICTAMINAR Y CERRAR CASO
+                 <Button type="submit" variant="contained" color="primary" size="large" sx={{ px: 5, py: 1.5 }} disabled={loadingSubmit}>
+                   {loadingSubmit ? <CircularProgress size={24} color="inherit" /> : 'DICTAMINAR Y CERRAR CASO'}
                  </Button>
               </Box>
             </Paper>
