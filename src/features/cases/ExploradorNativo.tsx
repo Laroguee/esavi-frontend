@@ -5,7 +5,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ImageIcon from '@mui/icons-material/Image';
-import { listarArchivosCaso } from '../../services/googleSheetsService';
+import { listarArchivosCaso } from '../../services/firebaseService';
 import VisorArchivos from './VisorArchivos';
 
 interface ExploradorProps {

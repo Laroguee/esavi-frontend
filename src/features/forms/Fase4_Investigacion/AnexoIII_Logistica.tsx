@@ -5,7 +5,9 @@ import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets, obtenerExpediente } from '../../../services/googleSheetsService';
+import { guardarEnSheets } from '../../../services/firebaseService';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../../config/firebase';
 import { useReactToPrint } from 'react-to-print';
 import { useRef, useState, useEffect } from 'react';
 
@@ -46,35 +48,30 @@ export default function AnexoIII_Logistica() {
 
   useEffect(() => {
     async function loadData() {
-      if (id && isViewMode) {
+      if (id) {
         try {
-          const res = await obtenerExpediente(id);
-          if (res.success && res.data.anexos) {
-            const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('III') || a.id_anexo?.includes('ANXIII-'));
-            if (anexo) {
-              const parsed = anexo.datos_formulario_json 
-                ? (typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json)
-                : anexo; // Fallback for old schema where columns matched keys
-              
-              // Verify it actually has useful keys before keeping view mode
-              if (parsed.chk_1 !== undefined || parsed.chk_2 !== undefined || parsed.observaciones !== undefined) {
-                reset({
-                  chk_1: parsed.chk_1 === true || parsed.chk_1 === "true" || parsed.chk_1 === "TRUE",
-                  chk_2: parsed.chk_2 === true || parsed.chk_2 === "true" || parsed.chk_2 === "TRUE",
-                  chk_3: parsed.chk_3 === true || parsed.chk_3 === "true" || parsed.chk_3 === "TRUE",
-                  chk_4: parsed.chk_4 === true || parsed.chk_4 === "true" || parsed.chk_4 === "TRUE",
-                  chk_5: parsed.chk_5 === true || parsed.chk_5 === "true" || parsed.chk_5 === "TRUE",
-                  chk_6: parsed.chk_6 === true || parsed.chk_6 === "true" || parsed.chk_6 === "TRUE",
-                  chk_7: parsed.chk_7 === true || parsed.chk_7 === "true" || parsed.chk_7 === "TRUE",
-                  observaciones: parsed.observaciones || ''
-                });
-              } else {
-                setIsViewMode(false);
-                setSearchParams({});
-              }
+          const anexoSnap = await getDoc(doc(db, 'ANEXO_III', id));
+          if (anexoSnap.exists()) {
+            const anexo = anexoSnap.data();
+            const parsed = anexo.datos_formulario_json 
+              ? (typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json)
+              : anexo; // Fallback for old schema where columns matched keys
+            
+            // Verify it actually has useful keys before keeping view mode
+            if (parsed.chk_1 !== undefined || parsed.chk_2 !== undefined || parsed.observaciones !== undefined) {
+              reset({
+                chk_1: parsed.chk_1 === true || parsed.chk_1 === "true" || parsed.chk_1 === "TRUE",
+                chk_2: parsed.chk_2 === true || parsed.chk_2 === "true" || parsed.chk_2 === "TRUE",
+                chk_3: parsed.chk_3 === true || parsed.chk_3 === "true" || parsed.chk_3 === "TRUE",
+                chk_4: parsed.chk_4 === true || parsed.chk_4 === "true" || parsed.chk_4 === "TRUE",
+                chk_5: parsed.chk_5 === true || parsed.chk_5 === "true" || parsed.chk_5 === "TRUE",
+                chk_6: parsed.chk_6 === true || parsed.chk_6 === "true" || parsed.chk_6 === "TRUE",
+                chk_7: parsed.chk_7 === true || parsed.chk_7 === "true" || parsed.chk_7 === "TRUE",
+                observaciones: parsed.observaciones || ''
+              });
             } else {
               setIsViewMode(false);
-              setSearchParams({}); // Quitar mode=view de la URL
+              setSearchParams({});
             }
           } else {
             setIsViewMode(false);
@@ -176,7 +173,7 @@ export default function AnexoIII_Logistica() {
                 const isChecked = field.value === true || field.value === "true" || field.value === "TRUE";
                 return (
                   <FormControlLabel
-                    control={<Checkbox {...field} checked={isChecked} color="primary" />}
+                    control={<Checkbox name={field.name} checked={isChecked} onChange={(e) => field.onChange(e.target.checked)} color="primary" />}
                     label={<Typography variant="body2">{item.text}</Typography>}
                     sx={{ alignItems: 'flex-start', m: 0, p: 1, bgcolor: isChecked ? '#e8f5e9' : 'transparent', borderRadius: 1, transition: '0.2s' }}
                   />

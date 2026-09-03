@@ -9,7 +9,7 @@ import { useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { guardarEnSheets, crearCarpetaCaso, crearNotificacion } from '../../../services/googleSheetsService';
+import { guardarEnSheets, crearCarpetaCaso, crearNotificacion } from '../../../services/firebaseService';
 
 // Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;

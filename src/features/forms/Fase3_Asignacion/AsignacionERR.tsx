@@ -8,7 +8,7 @@ import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore, type MockUser } from '../../../store/useAuthStore';
 import { useCatalogStore } from '../../../store/useCatalogStore';
 import { listarUsuarios } from '../../../services/adminService';
-import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/googleSheetsService';
+import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/firebaseService';
 
 export default function AsignacionERR() {
   const { id } = useParams(); // Rescatamos el ID del caso de la URL
@@ -29,10 +29,6 @@ export default function AsignacionERR() {
   }, []);
 
   const [chkReporte, setChkReporte] = useState(false);
-  const [checklistLogistica, setChecklistLogistica] = useState({
-    c1: false, c2: false, c3: false, c4: false, c5: false, c6: false, c7: false
-  });
-  const isChecklistCompleto = Object.values(checklistLogistica).every(Boolean);
   const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico';
 
   const { control, handleSubmit, watch, setValue } = useForm({
@@ -61,7 +57,8 @@ export default function AsignacionERR() {
           id_clinico: data.farmacovigilancia || '',
           id_inmuno: data.inmunizaciones || '',
           id_epidemio: data.epidemiologia || '',
-          instrucciones_especiales: data.instrucciones || ''
+          instrucciones_especiales: data.instrucciones || '',
+          datos_formulario_json: JSON.stringify(data)
         }
       };
 
@@ -110,115 +107,129 @@ export default function AsignacionERR() {
     }
   };
 
-  return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 800, margin: 'auto', pb: 8, pt: 2 }}>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-          Fase 3: Asignación de ERR
-        </Typography>
-        <Button variant="outlined" onClick={() => navigate('/caso/' + id)}>
-          Cancelar
-        </Button>
-      </Box>
+    let macroDelCaso = establecimientos.find(e => e.nombre === casoActual?.establecimiento)?.institucionMacro;
+    
+    // Fallback inteligente si el nombre del establecimiento antiguo no coincide exactamente
+    if (!macroDelCaso && casoActual) {
+      const searchString = (casoActual.establecimiento + " " + casoActual.id).toUpperCase();
+      if (searchString.includes("ISSS")) macroDelCaso = "ISSS";
+      else if (searchString.includes("MINSAL")) macroDelCaso = "MINSAL";
+    }
 
-      <Paper variant="outlined" sx={{ p: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
-        <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-          <GroupAddIcon /> Selección de Personal Investigador
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Designe al personal que conformará el Equipo de Respuesta Rápida (ERR) local para el caso <strong>{id}</strong>.
-        </Typography>
+    const establecimientosFiltrados = establecimientos.filter(e => 
+      (e.activo === true || String(e.activo).toLowerCase() === 'true') && 
+      (!macroDelCaso || e.institucionMacro === macroDelCaso)
+    );
 
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Farmacovigilancia (Clínico)</Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Controller name="inst_farmacovigilancia" control={control} render={({ field }) => (
-                  <TextField 
-                    {...field} 
-                    select fullWidth size="small" label="Seleccione Institución"
-                    onChange={(e) => {
-                      field.onChange(e);
-                      setValue('farmacovigilancia', '');
-                    }}
-                  >
-                    {establecimientos.filter(e => e.activo === true || String(e.activo).toLowerCase() === 'true').map((inst) => (
-                      <MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>
-                    ))}
-                  </TextField>
-                )}/>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Controller name="farmacovigilancia" control={control} render={({ field }) => {
-                  const options = usuariosBD.filter(u => String(u.role).includes('ESAVI') && u.establecimiento === valores.inst_farmacovigilancia);
-                  return (
-                    <TextField {...field} select fullWidth size="small" label="Seleccione Referente Clínico" required disabled={!valores.inst_farmacovigilancia}>
-                      {options.length > 0 ? options.map((persona) => (
-                        <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
-                      )) : (
-                        <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
-                      )}
+    return (
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 800, margin: 'auto', pb: 8, pt: 2 }}>
+        
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+            Fase 3: Asignación de ERR
+          </Typography>
+          <Button variant="outlined" onClick={() => navigate('/caso/' + id)}>
+            Cancelar
+          </Button>
+        </Box>
+
+        <Paper variant="outlined" sx={{ p: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
+          <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+            <GroupAddIcon /> Selección de Personal Investigador
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+            Designe al personal que conformará el Equipo de Respuesta Rápida (ERR) local para el caso <strong>{id}</strong>.
+          </Typography>
+
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Farmacovigilancia (Clínico)</Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller name="inst_farmacovigilancia" control={control} render={({ field }) => (
+                    <TextField 
+                      {...field} 
+                      select fullWidth size="small" label="Seleccione Institución"
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setValue('farmacovigilancia', '');
+                      }}
+                    >
+                      {establecimientosFiltrados.map((inst) => (
+                        <MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>
+                      ))}
                     </TextField>
-                  );
-                }}/>
+                  )}/>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller name="farmacovigilancia" control={control} render={({ field }) => {
+                    const options = usuariosBD.filter(u => String(u.role).includes('ESAVI') && u.establecimiento === valores.inst_farmacovigilancia);
+                    return (
+                      <TextField {...field} select fullWidth size="small" label="Seleccione Referente Clínico" required disabled={!valores.inst_farmacovigilancia}>
+                        {options.length > 0 ? options.map((persona) => (
+                          <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
+                        )) : (
+                          <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
+                        )}
+                      </TextField>
+                    );
+                  }}/>
+                </Grid>
               </Grid>
             </Grid>
-          </Grid>
 
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Inmunizaciones (Puesto de Vacunación)</Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Controller name="inst_inmunizaciones" control={control} render={({ field }) => (
-                  <TextField 
-                    {...field} 
-                    select fullWidth size="small" label="Seleccione Institución"
-                    onChange={(e) => {
-                      field.onChange(e);
-                      setValue('inmunizaciones', '');
-                    }}
-                  >
-                    {establecimientos.filter(e => e.activo === true || String(e.activo).toLowerCase() === 'true').map((inst) => (
-                      <MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>
-                    ))}
-                  </TextField>
-                )}/>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Controller name="inmunizaciones" control={control} render={({ field }) => {
-                  const options = usuariosBD.filter(u => String(u.role).includes('INMUNO') && u.establecimiento === valores.inst_inmunizaciones);
-                  return (
-                    <TextField {...field} select fullWidth size="small" label="Seleccione Referente de Inmunizaciones" required disabled={!valores.inst_inmunizaciones}>
-                      {options.length > 0 ? options.map((persona) => (
-                        <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
-                      )) : (
-                        <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
-                      )}
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Inmunizaciones (Puesto de Vacunación)</Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller name="inst_inmunizaciones" control={control} render={({ field }) => (
+                    <TextField 
+                      {...field} 
+                      select fullWidth size="small" label="Seleccione Institución"
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setValue('inmunizaciones', '');
+                      }}
+                    >
+                      {establecimientosFiltrados.map((inst) => (
+                        <MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>
+                      ))}
                     </TextField>
-                  );
-                }}/>
+                  )}/>
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller name="inmunizaciones" control={control} render={({ field }) => {
+                    const options = usuariosBD.filter(u => String(u.role).includes('INMUNO') && u.establecimiento === valores.inst_inmunizaciones);
+                    return (
+                      <TextField {...field} select fullWidth size="small" label="Seleccione Referente de Inmunizaciones" required disabled={!valores.inst_inmunizaciones}>
+                        {options.length > 0 ? options.map((persona) => (
+                          <MenuItem key={persona.email} value={persona.email}>{persona.name}</MenuItem>
+                        )) : (
+                          <MenuItem disabled value=""><em>(No hay personal registrado)</em></MenuItem>
+                        )}
+                      </TextField>
+                    );
+                  }}/>
+                </Grid>
               </Grid>
             </Grid>
-          </Grid>
 
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Epidemiología (Trabajo de Campo)</Typography>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Controller name="inst_epidemiologia" control={control} render={({ field }) => (
-                  <TextField 
-                    {...field} 
-                    select fullWidth size="small" label="Seleccione Institución"
-                    onChange={(e) => {
-                      field.onChange(e);
-                      setValue('epidemiologia', '');
-                    }}
-                  >
-                    {establecimientos.filter(e => e.activo === true || String(e.activo).toLowerCase() === 'true').map((inst) => (
-                      <MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>
-                    ))}
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Componente de Epidemiología (Trabajo de Campo)</Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller name="inst_epidemiologia" control={control} render={({ field }) => (
+                    <TextField 
+                      {...field} 
+                      select fullWidth size="small" label="Seleccione Institución"
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setValue('epidemiologia', '');
+                      }}
+                    >
+                      {establecimientosFiltrados.map((inst) => (
+                        <MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>
+                      ))}
                   </TextField>
                 )}/>
               </Grid>
@@ -271,25 +282,6 @@ export default function AsignacionERR() {
         </Alert>
       )}
 
-      <Paper variant="outlined" sx={{ p: 4, mt: 3, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'secondary.main' }}>
-        <Typography variant="h6" color="secondary" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Anexo III: Checklist de Logística de Campo
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Según el POE, es obligatorio validar los siguientes 7 puntos antes de movilizar al equipo de campo.
-        </Typography>
-        
-        <FormGroup sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c1} onChange={(e) => setChecklistLogistica(p => ({...p, c1: e.target.checked}))} />} label="1. Identificada la zona geográfica, condiciones y riesgos de seguridad." />
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c2} onChange={(e) => setChecklistLogistica(p => ({...p, c2: e.target.checked}))} />} label="2. Establecido cronograma de actividades." />
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c3} onChange={(e) => setChecklistLogistica(p => ({...p, c3: e.target.checked}))} />} label="3. Equipo adecuadamente identificado." />
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c4} onChange={(e) => setChecklistLogistica(p => ({...p, c4: e.target.checked}))} />} label="4. Mecanismos de comunicación establecidos." />
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c5} onChange={(e) => setChecklistLogistica(p => ({...p, c5: e.target.checked}))} />} label="5. Coordinados los medios de transporte para el equipo." />
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c6} onChange={(e) => setChecklistLogistica(p => ({...p, c6: e.target.checked}))} />} label="6. Disposición de equipos electrónicos/papel necesarios." />
-          <FormControlLabel control={<Checkbox checked={checklistLogistica.c7} onChange={(e) => setChecklistLogistica(p => ({...p, c7: e.target.checked}))} />} label="7. Previsión de material para tomas de muestras (si aplica) confirmada." />
-        </FormGroup>
-      </Paper>
-
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
         <Button 
           variant="contained" 
@@ -297,7 +289,7 @@ export default function AsignacionERR() {
           type="submit" 
           size="large" 
           startIcon={<SaveIcon />} 
-          disabled={(esRiesgoAlto && !chkReporte) || isSubmitting || !isChecklistCompleto}
+          disabled={(esRiesgoAlto && !chkReporte) || isSubmitting}
         >
           {isSubmitting ? 'Guardando...' : 'Confirmar Asignación'}
         </Button>

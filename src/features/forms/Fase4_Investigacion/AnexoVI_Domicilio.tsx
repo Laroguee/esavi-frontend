@@ -9,7 +9,9 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/googleSheetsService';
+import { guardarEnSheets, subirArchivoEvidencia } from '../../../services/firebaseService';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../../config/firebase';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
 import { useRef, useState, useEffect } from 'react';
@@ -186,9 +188,9 @@ export default function AnexoVI_Domicilio() {
     async function loadData() {
       if (id) {
         try {
-          const res = await obtenerExpediente(id);
-          if (res.success && res.data.anexos) {
-            const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('VI') || a.id_anexo?.includes('ANXVI'));
+          const anexoSnap = await getDoc(doc(db, 'ANEXO_CAMPO', id));
+          if (anexoSnap.exists()) {
+            const anexo = anexoSnap.data();
             if (anexo && anexo.datos_formulario_json) {
               const parsed = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
               reset({

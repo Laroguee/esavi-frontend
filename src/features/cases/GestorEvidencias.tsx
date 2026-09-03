@@ -9,7 +9,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
-import { subirArchivoEvidencia } from '../../services/googleSheetsService';
+import { subirArchivoEvidencia } from '../../services/firebaseService';
 
 // Tipos de las categorías obligatorias del repositorio (Anexo I)
 type CategoriaEvidencia = 'clinica' | 'pni' | 'epidemiologica' | 'general';

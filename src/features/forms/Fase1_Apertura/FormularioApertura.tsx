@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCasesStore } from '../../../store/useCasesStore';
+import { useAuthStore } from '../../../store/useAuthStore';
 
 // =======================================================
 // ESQUEMA ESTRICTO DE ZOD
@@ -32,13 +33,14 @@ type AperturaFormValues = z.infer<typeof aperturaSchema>;
 export default function FormularioApertura() {
   const navigate = useNavigate();
   const [anexoFile, setAnexoFile] = useState<File | null>(null);
+  const { userInstitucionMacro } = useAuthStore();
 
   const { control, handleSubmit, watch, setValue } = useForm<AperturaFormValues>({
     resolver: zodResolver(aperturaSchema),
     defaultValues: {
       idUnico: '',
       fechaNotificacion: '',
-      institucion: 'MINSAL',
+      institucion: userInstitucionMacro || 'MINSAL',
       establecimiento: '',
       tipoReunion: 'Virtual',
       fechaReunion: '',
@@ -155,7 +157,9 @@ export default function FormularioApertura() {
                 >
                   <MenuItem value="MINSAL">MINSAL</MenuItem>
                   <MenuItem value="ISSS">ISSS</MenuItem>
-                  <MenuItem value="SANIDAD_MILITAR">Sanidad Militar</MenuItem>
+                  <MenuItem value="FOSALUD">FOSALUD</MenuItem>
+                  <MenuItem value="SRS">SRS</MenuItem>
+                  <MenuItem value="Sanidad Militar">Sanidad Militar</MenuItem>
                 </TextField>
               )}/>
             </Grid>

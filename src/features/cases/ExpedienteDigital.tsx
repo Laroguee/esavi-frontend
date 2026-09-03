@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Paper, Typography, Tabs, Tab, CircularProgress, Alert, Button, Divider } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { obtenerExpediente } from '../../services/googleSheetsService';
+import { obtenerExpediente } from '../../services/firebaseService';
 import ExploradorNativo from './ExploradorNativo';
 import VisorAnexoLectura from './VisorAnexoLectura';
 
@@ -112,18 +112,12 @@ export default function ExpedienteDigital() {
         </Box>
 
         <Box sx={{ p: { xs: 2, md: 4 } }}>
-          {/* Tab 1: Drive Files */}
+          {/* Tab 1: Archivos */}
           <TabPanel value={tabIndex} index={0}>
-            {expediente?.url_carpeta_drive ? (
-               <>
-                 <Typography variant="body1" sx={{ mb: 2 }}>
-                   Visualizando estructura nativa del repositorio en Drive.
-                 </Typography>
-                 <ExploradorNativo idCaso={id!} />
-               </>
-            ) : (
-               <Alert severity="info">No hay repositorio documental enlazado a este expediente.</Alert>
-            )}
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Visualizando estructura del repositorio digital.
+            </Typography>
+            <ExploradorNativo idCaso={id!} />
           </TabPanel>
 
           {/* Tab 2: Matriz de Riesgo */}

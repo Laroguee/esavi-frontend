@@ -12,7 +12,9 @@ import PregnantWomanIcon from '@mui/icons-material/PregnantWoman';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/googleSheetsService';
+import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/firebaseService';
+import { getDoc, doc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../../config/firebase';
 import { listarUsuarios } from '../../../services/adminService';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
@@ -114,7 +116,11 @@ type AnexoVIIFormValues = z.infer<typeof anexoVIISchema>;
 interface TabPanelProps { children?: React.ReactNode; index: number; value: number; }
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
-  return <div hidden={value !== index} {...other}>{value === index && <Box sx={{ pt: 2 }}>{children}</Box>}</div>;
+  return (
+    <div hidden={value !== index} {...other} style={{ display: value !== index ? 'none' : 'block' }}>
+      <Box sx={{ pt: 2 }}>{children}</Box>
+    </div>
+  );
 }
 
 export default function AnexoVII_Clinico() {
@@ -171,8 +177,9 @@ export default function AnexoVII_Clinico() {
           const res = await obtenerExpediente(id);
           
           let fetchedFormValues: any = null;
-          if (res.success && res.data.anexos) {
-            const anexo = res.data.anexos.find((a: any) => a.tipo_anexo?.includes('VII') || a.id_anexo?.includes('ANXVII'));
+          const anexoSnap = await getDoc(doc(db, 'ANEXO_CLINICO', id));
+          if (anexoSnap.exists()) {
+            const anexo = anexoSnap.data();
             if (anexo && anexo.datos_formulario_json) {
               fetchedFormValues = typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json;
             } else if (!isViewMode && (!anexo || !anexo.datos_formulario_json)) {
@@ -181,7 +188,7 @@ export default function AnexoVII_Clinico() {
               setIsViewMode(false);
               setSearchParams({});
             }
-          } else if (res.success && isViewMode) {
+          } else if (isViewMode) {
             setIsViewMode(false);
             setSearchParams({});
           }
@@ -190,34 +197,38 @@ export default function AnexoVII_Clinico() {
           // Si es un formulario nuevo (o si faltan los nombres), intentamos autocompletarlos
           let finalValues = fetchedFormValues ? { ...fetchedFormValues } : {};
           
-          if (!isViewMode && res.success && res.data.asignaciones && (!finalValues.eq_farma_nombre || !finalValues.eq_epi_nombre)) {
+          if (!isViewMode && (!finalValues.eq_farma_nombre || !finalValues.eq_epi_nombre)) {
              try {
-                const asigParsed = typeof res.data.asignaciones === 'string' ? JSON.parse(res.data.asignaciones) : res.data.asignaciones;
-                const usuariosRes = await listarUsuarios();
-                if (usuariosRes.success && usuariosRes.data) {
-                   const usuarios = usuariosRes.data;
-                   const findUser = (email: string) => usuarios.find((u: any) => u.email === email);
-                   
-                   const farmaUser = findUser(asigParsed.id_clinico);
-                   if (farmaUser) {
-                      finalValues.eq_farma_nombre = farmaUser.name || farmaUser.nombre || '';
-                      finalValues.eq_farma_cargo = farmaUser.role || farmaUser.cargo || 'Farmacovigilancia';
-                      finalValues.eq_farma_correo = farmaUser.email;
-                      finalValues.eq_farma_tel = farmaUser.telefono || '';
-                   }
-                   const inmunoUser = findUser(asigParsed.id_inmuno);
-                   if (inmunoUser) {
-                      finalValues.eq_inmuno_nombre = inmunoUser.name || inmunoUser.nombre || '';
-                      finalValues.eq_inmuno_cargo = inmunoUser.role || inmunoUser.cargo || 'Inmunizaciones';
-                      finalValues.eq_inmuno_correo = inmunoUser.email;
-                      finalValues.eq_inmuno_tel = inmunoUser.telefono || '';
-                   }
-                   const epiUser = findUser(asigParsed.id_epidemio);
-                   if (epiUser) {
-                      finalValues.eq_epi_nombre = epiUser.name || epiUser.nombre || '';
-                      finalValues.eq_epi_cargo = epiUser.role || epiUser.cargo || 'Epidemiología';
-                      finalValues.eq_epi_correo = epiUser.email;
-                      finalValues.eq_epi_tel = epiUser.telefono || '';
+                const asigQuery = query(collection(db, 'ASIGNACIONES_ERR'), where('id_caso', '==', id));
+                const asigSnap = await getDocs(asigQuery);
+                if (!asigSnap.empty) {
+                   const asigParsed = asigSnap.docs[0].data();
+                   const usuariosRes = await listarUsuarios();
+                   if (usuariosRes.success && usuariosRes.data) {
+                      const usuarios = usuariosRes.data;
+                      const findUser = (email: string) => usuarios.find((u: any) => u.email === email);
+                      
+                      const farmaUser = findUser(asigParsed.id_clinico);
+                      if (farmaUser) {
+                         finalValues.eq_farma_nombre = farmaUser.name || farmaUser.nombre || '';
+                         finalValues.eq_farma_cargo = farmaUser.role || farmaUser.cargo || 'Farmacovigilancia';
+                         finalValues.eq_farma_correo = farmaUser.email;
+                         finalValues.eq_farma_tel = farmaUser.telefono || '';
+                      }
+                      const inmunoUser = findUser(asigParsed.id_inmuno);
+                      if (inmunoUser) {
+                         finalValues.eq_inmuno_nombre = inmunoUser.name || inmunoUser.nombre || '';
+                         finalValues.eq_inmuno_cargo = inmunoUser.role || inmunoUser.cargo || 'Inmunizaciones';
+                         finalValues.eq_inmuno_correo = inmunoUser.email;
+                         finalValues.eq_inmuno_tel = inmunoUser.telefono || '';
+                      }
+                      const epiUser = findUser(asigParsed.id_epidemio);
+                      if (epiUser) {
+                         finalValues.eq_epi_nombre = epiUser.name || epiUser.nombre || '';
+                         finalValues.eq_epi_cargo = epiUser.role || epiUser.cargo || 'Epidemiología';
+                         finalValues.eq_epi_correo = epiUser.email;
+                         finalValues.eq_epi_tel = epiUser.telefono || '';
+                      }
                    }
                 }
              } catch (e) {
@@ -226,9 +237,9 @@ export default function AnexoVII_Clinico() {
           }
 
           // === AUTOCOMPLETAR DATOS DE LA INSTITUCIÓN INICIAL ===
-          if (!isViewMode && res.success && res.data.expediente && !finalValues.instInicial) {
+          if (!isViewMode && res.success && res.data && !finalValues.instInicial) {
              try {
-                const exp = typeof res.data.expediente === 'string' ? JSON.parse(res.data.expediente) : res.data.expediente;
+                const exp = res.data;
                 finalValues.instInicial = exp.establecimiento_notificador || exp.establecimiento_vacunacion || '';
                 finalValues.medicoInicial = exp.nombre_notificador || '';
                 
@@ -416,13 +427,13 @@ export default function AnexoVII_Clinico() {
                 <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f9f9f9' }}>
                   <FormLabel component="legend" sx={{ fontWeight: 'bold', mb: 0.5, fontSize: '0.85rem' }}>Fuentes de información consultadas:</FormLabel>
                   <Grid container spacing={0}>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_historiaClinica" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Historia clínica</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaVacunado" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Entrevista al vacunado</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaSalud" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Entrevista personal salud</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_registrosVac" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Registros de vacunación</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" {...field} checked={field.value === true || field.value === "true"} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_historiaClinica" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Historia clínica</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaVacunado" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Entrevista al vacunado</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaSalud" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Entrevista personal salud</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_registrosVac" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Registros de vacunación</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
                     <Grid size={{ xs: 12, sm: 8 }}>
                       <Controller name="fuentes_otro" control={control} render={({ field, fieldState }) => (
                         <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />

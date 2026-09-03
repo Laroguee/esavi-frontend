@@ -169,8 +169,8 @@ export default function MainLayout() {
               </ListItemButton>
             </ListItem>
 
-            {/* REGLA: MÓDULO DE ADMINISTRACIÓN (Exclusivo Nivel Central / SRS) */}
-            {['ESAVI_INSTITUCIONAL', 'SECRETARIADO'].includes(currentRole as string) && (
+            {/* REGLA: MÓDULO DE ADMINISTRACIÓN (Exclusivo Secretariado Técnico) */}
+            {currentRole === 'SECRETARIADO' && (
               <ListItem disablePadding>
                 <ListItemButton onClick={() => navigate('/administracion')}>
                   <ListItemIcon><ManageAccountsIcon color="primary" /></ListItemIcon>

@@ -11,8 +11,10 @@ import {
   marcarNotificacionLeida,
   agendarReunion,
   crearNotificacion,
-  listarReuniones
-} from '../services/googleSheetsService';
+  listarReuniones,
+  listarHistoriales,
+  registrarLog
+} from '../services/firebaseService';
 import { useAuthStore } from './useAuthStore';
 
 // 1. Tipos de Datos
@@ -124,12 +126,13 @@ export const useCasesStore = create<CasesState>()(
               sexo: row.sexo || undefined,
               miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
-              historial_cambios: row.historial_cambios ? (typeof row.historial_cambios === 'string' ? JSON.parse(row.historial_cambios) : row.historial_cambios) : (existingCaso?.historial_cambios || []),
+              historial_cambios: [], // Will populate below from the separate collection
               anexoIII_completado: usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII) === 'true'),
               anexoV_completado: usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV) === 'true'),
               anexoVI_completado: usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI) === 'true'),
               anexoVII_completado: usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII) === 'true'),
               anexoRechazado: row.anexo_rechazado || undefined,
+              observacionRechazo: row.observacion_rechazo || undefined,
               observacionActual: row.observacion_rechazo || undefined,
             };
             });
@@ -183,6 +186,30 @@ export const useCasesStore = create<CasesState>()(
               return { casos: casosConReuniones };
             });
           }
+
+          // 4. Cargar Historial de Cambios
+          const resHistorial = await listarHistoriales();
+          if (resHistorial && resHistorial.success && resHistorial.data) {
+            set((state) => {
+              const casosConHistorial = state.casos.map(caso => {
+                const historialDelCaso = resHistorial.data
+                  .filter((h: any) => String(h.id_caso) === String(caso.id))
+                  .map((h: any) => ({
+                    id: h.id_log || Date.now().toString(),
+                    fecha: dayjs(h.fecha).format("DD/MM/YYYY HH:mm A"),
+                    usuario: h.usuario,
+                    accion: h.accion,
+                    rol: h.rol || ''
+                  }))
+                  .sort((a, b) => {
+                    // Sort descending by raw date if possible, but we formatted it. Let's just reverse for now as Firebase returns roughly chronological usually, or we can use the ID
+                    return b.id.localeCompare(a.id);
+                  });
+                return { ...caso, historial_cambios: historialDelCaso };
+              });
+              return { casos: casosConHistorial };
+            });
+          }
         } catch (error) {
           console.error("Error cargando backend:", error);
         } finally {
@@ -195,12 +222,16 @@ export const useCasesStore = create<CasesState>()(
       },
 
       devolverCaso: async (idCaso, nuevoEstado, observacion, anexo, textoNotificacion) => {
+        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+        const userRole = useAuthStore.getState().currentRole || 'Sistema';
+
         if (import.meta.env.VITE_USE_API === 'true') {
           await actualizarCaso(idCaso, {
             estado_flujo: nuevoEstado,
-            observacion_rechazo: observacion,
-            anexo_rechazado: anexo
+            observacion_rechazo: observacion || '',
+            anexo_rechazado: anexo || ''
           });
+          await registrarLog(idCaso, userEmail, textoNotificacion);
         }
         
         set((state) => {
@@ -214,6 +245,9 @@ export const useCasesStore = create<CasesState>()(
       },
 
       avanzarCaso: async (idCaso, nuevoEstado, nuevaFase, textoNotificacion, nuevoRiesgo) => {
+        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+        const userRole = useAuthStore.getState().currentRole || 'Sistema';
+
         if (import.meta.env.VITE_USE_API === 'true') {
           const updates: any = { 
             estado_flujo: nuevoEstado,
@@ -225,10 +259,8 @@ export const useCasesStore = create<CasesState>()(
           if (res && !res.success) {
             throw new Error(res.error || 'Error al actualizar el estado del caso en el backend');
           }
+          await registrarLog(idCaso, userEmail, textoNotificacion);
         }
-
-        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
-        const userRole = useAuthStore.getState().currentRole || 'Sistema';
 
         set((state) => {
           const nuevosCasos = state.casos.map(caso => 
@@ -270,9 +302,10 @@ export const useCasesStore = create<CasesState>()(
       },
         
       agendarReunionStore: async (casoId, nuevaReunion) => {
-        let reunionFinal = { ...nuevaReunion };
+        let reunionFinal = { ...nuevaReunion, id: nuevaReunion.id || `REU-${Date.now()}` };
         if (import.meta.env.VITE_USE_API === 'true') {
            const payloadReunion = {
+             id: reunionFinal.id,
              id_caso: casoId,
              fase_relacionada: nuevaReunion.faseRelacionada,
              fecha: nuevaReunion.fecha,

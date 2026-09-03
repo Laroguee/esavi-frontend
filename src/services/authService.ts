@@ -1,3 +1,6 @@
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
+
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -6,18 +9,28 @@ export async function hashPassword(password: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-import { apiRequest } from './googleSheetsService';
-
 export async function login(email: string, passwordPlain: string) {
-  // NOTA: Para propósitos de testing y porque las contraseñas en Google Sheets
-  // están en texto plano actualmente, enviamos la contraseña original. 
-  // (Idealmente deberían hashearse también en la base de datos).
-  
-  const payload = {
-    accion: 'LOGIN',
-    email,
-    password: passwordPlain
-  };
+  try {
+    const docRef = doc(db, 'usuarios', email);
+    const docSnap = await getDoc(docRef);
 
-  return apiRequest(payload);
+    if (docSnap.exists()) {
+      const user = docSnap.data();
+      const hashedInput = await hashPassword(passwordPlain);
+      
+      // Permitimos iniciar si coinciden los hashes o si la contraseña es la original (para transiciones)
+      if (user.password === hashedInput || user.password === passwordPlain) {
+        if (user.activo === false || String(user.activo).toLowerCase() === 'false') {
+          return { success: false, error: "Usuario inactivo" };
+        }
+        return { success: true, user };
+      } else {
+        return { success: false, error: "Credenciales incorrectas" };
+      }
+    } else {
+      return { success: false, error: "Usuario no encontrado" };
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }

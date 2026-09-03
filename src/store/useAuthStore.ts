@@ -25,6 +25,7 @@ interface AuthState {
   userEmail: string | null;
   userName: string | null;
   userEstablecimiento: string | null;
+  userInstitucionMacro: string | null;
   logisticaCompletada: boolean;
   
   setSession: (user: MockUser) => void;
@@ -41,6 +42,7 @@ export const useAuthStore = create<AuthState>()(
       userEmail: null,
       userName: null,
       userEstablecimiento: null,
+      userInstitucionMacro: null,
       logisticaCompletada: false,
 
       setSession: (user: MockUser) => set({
@@ -48,7 +50,8 @@ export const useAuthStore = create<AuthState>()(
         currentRole: user.role,
         userEmail: user.email,
         userName: user.name,
-        userEstablecimiento: user.establecimiento
+        userEstablecimiento: user.establecimiento,
+        userInstitucionMacro: user.institucionMacro
       }),
 
       setRole: (role: Role) => set({ currentRole: role }),
@@ -59,6 +62,7 @@ export const useAuthStore = create<AuthState>()(
         userEmail: null, 
         userName: null,
         userEstablecimiento: null,
+        userInstitucionMacro: null,
         logisticaCompletada: false
       }),
       

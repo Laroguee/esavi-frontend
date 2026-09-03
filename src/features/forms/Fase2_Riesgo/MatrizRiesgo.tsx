@@ -7,7 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useRef, useState } from 'react';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/googleSheetsService';
+import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/firebaseService';
 
 export default function MatrizRiesgo() {
   const navigate = useNavigate();
@@ -147,7 +147,8 @@ export default function MatrizRiesgo() {
           puntaje_compuesto: puntajeCompuesto,
           probabilidad: probabilidad,
           consecuencia: consecuencia,
-          nivel_riesgo_final: riesgoActual.etiqueta
+          nivel_riesgo_final: riesgoActual.etiqueta,
+          datos_formulario_json: JSON.stringify(data)
         }
       };
 

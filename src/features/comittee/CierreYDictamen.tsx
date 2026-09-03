@@ -11,7 +11,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
-import { obtenerExpedienteCompleto, actualizarCaso } from '../../services/googleSheetsService';
+import { obtenerExpedienteCompleto, actualizarCaso } from '../../services/firebaseService';
 
 // Interface para el formulario del Comité
 interface FormDataCausalidad {
