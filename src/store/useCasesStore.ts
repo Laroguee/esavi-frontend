@@ -127,10 +127,10 @@ export const useCasesStore = create<CasesState>()(
               miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
               historial_cambios: [], // Will populate below from the separate collection
-              anexoIII_completado: usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII) === 'true'),
-              anexoV_completado: usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV) === 'true'),
-              anexoVI_completado: usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI) === 'true'),
-              anexoVII_completado: usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII) === 'true'),
+              anexoIII_completado: usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII).toLowerCase() === 'true'),
+              anexoV_completado: usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV).toLowerCase() === 'true'),
+              anexoVI_completado: usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI).toLowerCase() === 'true'),
+              anexoVII_completado: usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII).toLowerCase() === 'true'),
               anexoRechazado: row.anexo_rechazado || undefined,
               observacionRechazo: row.observacion_rechazo || undefined,
               observacionActual: row.observacion_rechazo || undefined,
@@ -232,6 +232,25 @@ export const useCasesStore = create<CasesState>()(
             anexo_rechazado: anexo || ''
           });
           await registrarLog(idCaso, userEmail, textoNotificacion);
+
+          // Crear notificación para el rol destino
+          if (nuevoEstado === 'DEVUELTO_A_ERR') {
+            const rolDestino = anexo?.includes('V (') ? 'INMUNO_LOCAL' 
+                             : anexo?.includes('VI (') ? 'EPIDEMIO_LOCAL' 
+                             : anexo?.includes('VII (') ? 'ESAVI_LOCAL' 
+                             : 'ESAVI_LOCAL'; // default a ESAVI local
+            await crearNotificacion({
+              id_caso: idCaso,
+              rol_destino: rolDestino,
+              texto: `El expediente ${idCaso} ha sido devuelto para corrección en ${anexo}`
+            });
+          } else if (nuevoEstado === 'DEVUELTO_A_INSTITUCIONAL') {
+            await crearNotificacion({
+              id_caso: idCaso,
+              rol_destino: 'ESAVI_INSTITUCIONAL',
+              texto: `El Secretariado ha devuelto el expediente ${idCaso} para corrección en ${anexo}`
+            });
+          }
         }
         
         set((state) => {
