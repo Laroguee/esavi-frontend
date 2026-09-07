@@ -195,7 +195,7 @@ export default function AnexoVII_Clinico() {
 
           // === AUTOCOMPLETAR DATOS DEL ERR ===
           // Si es un formulario nuevo (o si faltan los nombres), intentamos autocompletarlos
-          let finalValues = fetchedFormValues ? { ...fetchedFormValues } : {};
+          const finalValues = fetchedFormValues ? { ...fetchedFormValues } : {};
           
           if (!isViewMode && (!finalValues.eq_farma_nombre || !finalValues.eq_epi_nombre)) {
              try {
@@ -239,7 +239,7 @@ export default function AnexoVII_Clinico() {
           // === AUTOCOMPLETAR DATOS DE LA INSTITUCIÓN INICIAL ===
           if (!isViewMode && res.success && res.data && !finalValues.instInicial) {
              try {
-                const exp = res.data;
+                const exp = res.data.expediente || ({} as any);
                 finalValues.instInicial = exp.establecimiento_notificador || exp.establecimiento_vacunacion || '';
                 finalValues.medicoInicial = exp.nombre_notificador || '';
                 
@@ -427,13 +427,13 @@ export default function AnexoVII_Clinico() {
                 <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f9f9f9' }}>
                   <FormLabel component="legend" sx={{ fontWeight: 'bold', mb: 0.5, fontSize: '0.85rem' }}>Fuentes de información consultadas:</FormLabel>
                   <Grid container spacing={0}>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_historiaClinica" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Historia clínica</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaVacunado" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Entrevista al vacunado</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaSalud" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Entrevista personal salud</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_registrosVac" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Registros de vacunación</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={field.value === true || field.value === "true" || field.value === "TRUE"} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_historiaClinica" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Historia clínica</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaVacunado" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Entrevista al vacunado</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_entrevistaSalud" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Entrevista personal salud</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_registrosVac" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Registros de vacunación</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsia" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Informe de Autopsia</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_autopsiaVerbal" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Informe autopsia verbal</Typography>} />} /></Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
                     <Grid size={{ xs: 12, sm: 8 }}>
                       <Controller name="fuentes_otro" control={control} render={({ field, fieldState }) => (
                         <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />

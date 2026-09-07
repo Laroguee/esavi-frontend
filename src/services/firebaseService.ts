@@ -1,6 +1,6 @@
 import { collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, addDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, listAll } from 'firebase/storage';
-import { db, storage } from '../config/firebase';
+import { db } from '../config/firebase';
 
 export async function guardarEnSheets(tabla: string, datos: any) {
   // En Firestore, "tabla" será el nombre de la colección
@@ -66,7 +66,8 @@ export async function obtenerExpediente(id_caso: string) {
     const asigSnap = await getDoc(doc(db, 'ASIGNACIONES_ERR', id_caso));
     let asignaciones = null;
     if (asigSnap.exists()) {
-      asignaciones = asigSnap.data();
+      const aData = asigSnap.data();
+      asignaciones = aData.datos_formulario_json ? aData.datos_formulario_json : aData;
     }
 
     // 3. Anexos
@@ -262,7 +263,7 @@ export async function obtenerExpedienteCompleto(id_caso: string) {
   }
 }
 
-export async function listarNotificaciones(rol: string, email: string) {
+export async function listarNotificaciones(rol: string, _email: string) {
   try {
     // Para simplificar, obtenemos todas y luego filtramos, o hacemos query si el índice lo permite
     const q = query(collection(db, 'notificaciones'), where('rol_destino', '==', rol));
