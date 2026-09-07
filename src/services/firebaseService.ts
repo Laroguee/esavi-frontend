@@ -55,19 +55,35 @@ export async function obtenerExpediente(id_caso: string) {
     const casoData = docSnap.data();
 
     // 1. Matriz de Riesgo (MATRIZ_RIESGO)
-    const matrizSnap = await getDoc(doc(db, 'MATRIZ_RIESGO', id_caso));
+    let matrizSnap = await getDoc(doc(db, 'MATRIZ_RIESGO', id_caso));
     let matriz = null;
     if (matrizSnap.exists()) {
       const mData = matrizSnap.data();
       matriz = mData.datos_formulario_json || mData;
+    } else {
+      // Fallback para registros antiguos guardados con ID autogenerado
+      const qMatriz = query(collection(db, 'MATRIZ_RIESGO'), where('id_caso', '==', id_caso));
+      const qMatrizSnap = await getDocs(qMatriz);
+      if (!qMatrizSnap.empty) {
+        const mData = qMatrizSnap.docs[0].data();
+        matriz = mData.datos_formulario_json || mData;
+      }
     }
 
     // 2. Asignación ERR
-    const asigSnap = await getDoc(doc(db, 'ASIGNACIONES_ERR', id_caso));
+    let asigSnap = await getDoc(doc(db, 'ASIGNACIONES_ERR', id_caso));
     let asignaciones = null;
     if (asigSnap.exists()) {
       const aData = asigSnap.data();
       asignaciones = aData.datos_formulario_json ? aData.datos_formulario_json : aData;
+    } else {
+      // Fallback para registros antiguos guardados con ID autogenerado
+      const qAsig = query(collection(db, 'ASIGNACIONES_ERR'), where('id_caso', '==', id_caso));
+      const qAsigSnap = await getDocs(qAsig);
+      if (!qAsigSnap.empty) {
+        const aData = qAsigSnap.docs[0].data();
+        asignaciones = aData.datos_formulario_json ? aData.datos_formulario_json : aData;
+      }
     }
 
     // 3. Anexos
