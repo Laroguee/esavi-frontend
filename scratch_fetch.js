@@ -14,16 +14,16 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function main() {
-  console.log("Fetching ANEXO_III...");
-  let querySnapshot = await getDocs(collection(db, "ANEXO_III"));
-  console.log("Found", querySnapshot.size, "documents in ANEXO_III");
+  console.log("Fetching MATRIZ_RIESGO...");
+  let querySnapshot = await getDocs(collection(db, "MATRIZ_RIESGO"));
+  console.log("Found", querySnapshot.size, "documents in MATRIZ_RIESGO");
   querySnapshot.forEach((doc) => {
     console.log(doc.id, "=>", JSON.stringify(doc.data(), null, 2));
   });
 
-  console.log("Fetching ANEXO_V...");
-  querySnapshot = await getDocs(collection(db, "ANEXO_V"));
-  console.log("Found", querySnapshot.size, "documents in ANEXO_V");
+  console.log("Fetching ASIGNACIONES_ERR...");
+  querySnapshot = await getDocs(collection(db, "ASIGNACIONES_ERR"));
+  console.log("Found", querySnapshot.size, "documents in ASIGNACIONES_ERR");
   querySnapshot.forEach((doc) => {
     console.log(doc.id, "=>", JSON.stringify(doc.data(), null, 2));
   });

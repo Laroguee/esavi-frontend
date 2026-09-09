@@ -1,5 +1,6 @@
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -11,26 +12,28 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function login(email: string, passwordPlain: string) {
   try {
+    // 1. Autenticar con Firebase Auth
+    await signInWithEmailAndPassword(auth, email, passwordPlain);
+
+    // 2. Obtener el perfil extendido desde Firestore
     const docRef = doc(db, 'usuarios', email);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       const user = docSnap.data();
-      const hashedInput = await hashPassword(passwordPlain);
       
-      // Permitimos iniciar si coinciden los hashes o si la contraseña es la original (para transiciones)
-      if (user.password === hashedInput || user.password === passwordPlain) {
-        if (user.activo === false || String(user.activo).toLowerCase() === 'false') {
-          return { success: false, error: "Usuario inactivo" };
-        }
-        return { success: true, user };
-      } else {
-        return { success: false, error: "Credenciales incorrectas" };
+      if (user.activo === false || String(user.activo).toLowerCase() === 'false') {
+        return { success: false, error: "Usuario inactivo" };
       }
+      return { success: true, user };
     } else {
-      return { success: false, error: "Usuario no encontrado" };
+      return { success: false, error: "Perfil de usuario no encontrado en la base de datos" };
     }
   } catch (error: any) {
-    return { success: false, error: error.message };
+    let errorMessage = error.message;
+    if (error.code === 'auth/invalid-credential') errorMessage = 'Credenciales incorrectas';
+    if (error.code === 'auth/user-not-found') errorMessage = 'Usuario no encontrado';
+    if (error.code === 'auth/wrong-password') errorMessage = 'Contraseña incorrecta';
+    return { success: false, error: errorMessage };
   }
 }

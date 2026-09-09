@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox, Autocomplete } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +9,7 @@ import { useRef } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useCatalogStore } from '../../../store/useCatalogStore';
 import { guardarEnSheets, crearCarpetaCaso, crearNotificacion } from '../../../services/firebaseService';
 
 // Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
@@ -90,6 +91,7 @@ export default function NotificacionInicial() {
   const navigate = useNavigate();
   const crearCaso = useCasesStore(state => state.crearCaso);
   const { userEmail } = useAuthStore();
+  const { establecimientos } = useCatalogStore();
 
   const { control, handleSubmit, watch, reset, setValue } = useForm<NotificacionFormValues>({
     resolver: zodResolver(notificacionSchema),
@@ -282,6 +284,8 @@ export default function NotificacionInicial() {
     const correlativo = casosDelAnio.length + 1;
     const idCasoNuevo = `ESAVI-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
     
+    const estabSeleccionado = establecimientos.find(e => e.nombre === data.establecimientoNotificador);
+    
     // 1. Preparar Payload para Google Sheets
     const payload = {
       tabla: 'EXPEDIENTES',
@@ -293,6 +297,7 @@ export default function NotificacionInicial() {
         identificador_paciente: data.expedienteClinico || '',
         tiene_evidencias: true,
         establecimiento_notificador: data.establecimientoNotificador || '',
+        id_establecimiento: estabSeleccionado ? estabSeleccionado.id : '',
         // Nuevos campos de Noti-FACEDRA integrados a la tabla principal
         nombre_paciente: data.nombrePaciente || '',
         edad: data.edad || '',
@@ -338,6 +343,7 @@ export default function NotificacionInicial() {
       id: idCasoNuevo,
       paciente: data.nombrePaciente,
       establecimiento: data.establecimientoNotificador,
+      id_establecimiento: estabSeleccionado ? estabSeleccionado.id : undefined,
       vacuna: data.nombreVacuna,
       fase: 'Fase 1: Notificación',
       estadoFlujo: 'NUEVO' as const,
@@ -425,8 +431,15 @@ export default function NotificacionInicial() {
             </Grid>
             <Grid size={{ xs: 12, md: 8 }}>
               <Controller name="establecimientoNotificador" control={control} render={({ field, fieldState }) => (
-                <TextField {...field} fullWidth label="Establecimiento de Salud (SIBASI)" required 
-                  error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <Autocomplete
+                  {...field}
+                  options={establecimientos.filter(e => e.activo === true || String(e.activo).toLowerCase() === 'true').map(e => e.nombre)}
+                  onChange={(_, data) => field.onChange(data)}
+                  renderInput={(params) => (
+                    <TextField {...params} fullWidth label="Establecimiento de Salud (SIBASI)" required 
+                      error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  )}
+                />
               )}/>
             </Grid>
             <Grid size={{ xs: 12, md: 5 }}>

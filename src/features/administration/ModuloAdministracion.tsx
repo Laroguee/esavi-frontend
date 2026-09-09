@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Paper, Tabs, Tab, Button, Table, TableBody, 
   TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Grid, CircularProgress, Alert
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Grid, CircularProgress, Alert, Autocomplete
 } from '@mui/material';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import DomainAddIcon from '@mui/icons-material/DomainAdd';
@@ -389,16 +389,20 @@ export default function ModuloAdministracion() {
               </TextField>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField 
-                select fullWidth size="small" label="Establecimiento" 
-                value={formData.establecimiento || ''} 
+              <Autocomplete
+                options={formData.institucionMacro ? establecimientos.filter(e => e.institucionMacro === formData.institucionMacro && (e.activo === true || String(e.activo).toLowerCase() === 'true')) : []}
+                getOptionLabel={(option) => option.nombre}
                 disabled={!formData.institucionMacro}
-                onChange={(e) => setFormData({...formData, establecimiento: e.target.value})}
-              >
-                {formData.institucionMacro && establecimientos.filter(e => e.institucionMacro === formData.institucionMacro && (e.activo === true || String(e.activo).toLowerCase() === 'true')).map(est => (
-                  <MenuItem key={est.id} value={est.nombre}>{est.nombre}</MenuItem>
-                ))}
-              </TextField>
+                value={establecimientos.find(e => e.id === formData.id_establecimiento) || null}
+                onChange={(e, newValue) => {
+                  setFormData({
+                    ...formData, 
+                    id_establecimiento: newValue ? newValue.id : undefined,
+                    establecimiento: newValue ? newValue.nombre : ''
+                  });
+                }}
+                renderInput={(params) => <TextField {...params} fullWidth size="small" label="Establecimiento" />}
+              />
             </Grid>
           </Grid>
         </DialogContent>

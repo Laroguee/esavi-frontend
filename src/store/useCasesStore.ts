@@ -15,6 +15,7 @@ import {
   registrarLog
 } from '../services/firebaseService';
 import { useAuthStore } from './useAuthStore';
+import { useCatalogStore } from './useCatalogStore';
 
 // 1. Tipos de Datos
 export type EstadoFlujo = 'NUEVO' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NOTIFICADO' | 'PENDIENTE_OFICIALIZAR' | 'EN_EVALUACION' | 'EN_ASIGNACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_INSTITUCIONAL' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'DICTAMINADO' | 'CERRADO_DICTAMINADO' | 'CERRADO';
@@ -39,6 +40,7 @@ export interface CasoESAVI {
   id_creador?: string;
   paciente: string;
   establecimiento: string;
+  id_establecimiento?: number;
   vacuna: string;
   fase: string;
   estadoFlujo: EstadoFlujo;
@@ -132,6 +134,7 @@ export const useCasesStore = create<CasesState>()(
               id_creador: row.id_creador,
               paciente: row.nombre_paciente || row.identificador_paciente || 'Desconocido',
               establecimiento: row.establecimiento_notificador || 'Desconocido',
+              id_establecimiento: row.id_establecimiento ? Number(row.id_establecimiento) : undefined,
               vacuna: row.nombre_vacuna || 'Otra',
               fase: mapEstadoToFase(estadoFinal),
               estadoFlujo: estadoFinal,
@@ -165,13 +168,21 @@ export const useCasesStore = create<CasesState>()(
               ); 
             } else if (role.includes('INSTITUCIONAL')) {
               const myMacro = useAuthStore.getState().userInstitucionMacro || '';
+              const catalog = useCatalogStore.getState().establecimientos;
               casosFiltrados = mappedCasos.filter(c => {
                 // Siempre permitir si el usuario institucional fue el creador o es miembro del ERR
                 if (c.id_creador === email || c.miembrosERR.includes(email)) return true;
 
-                const searchStr = (c.establecimiento + " " + c.id).toUpperCase();
-                let caseMacro = 'MINSAL'; // Por defecto, es MINSAL
-                if (searchStr.includes('ISSS')) caseMacro = 'ISSS';
+                // Buscar la macro institución usando el ID del establecimiento
+                let caseMacro = 'MINSAL'; // Default fallback
+                if (c.id_establecimiento) {
+                   const estab = catalog.find(e => e.id === c.id_establecimiento);
+                   if (estab) caseMacro = estab.institucionMacro;
+                } else {
+                   // Fallback heredado para casos viejos sin ID
+                   const searchStr = (c.establecimiento + " " + c.id).toUpperCase();
+                   if (searchStr.includes('ISSS')) caseMacro = 'ISSS';
+                }
                 return caseMacro === myMacro;
               });
             }

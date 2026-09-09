@@ -15,9 +15,9 @@ export interface MockUser {
   name: string;
   institucionMacro: string;
   establecimiento: string;
+  id_establecimiento?: number;
   activo?: boolean;
 }
-
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -25,6 +25,7 @@ interface AuthState {
   userEmail: string | null;
   userName: string | null;
   userEstablecimiento: string | null;
+  userIdEstablecimiento: number | null;
   userInstitucionMacro: string | null;
   logisticaCompletada: boolean;
   
@@ -42,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
       userEmail: null,
       userName: null,
       userEstablecimiento: null,
+      userIdEstablecimiento: null,
       userInstitucionMacro: null,
       logisticaCompletada: false,
 
@@ -51,6 +53,7 @@ export const useAuthStore = create<AuthState>()(
         userEmail: user.email,
         userName: user.name,
         userEstablecimiento: user.establecimiento,
+        userIdEstablecimiento: user.id_establecimiento || null,
         userInstitucionMacro: user.institucionMacro
       }),
 

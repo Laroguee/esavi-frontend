@@ -1,7 +1,16 @@
-import { collection, doc, setDoc, getDocs, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { hashPassword } from './authService';
+import { collection, doc, setDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { db, firebaseConfig } from '../config/firebase';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, updatePassword } from 'firebase/auth';
 import type { MockUser } from '../store/useAuthStore';
+
+// Secondary app para no desloguear al admin actual
+const createSecondaryApp = () => {
+  const apps = getApps();
+  const secondaryApp = apps.find(app => app.name === 'SecondaryAdminApp');
+  if (secondaryApp) return secondaryApp;
+  return initializeApp(firebaseConfig, 'SecondaryAdminApp');
+};
 
 export async function listarUsuarios() {
   try {
@@ -15,11 +24,23 @@ export async function listarUsuarios() {
 
 export async function crearUsuario(user: Partial<MockUser>) {
   try {
-    if (user.password) {
-      user.password = await hashPassword(user.password);
-    }
-    // Usamos el email como ID del documento para que sea único
-    await setDoc(doc(db, 'usuarios', user.email as string), user);
+    if (!user.email || !user.password) throw new Error("Email y contraseña obligatorios");
+    
+    const secondaryApp = createSecondaryApp();
+    const secondaryAuth = getAuth(secondaryApp);
+
+    // Crear en Firebase Auth
+    await createUserWithEmailAndPassword(secondaryAuth, user.email, user.password);
+
+    // Guardar perfil extendido en Firestore, PERO NO guardar la contraseña
+    const userToSave = { ...user };
+    delete userToSave.password; // Por seguridad
+
+    await setDoc(doc(db, 'usuarios', user.email), userToSave);
+    
+    // Cerramos la sesión secundaria preventivamente para que no estorbe
+    await secondaryAuth.signOut();
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -28,11 +49,16 @@ export async function crearUsuario(user: Partial<MockUser>) {
 
 export async function editarUsuario(emailOriginal: string, updates: Partial<MockUser>) {
   try {
-    if (updates.password) {
-      updates.password = await hashPassword(updates.password);
-    }
     const docRef = doc(db, 'usuarios', emailOriginal);
-    await updateDoc(docRef, updates);
+    const updatesToSave = { ...updates };
+    
+    // En Firebase Auth puro desde frontend no podemos cambiar el password de OTRO usuario.
+    // Solo podemos actualizar su perfil de Firestore.
+    if (updatesToSave.password) {
+      delete updatesToSave.password; 
+    }
+    
+    await updateDoc(docRef, updatesToSave);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
