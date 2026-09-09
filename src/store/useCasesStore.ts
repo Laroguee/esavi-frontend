@@ -4,7 +4,6 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import { 
-  guardarEnSheets, 
   listarCasos, 
   actualizarCaso,
   listarNotificaciones,
@@ -18,7 +17,7 @@ import {
 import { useAuthStore } from './useAuthStore';
 
 // 1. Tipos de Datos
-export type EstadoFlujo = 'NUEVO' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NOTIFICADO' | 'EN_EVALUACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_INSTITUCIONAL' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'CERRADO_DICTAMINADO';
+export type EstadoFlujo = 'NUEVO' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NOTIFICADO' | 'PENDIENTE_OFICIALIZAR' | 'EN_EVALUACION' | 'EN_ASIGNACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_INSTITUCIONAL' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'DICTAMINADO' | 'CERRADO_DICTAMINADO' | 'CERRADO';
 
 export interface AgendaReunion {
   id?: string;
@@ -37,6 +36,7 @@ export interface AgendaReunion {
 
 export interface CasoESAVI {
   id: string;
+  id_creador?: string;
   paciente: string;
   establecimiento: string;
   vacuna: string;
@@ -55,6 +55,7 @@ export interface CasoESAVI {
   anexoV_completado?: boolean;
   anexoVI_completado?: boolean;
   anexoVII_completado?: boolean;
+  dictamenData?: { clasificacionFinal: string; justificacionCausalidad: string; recomendaciones: string; };
   historial_cambios?: { id: string; fecha: string; usuario: string; accion: string; rol?: string }[];
 }
 
@@ -63,6 +64,7 @@ export interface Notificacion {
   texto: string;
   leido: boolean;
   fecha: string;
+  id_caso?: string;
 }
 
 interface CasesState {
@@ -74,7 +76,7 @@ interface CasesState {
   cargarDatosBackend: () => Promise<void>;
   crearCaso: (nuevoCaso: CasoESAVI, datosCompletos?: any) => Promise<void>;
   devolverCaso: (idCaso: string, nuevoEstado: EstadoFlujo, observacion: string, anexo: string, textoNotificacion: string) => Promise<void>;
-  avanzarCaso: (idCaso: string, nuevoEstado: EstadoFlujo, nuevaFase: string, textoNotificacion: string, nuevoRiesgo?: string) => Promise<void>;
+  avanzarCaso: (idCaso: string, nuevoEstado: EstadoFlujo, nuevaFase: string, textoNotificacion: string, nuevoRiesgo?: string, dictamenData?: any) => Promise<void>;
   marcarNotificacionLeidaStore: (idNotif: number) => Promise<void>;
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
@@ -99,7 +101,7 @@ export const useCasesStore = create<CasesState>()(
         try {
           // 1. Cargar Casos
           const resCasos = await listarCasos();
-          if (resCasos && resCasos.success) {
+          if (resCasos && resCasos.success && resCasos.data) {
             // Mapeo básico de Sheets a CasoESAVI
             const currentCasos = get().casos;
             const pasosStr = ['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'CORREGIDO_POR_ERR', 'EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'];
@@ -113,13 +115,26 @@ export const useCasesStore = create<CasesState>()(
               const isDbRechazo = row.estado_flujo === 'DEVUELTO_A_INSTITUCIONAL' || row.estado_flujo === 'DEVUELTO_A_ERR';
               const usarLocal = !!existingCaso && !isDbRechazo && (localEstadoIndex > dbEstadoIndex);
 
+              const mapEstadoToFase = (estado: string) => {
+                if (estado === 'NUEVO' || estado === 'NOTIFICADO') return 'Fase 1: Notificación';
+                if (estado === 'EN_EVALUACION' || estado === 'PENDIENTE_OFICIALIZAR') return 'Fase 2: Evaluación';
+                if (estado === 'EN_ASIGNACION' || estado === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación';
+                if (estado === 'EN_INVESTIGACION' || estado === 'DEVUELTO_A_ERR' || estado === 'CORREGIDO_POR_ERR') return 'Fase 4: Investigación';
+                if (estado === 'EN_REVISION_INSTITUCIONAL' || estado === 'DEVUELTO_A_INSTITUCIONAL' || estado === 'EN_REVISION_SECRETARIADO' || estado === 'APROBADO_PARA_COMITE') return 'Fase 5: Control de Calidad';
+                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comité Externo';
+                if (estado === 'CERRADO_DICTAMINADO' || estado === 'CERRADO') return 'Expediente Cerrado';
+                return 'Fase Activa';
+              };
+
+              const estadoFinal = usarLocal ? existingCaso!.estadoFlujo : row.estado_flujo;
               return {
               id: row.id_caso,
+              id_creador: row.id_creador,
               paciente: row.nombre_paciente || row.identificador_paciente || 'Desconocido',
               establecimiento: row.establecimiento_notificador || 'Desconocido',
               vacuna: row.nombre_vacuna || 'Otra',
-              fase: usarLocal ? (existingCaso?.fase || '') : (row.estado_flujo === 'NUEVO' ? 'Fase 1: Notificación' : 'Fase Activa'),
-              estadoFlujo: usarLocal ? existingCaso!.estadoFlujo : row.estado_flujo,
+              fase: mapEstadoToFase(estadoFinal),
+              estadoFlujo: estadoFinal,
               riesgo: usarLocal ? (existingCaso?.riesgo || 'Sin clasificar') : (row.riesgo || 'Sin clasificar'),
               fecha: row.fecha_notificacion || new Date().toISOString(),
               edad: row.edad ? Number(row.edad) : undefined,
@@ -131,6 +146,7 @@ export const useCasesStore = create<CasesState>()(
               anexoV_completado: usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV).toLowerCase() === 'true'),
               anexoVI_completado: usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI).toLowerCase() === 'true'),
               anexoVII_completado: usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII).toLowerCase() === 'true'),
+              dictamenData: usarLocal ? existingCaso?.dictamenData : (row.dictamen_data ? JSON.parse(row.dictamen_data) : undefined),
               anexoRechazado: row.anexo_rechazado || undefined,
               observacionRechazo: row.observacion_rechazo || undefined,
               observacionActual: row.observacion_rechazo || undefined,
@@ -142,10 +158,22 @@ export const useCasesStore = create<CasesState>()(
             if (role.includes('LOCAL')) {
               const myEstablecimiento = useAuthStore.getState().userEstablecimiento || '';
               casosFiltrados = mappedCasos.filter(c => 
+                c.id_creador === email ||
                 c.miembrosERR.includes(email) || 
                 c.establecimiento === myEstablecimiento ||
                 c.estadoFlujo === 'NUEVO' // Fase 1 que ellos crearon
               ); 
+            } else if (role.includes('INSTITUCIONAL')) {
+              const myMacro = useAuthStore.getState().userInstitucionMacro || '';
+              casosFiltrados = mappedCasos.filter(c => {
+                // Siempre permitir si el usuario institucional fue el creador o es miembro del ERR
+                if (c.id_creador === email || c.miembrosERR.includes(email)) return true;
+
+                const searchStr = (c.establecimiento + " " + c.id).toUpperCase();
+                let caseMacro = 'MINSAL'; // Por defecto, es MINSAL
+                if (searchStr.includes('ISSS')) caseMacro = 'ISSS';
+                return caseMacro === myMacro;
+              });
             }
             
             set({ casos: casosFiltrados });
@@ -153,14 +181,20 @@ export const useCasesStore = create<CasesState>()(
 
           // 2. Cargar Notificaciones
           const resNotif = await listarNotificaciones(role, email);
-          if (resNotif && resNotif.success) {
+          if (resNotif && resNotif.success && resNotif.data) {
             const mappedNotifs: Notificacion[] = resNotif.data.map((n: any) => ({
               id: Number(n.id),
               texto: n.texto,
               leido: String(n.leido).toLowerCase() === 'true',
-              fecha: dayjs(n.fecha_creacion).fromNow()
+              fecha: dayjs(n.fecha_creacion).fromNow(),
+              id_caso: n.id_caso ? String(n.id_caso) : undefined
             }));
-            set({ notificaciones: mappedNotifs });
+            
+            // Filtrar notificaciones asegurando que el caso asociado sea visible para este usuario
+            const validCaseIds = new Set(get().casos.map(c => String(c.id)));
+            const notifsFiltradas = mappedNotifs.filter(n => !n.id_caso || validCaseIds.has(n.id_caso));
+            
+            set({ notificaciones: notifsFiltradas });
           }
 
           // 3. Cargar Reuniones y adjuntarlas a los casos
@@ -178,7 +212,7 @@ export const useCasesStore = create<CasesState>()(
                     tema: r.tema,
                     modalidad: r.modalidad,
                     enlaceOLugar: r.enlace_lugar,
-                    estado: 'PROGRAMADA', // o según lógica
+                    estado: 'PROGRAMADA' as 'PROGRAMADA' | 'REALIZADA',
                     convocados: (typeof r.convocados === 'string') ? JSON.parse(r.convocados || '[]') : []
                   }));
                 return { ...caso, reuniones: reunionesDelCaso };
@@ -217,13 +251,12 @@ export const useCasesStore = create<CasesState>()(
         }
       },
 
-      crearCaso: async (nuevoCaso, datosCompletos) => {
+      crearCaso: async (nuevoCaso) => {
         set((state) => ({ casos: [nuevoCaso, ...state.casos] }));
       },
 
       devolverCaso: async (idCaso, nuevoEstado, observacion, anexo, textoNotificacion) => {
         const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
-        const userRole = useAuthStore.getState().currentRole || 'Sistema';
 
         if (import.meta.env.VITE_USE_API === 'true') {
           await actualizarCaso(idCaso, {
@@ -263,7 +296,7 @@ export const useCasesStore = create<CasesState>()(
         });
       },
 
-      avanzarCaso: async (idCaso, nuevoEstado, nuevaFase, textoNotificacion, nuevoRiesgo) => {
+      avanzarCaso: async (idCaso, nuevoEstado, nuevaFase, textoNotificacion, nuevoRiesgo, dictamenData) => {
         const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
         const userRole = useAuthStore.getState().currentRole || 'Sistema';
 
@@ -274,6 +307,7 @@ export const useCasesStore = create<CasesState>()(
             anexo_rechazado: ''
           };
           if (nuevoRiesgo) updates.riesgo = nuevoRiesgo;
+          if (dictamenData) updates.dictamen_data = JSON.stringify(dictamenData);
           const res = await actualizarCaso(idCaso, updates);
           if (res && !res.success) {
             throw new Error(res.error || 'Error al actualizar el estado del caso en el backend');
@@ -292,6 +326,7 @@ export const useCasesStore = create<CasesState>()(
                   anexoRechazado: undefined, 
                   observacionActual: undefined, 
                   ...(nuevoRiesgo ? { riesgo: nuevoRiesgo } : {}),
+                  ...(dictamenData ? { dictamenData } : {}),
                   historial_cambios: [
                     {
                       id: Date.now().toString(),
@@ -354,7 +389,6 @@ export const useCasesStore = create<CasesState>()(
         }
 
         set((state) => {
-          let casoActualizado = null;
           const nuevosCasos = state.casos.map(caso => {
             if (caso.id === idCaso) {
               const updated = { ...caso };
@@ -363,7 +397,6 @@ export const useCasesStore = create<CasesState>()(
               if (anexo === 'VI') updated.anexoVI_completado = true;
               if (anexo === 'VII') updated.anexoVII_completado = true;
               
-              casoActualizado = updated;
               return updated;
             }
             return caso;

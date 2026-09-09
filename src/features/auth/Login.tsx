@@ -33,7 +33,7 @@ export default function Login() {
     const result = await login(data.email, data.password);
     
     if (result.success && result.user) {
-      setSession(result.user);
+      setSession(result.user as any);
       navigate('/'); 
     } else {
       setErrorMsg(result.error || "Credenciales incorrectas o usuario no autorizado por la SRS.");

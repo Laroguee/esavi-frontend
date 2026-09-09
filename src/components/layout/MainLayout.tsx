@@ -36,7 +36,7 @@ export default function MainLayout() {
     // Cargar catálogos al iniciar sesión
     listarEstablecimientos().then(res => {
       if(res.success && res.data) {
-        setEstablecimientos(res.data);
+        setEstablecimientos(res.data as any);
       }
     });
 

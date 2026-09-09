@@ -40,6 +40,23 @@ export async function registrarLog(id_caso: string, usuario: string, accion: str
   }
 }
 
+export async function guardarAuditoriaFase5(id_caso: string, usuario: string, estado_final: string, evaluaciones: Record<string, any>) {
+  try {
+    await addDoc(collection(db, 'AUDITORIAS_CALIDAD'), {
+      id_auditoria: `QA-${Date.now()}`,
+      id_caso,
+      fecha_auditoria: new Date().toISOString(),
+      auditor: usuario,
+      estado_final,
+      evaluaciones_anexos: evaluaciones
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error guardando auditoria de Fase 5:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function crearCarpetaCaso(id_caso: string) {
   // Con Cloudinary no es necesario crear carpetas vacías previas
   return { success: true, data: { carpeta_principal: id_caso } };

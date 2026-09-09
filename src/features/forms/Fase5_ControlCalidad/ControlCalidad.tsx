@@ -5,6 +5,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { guardarAuditoriaFase5 } from '../../../services/firebaseService';
 
 interface ControlCalidadProps {
   casoId: string;
@@ -67,6 +68,7 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
     const nuevoEstado = currentRole === 'ESAVI_INSTITUCIONAL' ? 'DEVUELTO_A_ERR' : 'DEVUELTO_A_INSTITUCIONAL';
     const msg = `Expediente devuelto por ${currentRole} para corrección en ${nombreAnexo}.`;
 
+    guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
     devolverCaso(casoId, nuevoEstado, evalData.observacion, nombreAnexo, msg);
     alert(`Expediente devuelto exitosamente a estado ${nuevoEstado}.`);
     if (onClose) onClose(); else navigate(`/caso/${casoId}`);
@@ -99,6 +101,7 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
     const nuevaFase = currentRole === 'ESAVI_INSTITUCIONAL' ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
     const msg = `Expediente aprobado por ${currentRole}. Avanza a ${nuevoEstado}.`;
 
+    guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
     avanzarCaso(casoId, nuevoEstado, nuevaFase, msg);
     alert(`Expediente aprobado. Pasa a estado: ${nuevoEstado}.`);
     if (onClose) onClose(); else navigate(`/caso/${casoId}`);
@@ -110,6 +113,7 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
 
   const handleRemitirERR = () => {
     const msg = 'La Jefatura solicita correcciones en los anexos de campo.';
+    guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', 'DEVUELTO_A_ERR', evaluaciones);
     devolverCaso(casoId, 'DEVUELTO_A_ERR', caso.observacionActual || '', caso.anexoRechazado || 'General', msg);
     alert(`Expediente devuelto exitosamente a estado DEVUELTO_A_ERR.`);
     if (onClose) onClose(); else navigate(`/caso/${casoId}`);

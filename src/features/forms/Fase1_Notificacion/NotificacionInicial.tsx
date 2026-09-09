@@ -276,7 +276,11 @@ export default function NotificacionInicial() {
   const onSubmit = async (data: NotificacionFormValues) => {
     console.log("Notificación Inicial Registrada:", data);
     
-    const idCasoNuevo = `ESAVI-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    const casosActuales = useCasesStore.getState().casos;
+    const anioActual = new Date().getFullYear();
+    const casosDelAnio = casosActuales.filter(c => c.id.includes(`ESAVI-${anioActual}-`));
+    const correlativo = casosDelAnio.length + 1;
+    const idCasoNuevo = `ESAVI-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
     
     // 1. Preparar Payload para Google Sheets
     const payload = {
@@ -317,7 +321,7 @@ export default function NotificacionInicial() {
           const resCarpeta = await crearCarpetaCaso(idCasoNuevo);
           if (resCarpeta && resCarpeta.data) {
              urlCarpetaDrive = resCarpeta.data.carpeta_principal;
-             payload.datos.url_carpeta_drive = urlCarpetaDrive;
+             (payload.datos as any).url_carpeta_drive = urlCarpetaDrive;
           }
 
           // B. Guardar en tabla

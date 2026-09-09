@@ -17,7 +17,7 @@ interface FormDataCausalidad {
 export default function DictamenCausalidad() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { avanzarCaso } = useCasesStore();
+  const { casos, avanzarCaso } = useCasesStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { control, handleSubmit } = useForm<FormDataCausalidad>({
@@ -35,7 +35,7 @@ export default function DictamenCausalidad() {
       console.log("Acta de Causalidad:", data);
       
       if (id) {
-        await avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.');
+        await avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.', undefined, data);
       }
       
       alert("Dictamen Final Guardado. El caso ESAVI ha sido CERRADO OFICIALMENTE.");
@@ -47,6 +47,55 @@ export default function DictamenCausalidad() {
       setIsSubmitting(false);
     }
   };
+
+  if (!id) {
+    const casosCerrados = casos.filter(c => 
+      c.estadoFlujo === 'CERRADO_DICTAMINADO' || 
+      c.estadoFlujo === 'DICTAMINADO' || 
+      c.estadoFlujo === 'CERRADO'
+    );
+
+    return (
+      <Box sx={{ maxWidth: 1000, margin: 'auto', pb: 8 }}>
+        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold', mb: 3 }}>
+          Historial de Dictámenes Emitidos
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+          Lista de casos ESAVI que ya han sido dictaminados y cerrados oficialmente por el Comité Nacional de Vacunación Segura.
+        </Typography>
+
+        <Paper elevation={2} sx={{ p: 4, mb: 4, bgcolor: '#f8f9fa' }}>
+           {casosCerrados.length === 0 ? (
+             <Typography color="text.secondary">No hay casos cerrados por el comité actualmente.</Typography>
+           ) : (
+             <Grid container spacing={2}>
+               {casosCerrados.map(caso => (
+                 <Grid size={{ xs: 12, md: 6 }} key={caso.id}>
+                    <Paper elevation={1} sx={{ p: 3, borderLeft: '5px solid', borderColor: 'primary.main' }}>
+                       <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>{caso.id}</Typography>
+                       <Typography variant="body2" sx={{ mt: 1 }}><strong>Paciente:</strong> {caso.paciente}</Typography>
+                       <Typography variant="body2"><strong>Vacuna:</strong> {caso.vacuna}</Typography>
+                       <Typography variant="body2">
+                         <strong>Institución Gestora:</strong> {caso.id_creador?.includes('isss') ? 'ISSS' : (caso.id_creador?.includes('minsal') ? 'MINSAL' : (caso.establecimiento.toUpperCase().includes('ISSS') ? 'ISSS' : 'MINSAL'))}
+                       </Typography>
+                       <Typography variant="body2"><strong>Establecimiento Notificador:</strong> {caso.establecimiento}</Typography>
+                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                         Fecha de Notificación: {caso.fecha}
+                       </Typography>
+                       
+                       {/* Opcional: El botón por ahora puede llevar al detalle general del caso ya que no se persisten los datos del formulario */}
+                       <Button variant="outlined" size="small" sx={{ mt: 2 }} onClick={() => navigate(`/caso/${caso.id}`)}>
+                         Ver Expediente del Caso
+                       </Button>
+                    </Paper>
+                 </Grid>
+               ))}
+             </Grid>
+           )}
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1000, margin: 'auto', pb: 8 }}>

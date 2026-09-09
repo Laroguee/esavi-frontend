@@ -5,13 +5,12 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import DescriptionIcon from '@mui/icons-material/Description';
 import PrintIcon from '@mui/icons-material/Print';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import { CircularProgress } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
-import { obtenerExpedienteCompleto, actualizarCaso } from '../../services/firebaseService';
+import { obtenerExpediente, actualizarCaso } from '../../services/firebaseService';
 
 // Interface para el formulario del Comité
 interface FormDataCausalidad {
@@ -30,6 +29,7 @@ export default function CierreYDictamen() {
   const { casos, avanzarCaso } = useCasesStore();
   
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [expedienteCompleto, setExpedienteCompleto] = useState<any>(null);
   
   const casoActual = casos.find(c => c.id === id);
   
@@ -49,49 +49,91 @@ export default function CierreYDictamen() {
     defaultValues: { clasificacionFinal: '', comentariosComite: '', recomendaciones: '', fechaEvaluacion: '', firmasExpertos: '' }
   });
 
+  useEffect(() => {
+    async function loadData() {
+      if (!id) return;
+      try {
+        const res = await obtenerExpediente(id);
+        if (res.success && res.data) {
+          setExpedienteCompleto(res.data);
+        }
+      } catch (e) {
+        console.error("Error al cargar expediente completo:", e);
+      }
+    }
+    loadData();
+  }, [id]);
+
   if (!casoActual) {
     return <Alert severity="error">Caso no encontrado en el estado global. Por favor, vuelva al inicio.</Alert>;
   }
+
+  const NO_DATA = "Sin datos registrados";
+  
+  const getAnexoData = (tipo: string) => {
+    if (!expedienteCompleto || !expedienteCompleto.anexos) return {};
+    const anexo = expedienteCompleto.anexos.find((a: any) => a.tipo_anexo.includes(tipo));
+    if (!anexo || !anexo.datos_formulario_json) return {};
+    try {
+      return typeof anexo.datos_formulario_json === 'string' 
+        ? JSON.parse(anexo.datos_formulario_json) 
+        : anexo.datos_formulario_json;
+    } catch(e) { return {}; }
+  };
+
+  const anexoClinico = getAnexoData('VII');
+  const anexoEpi = getAnexoData('III');
+  const anexoVacuna = getAnexoData('V');
+  const anexoPuesto = getAnexoData('VI');
+  
+  const parseMatriz = () => {
+    const m = expedienteCompleto?.matriz;
+    if (!m) return {};
+    try {
+       return typeof m === 'string' ? JSON.parse(m) : m;
+    } catch(e) { return {}; }
+  };
+  const matrizData = parseMatriz();
 
   // Mapear datos reales al formato del informe
   const casoData = {
     id: casoActual.id,
     fechaInforme: new Date().toLocaleDateString(),
     pais: 'El Salvador',
-    nivelSubnacionalReporte: 'N/A', // Estos datos provienen de los anexos profundos
-    nivelSubnacionalResidencia: 'N/A',
-    institucionNotificadora: casoActual.establecimiento || 'No especificada',
-    edad: casoActual.edad ? `${casoActual.edad} años` : 'N/A',
-    sexo: casoActual.sexo || 'N/A',
-    fechaNacimiento: 'N/A', 
-    fechaUltimaVacunacion: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : 'N/A',
-    diagnostico: casoActual.sintomas || 'N/A',
-    nivelCerteza: 'N/A',
-    fechaInicioSintomas: 'N/A',
-    fechaHospitalizacion: 'N/A',
-    fechaDefuncion: 'N/A',
-    fechaNotificacionNacional: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : 'N/A',
+    nivelSubnacionalReporte: NO_DATA, 
+    nivelSubnacionalResidencia: NO_DATA,
+    institucionNotificadora: casoActual.establecimiento || NO_DATA,
+    edad: casoActual.edad ? `${casoActual.edad} años` : NO_DATA,
+    sexo: casoActual.sexo || NO_DATA,
+    fechaNacimiento: NO_DATA, 
+    fechaUltimaVacunacion: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : NO_DATA,
+    diagnostico: anexoClinico.diagnosticoFinal || NO_DATA,
+    nivelCerteza: anexoClinico.nivelCerteza || NO_DATA,
+    fechaInicioSintomas: anexoClinico.fechaInicioInvestigacion || NO_DATA,
+    fechaHospitalizacion: anexoClinico.fechaHospitalizacion || NO_DATA,
+    fechaDefuncion: anexoClinico.fechaMuerte || NO_DATA,
+    fechaNotificacionNacional: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : NO_DATA,
     resumenEjecutivo: 'Ver detalles en Anexo VII y Gestor de Evidencias.',
-    antClinicos: 'Ver detalles clínicos completos en el Gestor de Evidencias.',
-    antQuirurgicos: 'N/A',
-    antPerinatales: 'N/A',
-    antMedicamentos: 'N/A',
-    antSustancias: 'N/A',
-    antFamiliares: 'N/A',
-    epiViajes: 'N/A',
-    epiAmbientales: 'N/A',
-    epiVirus: 'N/A',
-    resumenCaso: 'Ver línea de tiempo en el informe final de cierre institucional.',
-    hallazgosClinicos: 'N/A',
-    hallazgosNecropsia: 'N/A',
-    hallazgosVacuna: 'Ver Anexo V',
-    hallazgosPuesto: 'Ver Anexo VI',
-    seguimientoVacunados: 'N/A',
-    hallazgosEpi: 'Ver Anexo III',
-    riesgoEvento: casoActual.riesgo || 'N/A',
-    situacionComunicacional: 'N/A',
+    antClinicos: anexoClinico.antFamiliares ? `Familiares/Alergias: ${anexoClinico.antFamiliares} - ${anexoClinico.obs_antFamiliares || ''}` : NO_DATA,
+    antQuirurgicos: NO_DATA,
+    antPerinatales: anexoClinico.embarazada ? `Embarazo: ${anexoClinico.embarazada}, Semanas Gestación: ${anexoClinico.semGestacion || NO_DATA}` : NO_DATA,
+    antMedicamentos: NO_DATA,
+    antSustancias: NO_DATA,
+    antFamiliares: NO_DATA,
+    epiViajes: anexoEpi.viajes ? `Viajes: ${anexoEpi.viajes}` : NO_DATA,
+    epiAmbientales: anexoEpi.exposicion_ambiental ? `Ambiental: ${anexoEpi.exposicion_ambiental}` : NO_DATA,
+    epiVirus: anexoEpi.contacto_enfermos ? `Contacto enfermos: ${anexoEpi.contacto_enfermos}` : NO_DATA,
+    resumenCaso: anexoClinico.resumenParaclinico || NO_DATA,
+    hallazgosClinicos: anexoClinico.diagnosticoFinal || NO_DATA,
+    hallazgosNecropsia: anexoClinico.datosNecropsia || NO_DATA,
+    hallazgosVacuna: anexoVacuna.observaciones_generales || 'Revisar detalles en Anexo V',
+    hallazgosPuesto: anexoPuesto.conclusiones_visita || 'Revisar detalles en Anexo VI',
+    seguimientoVacunados: NO_DATA,
+    hallazgosEpi: anexoEpi.conclusiones_epidemiologicas || 'Revisar detalles en Anexo III',
+    riesgoEvento: matrizData.nivel_riesgo_final || casoActual.riesgo || NO_DATA,
+    situacionComunicacional: NO_DATA,
     vacunas: [
-      { nombre: casoActual.vacuna || 'N/A', fecha: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : 'N/A', fab: 'N/A', lote: 'N/A', sitio: 'N/A' },
+      { nombre: casoActual.vacuna || NO_DATA, fecha: casoActual.fecha ? new Date(casoActual.fecha).toLocaleDateString() : NO_DATA, fab: NO_DATA, lote: NO_DATA, sitio: NO_DATA },
       { nombre: '-', fecha: '-', fab: '-', lote: '-', sitio: '-' }
     ]
   };
@@ -109,7 +151,7 @@ export default function CierreYDictamen() {
       });
 
       // 2. Avanzar el caso a estado CERRADO
-      await avanzarCaso(casoActual.id, 'CERRADO', 'Fase 6: Cerrado por Comité', 'El Comité Externo ha emitido el dictamen final.');
+      await avanzarCaso(casoActual.id, 'CERRADO_DICTAMINADO', 'Fase 6: Cerrado por Comité', 'El Comité Externo ha emitido el dictamen final.');
       
       alert(`Expediente ${casoActual.id} CERRADO OFICIALMENTE por el Comité de Expertos.`);
       navigate('/');

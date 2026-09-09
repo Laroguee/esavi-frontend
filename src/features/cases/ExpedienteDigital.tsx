@@ -81,7 +81,7 @@ export default function ExpedienteDigital() {
     );
   }
 
-  const { expediente, matriz, asignaciones, anexos } = expedienteData || {};
+  const { matriz, asignaciones, anexos } = expedienteData || {};
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>

@@ -35,12 +35,12 @@ export default function ExploradorNativo({ idCaso }: ExploradorProps) {
       try {
         setLoading(true);
         const res = await listarArchivosCaso(idCaso);
-        if (res.success) {
+        if (res && res.success && res.data) {
           // Ordenar carpetas alfabéticamente
           const carpetasOrdenadas = res.data.sort((a: Carpeta, b: Carpeta) => a.carpeta.localeCompare(b.carpeta));
           setEstructura(carpetasOrdenadas);
         } else {
-          setError(res.error || 'No se pudo cargar la estructura de archivos.');
+          setError(res?.error || 'No se pudo cargar la estructura de archivos.');
         }
       } catch (err: any) {
         setError(err.message || 'Error de conexión.');

@@ -24,7 +24,7 @@ export default function AsignacionERR() {
 
   useEffect(() => {
     listarUsuarios().then(res => {
-      if(res.success) setUsuariosBD(res.data);
+      if(res.success) setUsuariosBD(res.data as any);
     });
   }, []);
 
@@ -107,7 +107,34 @@ export default function AsignacionERR() {
     }
   };
 
-    let macroDelCaso = establecimientos.find(e => e.nombre === casoActual?.establecimiento)?.institucionMacro;
+    // Extraer establecimientos de usuarios para asegurar que los de MINSAL aparezcan
+    // aunque no estén en la colección 'establecimientos' de la BD.
+    const establecimientosMap = new Map();
+    establecimientos.forEach(e => {
+      establecimientosMap.set(e.nombre, e);
+    });
+
+    usuariosBD.forEach(u => {
+      if (u.establecimiento && !establecimientosMap.has(u.establecimiento)) {
+        let macro = u.institucionMacro || 'MINSAL';
+        if (!u.institucionMacro) {
+            const nameUpper = u.establecimiento.toUpperCase();
+            if (nameUpper.includes('ISSS')) macro = 'ISSS';
+        }
+        establecimientosMap.set(u.establecimiento, {
+          id: `usr-est-${Math.random()}`,
+          nombre: u.establecimiento,
+          tipo: 'Agregado de Usuarios',
+          sibasi: 'Desconocido',
+          institucionMacro: macro,
+          activo: true
+        });
+      }
+    });
+
+    const establecimientosCombinados = Array.from(establecimientosMap.values());
+
+    let macroDelCaso = establecimientosCombinados.find((e: any) => e.nombre === casoActual?.establecimiento)?.institucionMacro;
     
     // Fallback inteligente si el nombre del establecimiento antiguo no coincide exactamente
     if (!macroDelCaso && casoActual) {
@@ -116,9 +143,9 @@ export default function AsignacionERR() {
       else if (searchString.includes("MINSAL")) macroDelCaso = "MINSAL";
     }
 
-    const establecimientosFiltrados = establecimientos.filter(e => 
+    const establecimientosFiltrados = establecimientosCombinados.filter((e: any) => 
       (e.activo === true || String(e.activo).toLowerCase() === 'true') && 
-      (!macroDelCaso || e.institucionMacro === macroDelCaso)
+      (!macroDelCaso || e.institucionMacro === macroDelCaso || e.institucionMacro === 'MINSAL' || macroDelCaso === 'MINSAL')
     );
 
     return (

@@ -52,7 +52,7 @@ export default function ModuloAdministracion() {
     setLoading(true);
     const res = await listarUsuarios();
     if (res.success) {
-      setUsuarios(res.data);
+      setUsuarios(res.data as any);
     } else {
       setError(res.error || 'Error cargando usuarios');
     }
@@ -62,7 +62,7 @@ export default function ModuloAdministracion() {
   const fetchEstablecimientos = async () => {
     const res = await listarEstablecimientos();
     if (res.success) {
-      setEstablecimientos(res.data);
+      setEstablecimientos(res.data as any);
     }
   };
 
@@ -337,32 +337,32 @@ export default function ModuloAdministracion() {
         <DialogTitle>{isEdit ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 fullWidth size="small" label="Nombre Completo" 
                 value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} 
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 fullWidth size="small" label="DUI" 
                 value={formData.dui || ''} onChange={(e) => setFormData({...formData, dui: e.target.value})} 
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 fullWidth size="small" label="Correo Institucional" disabled={isEdit}
                 value={formData.email || ''} onChange={(e) => setFormData({...formData, email: e.target.value})} 
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 fullWidth size="small" label={isEdit ? "Nueva Contraseña (opcional)" : "Contraseña Inicial"} 
                 type="password"
                 value={formData.password || ''} onChange={(e) => setFormData({...formData, password: e.target.value})} 
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField 
                 select fullWidth size="small" label="Rol del Sistema" 
                 value={formData.role || ''} onChange={(e) => setFormData({...formData, role: e.target.value as any})}
@@ -377,7 +377,7 @@ export default function ModuloAdministracion() {
                 <MenuItem value="COMITE_EXTERNO">Comité Externo</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 select fullWidth size="small" label="Macro-Institución" 
                 value={formData.institucionMacro || ''} 
@@ -388,7 +388,7 @@ export default function ModuloAdministracion() {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 select fullWidth size="small" label="Establecimiento" 
                 value={formData.establecimiento || ''} 
@@ -415,13 +415,13 @@ export default function ModuloAdministracion() {
         <DialogTitle>{isEditEstab ? 'Editar Establecimiento' : 'Nuevo Establecimiento'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField 
                 fullWidth size="small" label="Nombre del Establecimiento" 
                 value={estabData.nombre || ''} onChange={(e) => setEstabData({...estabData, nombre: e.target.value})} 
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 select fullWidth size="small" label="Tipo / Nivel" 
                 value={estabData.tipo || ''} onChange={(e) => setEstabData({...estabData, tipo: e.target.value})}
@@ -435,13 +435,13 @@ export default function ModuloAdministracion() {
                 <MenuItem value="Oficina Central">Oficina Central</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField 
                 fullWidth size="small" label="SIBASI / Región (Opcional)" 
                 value={estabData.sibasi || ''} onChange={(e) => setEstabData({...estabData, sibasi: e.target.value})} 
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField 
                 select fullWidth size="small" label="Institución Rectora" 
                 value={estabData.institucionMacro || ''} onChange={(e) => setEstabData({...estabData, institucionMacro: e.target.value})}

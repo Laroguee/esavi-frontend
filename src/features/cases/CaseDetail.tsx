@@ -10,6 +10,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck';
 import SearchIcon from '@mui/icons-material/Search';
 import HistoryIcon from '@mui/icons-material/History';
 import SendIcon from '@mui/icons-material/Send';
+import GavelIcon from '@mui/icons-material/Gavel';
 import GestorEvidencias from '../cases/GestorEvidencias';
 import ControlCalidad from '../forms/Fase5_ControlCalidad/ControlCalidad';
 
@@ -36,6 +37,7 @@ export default function CaseDetail() {
   // --- ESTADOS PARA MODALES (Read-Only) ---
   const [openNotif, setOpenNotif] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
+  const [openDictamenModal, setOpenDictamenModal] = useState(false);
 
   // --- ESTADOS PARA CHECKLISTS NORMATIVOS ---
   const [chkAnexoI, setChkAnexoI] = useState(false);
@@ -118,6 +120,7 @@ export default function CaseDetail() {
     if (['EN_INVESTIGACION', 'DEVUELTO_A_ERR'].includes(estado)) return 3;
     if (['EN_REVISION_INSTITUCIONAL', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE'].includes(estado)) return 4;
     if (['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(estado)) return 5;
+    if (['CERRADO_DICTAMINADO', 'CERRADO'].includes(estado)) return 6; // Finalizado
     return 0;
   };
   const faseActual = getActiveStepIndex(casoActual?.estadoFlujo || '');
@@ -229,7 +232,18 @@ export default function CaseDetail() {
           <Grid size={{ xs: 12, md: 5 }} sx={{ textAlign: 'right' }}>
             <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold', display: 'block' }}>ESTADO ACTUAL</Typography>
             <Typography variant="h6" sx={{ display: 'block', mb: 1 }} color={(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') ? "error.main" : "text.primary"}>
-              {(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') ? "Devuelto por Observaciones" : casoActual.fase}
+              {(() => {
+                const estado = casoActual.estadoFlujo;
+                if (estado === 'DEVUELTO_A_INSTITUCIONAL' || estado === 'DEVUELTO_A_ERR') return 'Devuelto por Observaciones';
+                if (estado === 'NUEVO' || estado === 'NOTIFICADO') return 'Fase 1: Notificación';
+                if (estado === 'EN_EVALUACION' || estado === 'PENDIENTE_OFICIALIZAR') return 'Fase 2: Evaluación';
+                if (estado === 'EN_ASIGNACION' || estado === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación';
+                if (estado === 'EN_INVESTIGACION' || estado === 'CORREGIDO_POR_ERR') return 'Fase 4: Investigación';
+                if (estado === 'EN_REVISION_INSTITUCIONAL' || estado === 'EN_REVISION_SECRETARIADO' || estado === 'APROBADO_PARA_COMITE') return 'Fase 5: Control de Calidad';
+                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comité Externo';
+                if (estado === 'CERRADO_DICTAMINADO' || estado === 'CERRADO') return 'Expediente Cerrado';
+                return casoActual.fase || 'Fase Activa';
+              })()}
             </Typography>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', mt: 2 }}>
@@ -239,6 +253,11 @@ export default function CaseDetail() {
               <Button variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => setOpenApertura(true)} sx={{ width: '220px' }}>
                 Ver Datos de Apertura
               </Button>
+              {casoActual.dictamenData && (
+                <Button variant="contained" color="secondary" size="small" startIcon={<GavelIcon />} onClick={() => setOpenDictamenModal(true)} sx={{ width: '220px', mt: 1 }}>
+                  Ver Dictamen de Causalidad
+                </Button>
+              )}
               <Button variant="contained" color="primary" size="small" onClick={() => navigate(`/caso/${casoActual.id}/expediente`)} sx={{ width: '220px', mt: 1 }}>
                 Abrir Expediente Digital
               </Button>
@@ -494,7 +513,6 @@ export default function CaseDetail() {
                           {registro.accion}
                         </Typography>
                       }
-                      secondaryTypographyProps={{ component: 'div' }}
                       secondary={
                         <Box sx={{ mt: 0.5 }}>
                           <Typography component="span" variant="body2" color="text.primary" sx={{ fontWeight: 'medium' }}>
@@ -678,9 +696,50 @@ export default function CaseDetail() {
           <ReadOnlyField label="Institución" value={casoActual.establecimiento} />
           <Alert severity="warning" sx={{ mt: 2, fontWeight: 'bold' }}>Riesgo Calculado: ALTO (7 puntos) - Respuesta REGIONAL.</Alert>
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}><Button onClick={() => setOpenApertura(false)} variant="contained" color="secondary">Cerrar</Button></DialogActions>
+        <DialogActions sx={{ p: 2, bgcolor: '#f4f6f8' }}>
+          <Button onClick={() => setOpenApertura(false)} variant="contained">Cerrar</Button>
+        </DialogActions>
       </Dialog>
 
+      {/* ================= MODAL DE DICTAMEN DE CAUSALIDAD (Solo-Lectura) ================= */}
+      <Dialog open={openDictamenModal} onClose={() => setOpenDictamenModal(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <GavelIcon /> Acta de Causalidad Final (Comité Externo)
+        </DialogTitle>
+        <DialogContent>
+          {casoActual?.dictamenData ? (
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" color="text.secondary">Clasificación Final de Causalidad (OMS)</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                  {casoActual.dictamenData.clasificacionFinal}
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" color="text.secondary">Justificación Clínica y Epidemiológica</Typography>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9', mt: 1 }}>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {casoActual.dictamenData.justificacionCausalidad}
+                  </Typography>
+                </Paper>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle2" color="text.secondary">Recomendaciones y Acciones a tomar</Typography>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9', mt: 1 }}>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                    {casoActual.dictamenData.recomendaciones}
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+          ) : (
+            <Typography>El dictamen no está disponible para este caso.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f4f6f8' }}>
+          <Button onClick={() => setOpenDictamenModal(false)} variant="contained" color="secondary">Cerrar</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* MODAL: AUDITORÍA (Fase 5) */}
       <Dialog open={openAuditoria} onClose={() => setOpenAuditoria(false)} maxWidth="md" fullWidth>
@@ -697,6 +756,30 @@ export default function CaseDetail() {
           <Typography variant="body1" sx={{ mb: 2 }}>
             El expediente <strong>{casoActual.id}</strong> será enviado a la bandeja del Comité Externo de Vacunación Segura para su dictamen final.
           </Typography>
+
+          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>Reuniones Programadas para el Comité (Fase 6)</Typography>
+          {casoActual.reuniones && casoActual.reuniones.filter(r => r.faseRelacionada === 'Fase 6').length > 0 ? (
+            <Grid container spacing={2}>
+              {casoActual.reuniones.filter(r => r.faseRelacionada === 'Fase 6').map(reunion => (
+                <Grid size={{ xs: 12 }} key={reunion.id}>
+                  <Card variant="outlined" sx={{ bgcolor: '#f9f9f9' }}>
+                    <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                         <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{reunion.tema}</Typography>
+                         <Chip size="small" color="primary" label={reunion.estado} />
+                       </Box>
+                       <Typography variant="body2" color="text.secondary">Fecha: {reunion.fecha} a las {reunion.hora}</Typography>
+                       <Typography variant="body2" color="text.secondary">Modalidad: {reunion.modalidad}</Typography>
+                       <Typography variant="body2" color="text.secondary">{reunion.modalidad === 'Virtual' ? 'Enlace' : 'Lugar'}: {reunion.enlaceOLugar}</Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+             <Alert severity="warning">No hay reuniones de Fase 6 asociadas a este expediente. Por favor, programa una en la pestaña Agenda.</Alert>
+          )}
+
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
           <Button onClick={() => setOpenEnvioComiteModal(false)} variant="outlined">Cancelar</Button>

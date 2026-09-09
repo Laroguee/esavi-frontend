@@ -50,13 +50,15 @@ export default function FormularioApertura() {
   const institucionSeleccionada = watch('institucion');
 
   useEffect(() => {
+    const casosActuales = useCasesStore.getState().casos;
     const anioActual = new Date().getFullYear();
-    const correlativoFalso = '0001'; 
-    const nuevoID = `ESAVI-${institucionSeleccionada}-${anioActual}-${correlativoFalso}`;
+    const casosDelAnio = casosActuales.filter(c => c.id.includes(`ESAVI-${anioActual}-`));
+    const correlativo = casosDelAnio.length + 1; 
+    const nuevoID = `ESAVI-${institucionSeleccionada}-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
     setValue('idUnico', nuevoID); 
   }, [institucionSeleccionada, setValue]);
 
-  const { agendarReunion } = useCasesStore();
+  const { agendarReunionStore } = useCasesStore();
 
   const onSubmit = (data: AperturaFormValues) => {
     console.log("Datos Apertura:", data);
@@ -66,7 +68,7 @@ export default function FormularioApertura() {
 
     const [fechaStr, horaStr] = data.fechaReunion.split('T');
 
-    agendarReunion(data.idUnico, {
+    agendarReunionStore(data.idUnico, {
       id: Date.now().toString(),
       tema: "Convocatoria Inicial al Equipo Coordinador",
       faseRelacionada: "Fase 2",
