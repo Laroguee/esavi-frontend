@@ -237,6 +237,16 @@ export default function MainLayout() {
               </ListItem>
             )}
           </List>
+
+          <Divider sx={{ my: 2 }} />
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton onClick={handleLogout}>
+                <ListItemIcon><LogoutIcon color="error" /></ListItemIcon>
+                <ListItemText primary="Cerrar Sesión" sx={{ color: 'error.main' }} />
+              </ListItemButton>
+            </ListItem>
+          </List>
         </Box>
         </Drawer>
         <Drawer
@@ -292,6 +302,17 @@ export default function MainLayout() {
                   </ListItemButton>
                 </ListItem>
               )}
+            </List>
+
+            {/* BOTÓN CERRAR SESIÓN EN SIDEBAR (Solo visible en pantallas pequeñas si no caben arriba, pero se deja por consistencia) */}
+            <Divider sx={{ my: 2 }} />
+            <List>
+              <ListItem disablePadding sx={{ display: { sm: 'none' } }}>
+                <ListItemButton onClick={handleLogout}>
+                  <ListItemIcon><LogoutIcon color="error" /></ListItemIcon>
+                  <ListItemText primary="Cerrar Sesión" sx={{ color: 'error.main' }} />
+                </ListItemButton>
+              </ListItem>
             </List>
           </Box>
         </Drawer>
