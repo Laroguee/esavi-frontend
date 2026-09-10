@@ -31,9 +31,18 @@ interface AuthState {
   
   setSession: (user: MockUser) => void;
   setRole: (role: Role) => void;
-  logout: () => void;
+  logout: (broadcast?: boolean) => void;
   setLogisticaCompletada: (estado: boolean) => void;
 }
+
+const authChannel = new BroadcastChannel('auth_sync_channel');
+
+authChannel.onmessage = (event) => {
+  if (event.data === 'logout') {
+    // Si recibimos un mensaje de logout de otra pestaña, cerramos sesión sin emitir de nuevo
+    useAuthStore.getState().logout(false);
+  }
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -59,17 +68,23 @@ export const useAuthStore = create<AuthState>()(
 
       setRole: (role: Role) => set({ currentRole: role }),
 
-      logout: () => set({ 
-        isAuthenticated: false, 
-        currentRole: null, 
-        userEmail: null, 
-        userName: null,
-        userEstablecimiento: null,
-        userInstitucionMacro: null,
-        logisticaCompletada: false
-      }),
+      logout: (broadcast = true) => {
+        if (broadcast) {
+          authChannel.postMessage('logout');
+        }
+        set({ 
+          isAuthenticated: false, 
+          currentRole: null, 
+          userEmail: null, 
+          userName: null,
+          userEstablecimiento: null,
+          userInstitucionMacro: null,
+          logisticaCompletada: false
+        });
+      },
       
       setLogisticaCompletada: (estado: boolean) => set({ logisticaCompletada: estado }),
+
     }),
     {
       name: 'esavi-auth-storage',
