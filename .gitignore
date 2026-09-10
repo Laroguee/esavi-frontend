@@ -23,6 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 
+# Archivos de entorno y seguridad
+.env
+.env.*
+*.local
+
+# Scripts de poblacion y limpieza
+seedUsers.js
+purgeOldUsers.js
+
 # Scratch files
 scratch/
 scratch_*.js
