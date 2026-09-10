@@ -1,6 +1,6 @@
-# Sistema de Notificación y Gestión ESAVI - El Salvador 🇸🇻
+# Sistema de Notificación y Gestión ESAVI
 
-Plataforma web para el registro, seguimiento y dictamen de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización (ESAVI). El sistema está diseñado para coordinar los esfuerzos de investigación entre los diferentes niveles de salud (MINSAL, ISSS), el Secretariado Técnico (SRS) y el Comité Externo.
+Plataforma web para el registro, seguimiento y dictamen de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización (ESAVI). El sistema está diseñado para coordinar los esfuerzos de investigación entre los diferentes niveles de atención sanitaria (Institución de Salud Pública A, Institución de Salud Pública B), la Entidad Reguladora Nacional y el Comité Consultivo Externo.
 
 ## 🌟 Características Principales
 
@@ -25,10 +25,10 @@ Plataforma web para el registro, seguimiento y dictamen de Eventos Supuestamente
 
 El sistema maneja un flujo descentralizado pero jerárquico:
 1. **Nivel Local (Hospitales/Clínicas):** `ESAVI_LOCAL`, `INMUNO_LOCAL`, `EPIDEMIO_LOCAL`. Llenan los anexos de investigación de campo.
-2. **Nivel Institucional (Sede Central MINSAL/ISSS):** `ESAVI_INSTITUCIONAL`, `INMUNO_INSTITUCIONAL`, `EPIDEMIO_INSTITUCIONAL`. Revisan los anexos y aprueban la auditoría de calidad de su institución.
-3. **Nivel Regulador (SRS):** `SECRETARIADO`. Asigna a los expertos y agenda la revisión final.
+2. **Nivel Institucional (Sedes Centrales de Salud):** `ESAVI_INSTITUCIONAL`, `INMUNO_INSTITUCIONAL`, `EPIDEMIO_INSTITUCIONAL`. Revisan los anexos y aprueban la auditoría de calidad de su institución respectiva.
+3. **Nivel Regulador Nacional:** `SECRETARIADO`. Asigna a los expertos y agenda la revisión final de todo el sistema.
 4. **Equipo de Respuesta Rápida:** `ERR`. Especialistas que apoyan en la recolección de campo de casos graves.
-5. **Comité Externo (CAPI):** `COMITE_EXTERNO`. Emite el dictamen final de causalidad.
+5. **Comité Consultivo Externo:** `COMITE_EXTERNO`. Emite el dictamen final de causalidad, independientes a la entidad prestadora de salud.
 
 ## 🚀 Instalación y Ejecución Local
 
@@ -82,7 +82,7 @@ src/
 ```
 
 ## 🔒 Seguridad
-- El proyecto ignora por defecto archivos sensibles en su configuración (`.env`, scripts de población de bases de datos locales). Las contraseñas de producción se gestionan directamente desde la consola de Firebase.
+- El proyecto ignora por defecto archivos sensibles en su configuración (`.env`, scripts de población de bases de datos locales). Las contraseñas de producción se gestionan directamente desde la consola de Firebase u otro gestor de identidades configurado.
 
 ---
-*Desarrollado para la Dirección Nacional de Integración de Sistemas de Salud, El Salvador.*
+*Desarrollado como Plataforma de Integración para Sistemas Nacionales de Salud.*
