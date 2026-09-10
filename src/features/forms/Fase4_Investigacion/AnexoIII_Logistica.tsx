@@ -139,11 +139,11 @@ export default function AnexoIII_Logistica() {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 800, margin: 'auto', pb: 8, pt: 2 }}>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, mb: 3, gap: 2 }}>
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo III: Checklist Logístico
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
@@ -154,8 +154,8 @@ export default function AnexoIII_Logistica() {
       </Box>
 
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
-        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
-        <Paper variant="outlined" sx={{ p: 4, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
+        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
         <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
           <ChecklistRtlIcon /> Preparación para el Trabajo de Campo
         </Typography>
@@ -199,8 +199,8 @@ export default function AnexoIII_Logistica() {
       </Box>
 
       {!isViewMode && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button variant="contained" color="secondary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2 }}>
+          <Button variant="contained" color="secondary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar Logística de Campo'}
           </Button>
         </Box>

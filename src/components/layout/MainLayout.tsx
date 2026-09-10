@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, 
   ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, 
-  Badge, IconButton, Menu, Divider, Button
+  Badge, IconButton, Menu, Divider, Button, useTheme, useMediaQuery
 } from '@mui/material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
@@ -14,6 +14,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import CircleIcon from '@mui/icons-material/Circle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import MenuIcon from '@mui/icons-material/Menu';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import { useCatalogStore } from '../../store/useCatalogStore';
@@ -23,6 +24,10 @@ const drawerWidth = 260;
 
 export default function MainLayout() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   // Se extrae la función logout del store global
   const { currentRole, userName, logout, setRole } = useAuthStore();
 
@@ -62,6 +67,10 @@ export default function MainLayout() {
     navigate('/login');
   };
 
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
   // Calcula cuántas notificaciones no están leídas desde el Store
   const notificacionesNoLeidas = notificaciones.filter(n => !n.leido).length;
 
@@ -70,7 +79,16 @@ export default function MainLayout() {
       {/* ================= BARRA SUPERIOR ================= */}
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          <HealthAndSafetyIcon sx={{ mr: 2, fontSize: 32 }} />
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { md: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <HealthAndSafetyIcon sx={{ mr: 2, fontSize: 32, display: { xs: 'none', sm: 'block' } }} />
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6" noWrap component="div" sx={{ lineHeight: 1.2 }}>
               Sistema de Notificación ESAVI
@@ -80,11 +98,11 @@ export default function MainLayout() {
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 3 } }}>
             
 
             {/* IDENTIFICACIÓN DE USUARIO (Reemplazo del simulador) */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1, mr: 2 }}>
               <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
                 Hola, {userName || 'Usuario'}
               </Typography>
@@ -158,9 +176,19 @@ export default function MainLayout() {
       </AppBar>
 
       {/* ================= MENÚ LATERAL ================= */}
-      <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' } }}>
-        <Toolbar /> 
-        <Box sx={{ overflow: 'auto', mt: 2 }}>
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+        >
+          <Toolbar />
+          <Box sx={{ overflow: 'auto', mt: 2 }}>
           <List>
             <ListItem disablePadding>
               <ListItemButton onClick={() => navigate('/')}>
@@ -210,10 +238,67 @@ export default function MainLayout() {
             )}
           </List>
         </Box>
-      </Drawer>
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+          open
+        >
+          <Toolbar /> 
+          <Box sx={{ overflow: 'auto', mt: 2 }}>
+            <List>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/')}>
+                  <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
+                  <ListItemText primary="Bandeja de Casos" />
+                </ListItemButton>
+              </ListItem>
+
+              {currentRole === 'SECRETARIADO' && (
+                <ListItem disablePadding>
+                  <ListItemButton onClick={() => navigate('/administracion')}>
+                    <ListItemIcon><ManageAccountsIcon color="primary" /></ListItemIcon>
+                    <ListItemText primary="Panel de Administración" />
+                  </ListItemButton>
+                </ListItem>
+              )}
+
+              {currentRole === 'ESAVI_INSTITUCIONAL' && (
+                <ListItem disablePadding>
+                  <ListItemButton onClick={() => navigate('/notificacion-inicial')}>
+                    <ListItemIcon><AddCircleIcon color="secondary" /></ListItemIcon>
+                    <ListItemText primary="Notificar ESAVI (Fase 1)" />
+                  </ListItemButton>
+                </ListItem>
+              )}
+
+              {currentRole?.includes('LOCAL') && (
+                <ListItem disablePadding>
+                  <ListItemButton onClick={() => navigate('/')}>
+                    <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
+                    <ListItemText primary="Mi Trabajo de Campo" />
+                  </ListItemButton>
+                </ListItem>
+              )}
+
+              {currentRole === 'COMITE_EXTERNO' && (
+                <ListItem disablePadding>
+                  <ListItemButton onClick={() => navigate('/comite-causalidad')}>
+                    <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
+                    <ListItemText primary="Dictámenes Causalidad" />
+                  </ListItemButton>
+                </ListItem>
+              )}
+            </List>
+          </Box>
+        </Drawer>
+      </Box>
 
       {/* ================= CONTENIDO PRINCIPAL ================= */}
-      <Box component="main" sx={{ flexGrow: 1, p: 4 }}>
+      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar /> 
         <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold' }}>
           PERFIL ACTIVO: {currentRole?.replace(/_/g, ' ')}

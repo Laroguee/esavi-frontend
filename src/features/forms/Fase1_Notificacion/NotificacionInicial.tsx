@@ -420,7 +420,7 @@ export default function NotificacionInicial() {
             A. Datos del Notificador (Establecimiento)
           </Typography>
         </Box>
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 4 }}>
               <Controller name="fechaNotificacion" control={control} render={({ field, fieldState }) => (
@@ -474,7 +474,7 @@ export default function NotificacionInicial() {
             B. Datos del Paciente
           </Typography>
         </Box>
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Controller name="nombrePaciente" control={control} render={({ field, fieldState }) => (
@@ -589,7 +589,7 @@ export default function NotificacionInicial() {
             C. Datos del Medicamento / Vacuna Implicada
           </Typography>
         </Box>
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 6 }}>
               <Controller name="nombreVacuna" control={control} render={({ field, fieldState }) => (
@@ -679,7 +679,7 @@ export default function NotificacionInicial() {
             D. Reacciones / Detalles del Evento (ESAVI)
           </Typography>
         </Box>
-        <Box sx={{ p: 4 }}>
+        <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 4 }}>
               <Controller name="fechaInicioReaccion" control={control} render={({ field, fieldState }) => (
@@ -788,23 +788,27 @@ export default function NotificacionInicial() {
 
       {/* BOTONES */}
       <Divider sx={{ mb: 3 }} />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
         
         <Button 
           variant="outlined" 
           color="primary" 
           startIcon={<DownloadIcon />}
           onClick={handleDescargarPlantilla}
+          fullWidth
+          sx={{ maxWidth: { md: 400 } }}
         >
           Descargar Plantilla Anexo II (Presentación)
         </Button>
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
           <Button 
             variant="outlined" 
             color="inherit" 
             size="large" 
             onClick={() => reset()}
+            fullWidth
+            sx={{ maxWidth: { sm: 200 } }}
           >
             Limpiar Campos
           </Button>
@@ -813,7 +817,8 @@ export default function NotificacionInicial() {
             variant="contained" 
             color="primary" 
             size="large" 
-            sx={{ px: 4, py: 1.5, fontWeight: 'bold' }}
+            fullWidth
+            sx={{ px: { xs: 2, md: 4 }, py: 1.5, fontWeight: 'bold', maxWidth: { sm: 300 } }}
           >
             Registrar Notificación Inicial
           </Button>

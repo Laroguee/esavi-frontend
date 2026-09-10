@@ -249,13 +249,13 @@ export default function MatrizRiesgo() {
       {/* BARRA SUPERIOR FLOTANTE */}
       <Paper elevation={4} sx={{ p: 2, mb: 3, position: 'sticky', top: 64, zIndex: 100, borderBottom: '4px solid', borderColor: 'secondary.main' }}>
         
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', xl: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'center', xl: 'center' }, gap: 2, mb: 2 }}>
+          <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold', textAlign: { xs: 'center', xl: 'left' } }}>
             Matriz de Riesgo ESAVI
           </Typography>
           
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, bgcolor: '#f5f5f5', p: 1, borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 2, bgcolor: '#f5f5f5', p: 1, borderRadius: 1 }}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1 }}>Ptje. Compuesto</Typography>
                 <Typography variant="body1" sx={{ fontWeight: 'bold' }}>{puntajeCompuesto}</Typography>
@@ -278,11 +278,12 @@ export default function MatrizRiesgo() {
                 sx={{ fontWeight: 'bold', fontSize: '1rem', height: '40px', ml: 1 }} 
               />
             </Box>
-            
-            <Button variant="outlined" onClick={() => navigate(-1)} disabled={isSubmitting}>Cancelar y Volver</Button>
-            <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : 'Guardar Evaluación'}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, width: { xs: '100%', md: 'auto' } }}>
+              <Button variant="outlined" onClick={() => navigate(-1)} disabled={isSubmitting} fullWidth>Cancelar</Button>
+              <Button type="submit" variant="contained" color="secondary" startIcon={<CalculateIcon />} size="large" disabled={isSubmitting} fullWidth>
+                {isSubmitting ? 'Guardando...' : 'Guardar Evaluación'}
+              </Button>
+            </Box>
           </Box>
         </Box>
 
@@ -335,7 +336,7 @@ export default function MatrizRiesgo() {
       </Paper>
 
       {/* DIMENSIÓN 1: EVENTO (40%) */}
-      <TableContainer component={Paper} elevation={3} sx={{ mb: 4 }}>
+      <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: '#4db6ac' }}>
@@ -391,7 +392,7 @@ export default function MatrizRiesgo() {
       </TableContainer>
 
       {/* DIMENSIÓN 2: PERSONA (15%) */}
-      <TableContainer component={Paper} elevation={3} sx={{ mb: 4 }}>
+      <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: '#9575cd' }}>
@@ -412,7 +413,7 @@ export default function MatrizRiesgo() {
       </TableContainer>
 
       {/* DIMENSIÓN 3: VACUNA/PROGRAMA */}
-      <TableContainer component={Paper} elevation={3} sx={{ mb: 4 }}>
+      <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: '#dce775' }}>
@@ -439,7 +440,7 @@ export default function MatrizRiesgo() {
       </TableContainer>
 
       {/* DIMENSIÓN 4: CONTEXTO (20%) */}
-      <TableContainer component={Paper} elevation={3} sx={{ mb: 4 }}>
+      <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: '#ffb74d' }}>

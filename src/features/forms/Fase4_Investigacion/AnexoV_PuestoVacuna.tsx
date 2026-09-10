@@ -248,11 +248,11 @@ export default function AnexoV_PuestoVacuna() {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 3 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo V: Guía de Puesto de Vacunación
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
@@ -261,10 +261,10 @@ export default function AnexoV_PuestoVacuna() {
       </Box>
 
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
-        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
+        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
 
       {/* ENCABEZADO */}
-      <Paper elevation={2} sx={{ p: 4, mb: 4, borderTop: '4px solid', borderColor: 'primary.main' }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, mb: 4, borderTop: '4px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 4 }}>
             <Controller name="idUnico" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth label="ID ESAVI" disabled variant="filled" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
@@ -282,7 +282,7 @@ export default function AnexoV_PuestoVacuna() {
       </Paper>
 
       {/* SECCIÓN 1: CHECKLIST */}
-      <TableContainer component={Paper} elevation={2} sx={{ mb: 4 }}>
+      <TableContainer component={Paper} elevation={2} sx={{ mb: 4, overflowX: 'auto' }}>
         <Box sx={{ p: 3, bgcolor: '#fafafa', borderBottom: '1px solid #ddd' }}>
           <Typography variant="h6" color="primary" gutterBottom>Sección 1. Observación durante la visita al puesto de vacunación</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -333,7 +333,7 @@ export default function AnexoV_PuestoVacuna() {
       </TableContainer>
 
       {/* SECCIÓN 2: GUÍA DE ENTREVISTA */}
-      <Paper elevation={2} sx={{ p: 4, mb: 4, borderLeft: '5px solid', borderColor: 'secondary.main' }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, mb: 4, borderLeft: '5px solid', borderColor: 'secondary.main' }}>
         <Typography variant="h6" color="primary" gutterBottom>Sección 2. Guía de entrevista</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
           Durante la investigación, se sugiere entrevistar al personal del puesto de vacunación para obtener información complementaria.
@@ -432,7 +432,7 @@ export default function AnexoV_PuestoVacuna() {
       </Paper>
 
       {/* SECCIÓN 3: EVIDENCIA */}
-      <Paper elevation={2} sx={{ p: 4, mb: 4, textAlign: 'center', bgcolor: '#f4f6f8' }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, mb: 4, textAlign: 'center', bgcolor: '#f4f6f8' }}>
         <CameraAltIcon color="secondary" sx={{ fontSize: 40, mb: 1 }} />
         <Typography variant="h6" gutterBottom>Sección 3. Recomendaciones finales (Documentación Fotográfica)</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -448,8 +448,8 @@ export default function AnexoV_PuestoVacuna() {
       </Box>
 
       {!isViewMode && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-          <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button variant="contained" color="primary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
           </Button>
         </Box>

@@ -387,11 +387,11 @@ export default function AnexoVII_Clinico() {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 2 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo VII: Evaluación Clínica
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" size="small" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
@@ -402,14 +402,14 @@ export default function AnexoVII_Clinico() {
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
         <Paper elevation={3} sx={{ borderRadius: 2 }}>
         {/* CORRECCIÓN: Se reemplazó (e, val) por (_, val) */}
-        <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} indicatorColor="secondary" textColor="primary" variant="fullWidth" sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fafafa' }}>
+        <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} indicatorColor="secondary" textColor="primary" variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: '#fafafa' }}>
           <Tab icon={<AssignmentIcon />} label="A. Info Básica" sx={{ fontWeight: 'bold', minHeight: 60 }} />
           <Tab icon={<PregnantWomanIcon />} label="B. Antes de Inmunización" sx={{ fontWeight: 'bold', minHeight: 60 }} />
           <Tab icon={<LocalHospitalIcon />} label="C. Evaluación Clínica" sx={{ fontWeight: 'bold', minHeight: 60 }} />
         </Tabs>
 
         <Box sx={{ p: 3 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           {/* =========================================================
               PESTAÑA A: INFO BÁSICA
           ========================================================= */}
@@ -919,8 +919,8 @@ export default function AnexoVII_Clinico() {
       </Box> {/* Cierre de componentRef */}
 
       {!isViewMode && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-          <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button variant="contained" color="primary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
           </Button>
         </Box>

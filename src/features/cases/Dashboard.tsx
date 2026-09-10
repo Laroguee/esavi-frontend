@@ -114,7 +114,7 @@ export default function Dashboard() {
   return (
     <Box sx={{ maxWidth: 1200, margin: 'auto' }}>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2, mb: 4 }}>
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
           Bandeja Central de Casos
         </Typography>
@@ -129,7 +129,7 @@ export default function Dashboard() {
 
       {/* TABLA 1: PENDIENTES */}
       <Typography variant="h6" color="warning.dark" sx={{ mb: 2, fontWeight: 'bold' }}>⏳ Notificaciones Pendientes de Oficializar</Typography>
-      <TableContainer component={Paper} elevation={2} sx={{ mb: 5, borderLeft: '5px solid', borderColor: 'warning.main' }}>
+      <TableContainer component={Paper} elevation={2} sx={{ mb: 5, borderLeft: '5px solid', borderColor: 'warning.main', overflowX: 'auto' }}>
         <Table>
           <TableHead sx={{ backgroundColor: '#fff8e1' }}>
             <TableRow>
@@ -229,7 +229,7 @@ export default function Dashboard() {
       </Paper>
 
       {/* TABLA 2: OFICIALES (Aplica el filtro: casosFiltrados) */}
-      <TableContainer component={Paper} elevation={2}>
+      <TableContainer component={Paper} elevation={2} sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
             <TableRow>

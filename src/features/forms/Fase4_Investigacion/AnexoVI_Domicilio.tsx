@@ -353,11 +353,11 @@ export default function AnexoVI_Domicilio() {
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 3 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo VI: Guía Domiciliaria y Comunitaria
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
@@ -368,8 +368,8 @@ export default function AnexoVI_Domicilio() {
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
 
       {/* ENCABEZADO FIJO */}
-      <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
-      <Paper elevation={2} sx={{ p: 4, mb: 3, borderTop: '4px solid', borderColor: 'primary.main' }}>
+      <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, mb: 3, borderTop: '4px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Controller name="idUnico" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth label="ID ESAVI" disabled variant="filled" slotProps={{ inputLabel: { shrink: true } }} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
@@ -389,8 +389,8 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>1. Fase I: Observación de la Comunidad</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 0 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
-          <TableContainer>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: '#eeeeee' }}>
@@ -425,8 +425,8 @@ export default function AnexoVI_Domicilio() {
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#f4f6f8' }}>
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>2. Fase II: Entrevista a Persona Afectada o Familia</Typography>
         </AccordionSummary>
-        <AccordionDetails sx={{ p: 4 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
+        <AccordionDetails sx={{ p: { xs: 2, md: 4 } }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           
           <Typography variant="subtitle2" color="secondary.main" sx={{ fontWeight: 'bold', mb: 2, fontSize: '1rem' }}>A. Sobre el evento y su evolución</Typography>
           <EntrevistaField name="entrevista_a1" label="¿Qué síntomas presentó y cuándo comenzaron?" />
@@ -493,7 +493,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>3. Fase II: Observación Directa en Domicilio</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 0 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -530,7 +530,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>4. Fase III: Cierre Administrativo y Evidencia</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 4 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0 }}>
+          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           
           <Grid container spacing={4} sx={{ mb: 4 }}>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -562,8 +562,8 @@ export default function AnexoVI_Domicilio() {
       </Box>
       
       {!isViewMode && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-          <Button variant="contained" color="primary" type="submit" size="large" startIcon={<SaveIcon />} disabled={isSubmitting}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+          <Button variant="contained" color="primary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}
           </Button>
         </Box>

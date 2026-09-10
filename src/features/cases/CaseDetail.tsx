@@ -284,7 +284,7 @@ export default function CaseDetail() {
 
       {/* ================= TABS PRINCIPALES ================= */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} aria-label="expediente tabs">
+        <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} aria-label="expediente tabs" variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
           <Tab label="Gestión del Expediente" />
           <Tab label="Gestor de Evidencias" />
           <Tab label="Historial de Cambios" iconPosition="start" icon={<HistoryIcon fontSize="small" />} />
@@ -456,12 +456,12 @@ export default function CaseDetail() {
               <Box sx={{ p: 2 }}>
                 <ActionRow 
                   title="Acta Oficial Causalidad (Fase 6)" 
-                  chipStatus={['DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'} 
-                  btnText="Emitir Dictamen" 
+                  chipStatus={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'} 
+                  btnText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "Dictamen Emitido" : "Emitir Dictamen"} 
                   color="primary" 
                   onClick={() => navigate('/dictamen/' + id)} 
-                  disabled={!isComite} 
-                  tooltipText="Solo Comité." 
+                  disabled={!isComite || ['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo)} 
+                  tooltipText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "El dictamen ya fue emitido para este expediente." : "Solo Comité."} 
                 />
                 <ActionRow 
                   title="Sala de Espera (Fase 5)" 

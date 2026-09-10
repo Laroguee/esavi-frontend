@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type Role = 
   | 'ESAVI_LOCAL' | 'INMUNO_LOCAL' | 'EPIDEMIO_LOCAL' 
@@ -73,6 +73,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'esavi-auth-storage',
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );
