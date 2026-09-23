@@ -250,7 +250,7 @@ export default function AnexoV_PuestoVacuna() {
       
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 3 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
-          Anexo V: Guía de Puesto de Vacunación
+          Anexo V: Guía de Puesto de Vacunación <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: Inmunizaciones)</Typography>
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>

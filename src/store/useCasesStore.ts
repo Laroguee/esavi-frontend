@@ -57,8 +57,12 @@ export interface CasoESAVI {
   anexoV_completado?: boolean;
   anexoVI_completado?: boolean;
   anexoVII_completado?: boolean;
+  evaluaciones_fase5?: Record<string, { estado: 'aprobado' | 'observado' | ''; observacion: string; }>;
   dictamenData?: { clasificacionFinal: string; justificacionCausalidad: string; recomendaciones: string; };
   historial_cambios?: { id: string; fecha: string; usuario: string; accion: string; rol?: string }[];
+  notasOficializacion?: string;
+  notasPreFase4?: string;
+  datosFase1?: any; // Para guardar el formulario completo si no hay DB
 }
 
 export interface Notificacion {
@@ -83,6 +87,9 @@ interface CasesState {
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
   asignarMiembrosERR: (idCaso: string, miembros: string[]) => Promise<void>;
+  guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4', texto: string) => Promise<void>;
+  eliminarCasoStore: (idCaso: string) => Promise<void>;
+  guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
 }
 
 // 2. Creación del Store
@@ -153,6 +160,52 @@ export const useCasesStore = create<CasesState>()(
               anexoRechazado: row.anexo_rechazado || undefined,
               observacionRechazo: row.observacion_rechazo || undefined,
               observacionActual: row.observacion_rechazo || undefined,
+              notasOficializacion: usarLocal ? existingCaso?.notasOficializacion : row.notas_oficializacion,
+              notasPreFase4: usarLocal ? existingCaso?.notasPreFase4 : row.notas_pre_fase4,
+              datosFase1: usarLocal && existingCaso?.datosFase1 ? existingCaso.datosFase1 : {
+                fechaNotificacion: row.fecha_notificacion || '',
+                nombreNotificador: '',
+                cargoNotificador: '',
+                establecimientoNotificador: row.establecimiento_notificador || '',
+                telefonoNotificador: '',
+                correoNotificador: row.correo_notificador || '',
+                nombrePaciente: row.nombre_paciente || '',
+                genero: row.sexo || '',
+                fechaNacimiento: '',
+                edad: row.edad ? Number(row.edad) : 0,
+                unidadEdad: 'Años',
+                expedienteClinico: row.identificador_paciente || '',
+                pesoKg: row.peso_kg ? Number(row.peso_kg) : 0,
+                alturaCm: row.altura_cm ? Number(row.altura_cm) : 0,
+                padeceOtrasEnfermedades: false,
+                nombreEnfermedad: '',
+                fechaDiagnostico: '',
+                pacienteDUI: '',
+                pacienteDireccion: '',
+                pacienteResponsable: '',
+                nombreVacuna: row.nombre_vacuna || '',
+                fechaAdministracion: row.fecha_vacunacion || '',
+                horaAdministracion: '',
+                dosisAdministradas: '',
+                lote: '',
+                fabricante: '',
+                fechaCaducidad: '',
+                sitioAnatomico: '',
+                establecimientoVacunacion: '',
+                medidasTomadas: '',
+                viaAdministracion: row.via_administracion || '',
+                dosisYPosologia: row.dosis_posologia || '',
+                fechaInicioReaccion: '',
+                horaInicioReaccion: '',
+                fechaFinReaccion: '',
+                sintomasReaccion: row.sintomas || '',
+                eventoGravedad: '',
+                criterioGravedad: row.criterio_gravedad ? row.criterio_gravedad.split(',').map((s:string) => s.trim()) : [],
+                desenlace: '',
+                tratamientoRecibido: '',
+                antecedentesMedicosRelevantes: '',
+                observacionesAdicionales: row.observaciones_adicionales || ''
+              }
             };
             });
 
@@ -366,6 +419,32 @@ export const useCasesStore = create<CasesState>()(
         }));
       },
         
+      guardarAuditoriaParcialStore: async (idCaso, anexo, estado, observacion) => {
+        try {
+          const state = get();
+          const index = state.casos.findIndex(c => c.id === idCaso);
+          if (index === -1) return;
+
+          const currentEvaluaciones = state.casos[index].evaluaciones_fase5 || {};
+          const newEvaluaciones = {
+            ...currentEvaluaciones,
+            [anexo]: { estado, observacion }
+          };
+
+          if (import.meta.env.VITE_USE_API === 'true') {
+            await actualizarCaso(idCaso, { evaluaciones_fase5: newEvaluaciones });
+            const email = useAuthStore.getState().userEmail || 'desconocido';
+            await registrarLog(idCaso, email, `Actualizó la auditoría de ${anexo} a: ${estado === 'aprobado' ? 'Aprobado' : 'Con observaciones'}`);
+          }
+
+          const nuevosCasos = [...state.casos];
+          nuevosCasos[index] = { ...nuevosCasos[index], evaluaciones_fase5: newEvaluaciones };
+          set({ casos: nuevosCasos });
+        } catch (error) {
+          console.error("Error en guardarAuditoriaParcialStore", error);
+        }
+      },
+
       agendarReunionStore: async (casoId, nuevaReunion) => {
         let reunionFinal = { ...nuevaReunion, id: nuevaReunion.id || `REU-${Date.now()}` };
         if (import.meta.env.VITE_USE_API === 'true') {
@@ -443,6 +522,36 @@ export const useCasesStore = create<CasesState>()(
           casos: state.casos.map(caso =>
             caso.id === idCaso ? { ...caso, miembrosERR: miembros } : caso
           )
+        }));
+      },
+
+      guardarNotasCaso: async (idCaso, tipoNota, texto) => {
+        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+        const colMap = tipoNota === 'notasOficializacion' ? 'notas_oficializacion' : 'notas_pre_fase4';
+        
+        if (import.meta.env.VITE_USE_API === 'true') {
+           await actualizarCaso(idCaso, { [colMap]: texto });
+           await registrarLog(idCaso, userEmail, `Guardado de ${tipoNota}`);
+        }
+
+        set((state) => ({
+          casos: state.casos.map(caso =>
+            caso.id === idCaso ? { ...caso, [tipoNota]: texto } : caso
+          )
+        }));
+      },
+
+      eliminarCasoStore: async (idCaso) => {
+        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+        
+        if (import.meta.env.VITE_USE_API === 'true') {
+           const { eliminarCaso } = await import('../services/firebaseService');
+           await eliminarCaso(idCaso);
+           // Opcional: Registrar un log global de eliminación si hay una colección independiente de logs
+        }
+
+        set((state) => ({
+          casos: state.casos.filter(caso => caso.id !== idCaso)
         }));
       }
     }),

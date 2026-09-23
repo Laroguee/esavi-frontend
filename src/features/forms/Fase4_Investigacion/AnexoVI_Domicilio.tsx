@@ -355,7 +355,7 @@ export default function AnexoVI_Domicilio() {
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 3 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
-          Anexo VI: Guía Domiciliaria y Comunitaria
+          Anexo VI: Guía Domiciliaria y Comunitaria <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: Epidemiólogo)</Typography>
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>

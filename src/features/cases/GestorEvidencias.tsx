@@ -9,7 +9,9 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
-import { subirArchivoEvidencia } from '../../services/firebaseService';
+import { subirArchivoEvidencia, listarArchivosCaso, borrarArchivoEvidencia } from '../../services/firebaseService';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useEffect } from 'react';
 
 // Tipos de las categorías obligatorias del repositorio (Anexo I)
 type CategoriaEvidencia = 'clinica' | 'pni' | 'epidemiologica' | 'general';
@@ -66,6 +68,22 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
   const [tabIndex, setTabIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  const { userEmail, currentRole } = useAuthStore();
+  const [archivosExistentes, setArchivosExistentes] = useState<any[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(true);
+
+  const cargarArchivosExistentes = useCallback(async () => {
+    setLoadingFiles(true);
+    const res = await listarArchivosCaso(caseId);
+    if (res.success && res.data) {
+      setArchivosExistentes(res.data);
+    }
+    setLoadingFiles(false);
+  }, [caseId]);
+
+  useEffect(() => {
+    cargarArchivosExistentes();
+  }, [cargarArchivosExistentes]);
   
   // Estado que agrupa los archivos por categoría
   const [archivos, setArchivos] = useState<Record<CategoriaEvidencia, FileWithPreview[]>>({
@@ -173,7 +191,8 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
             categoria, 
             base64Str, 
             fileObj.file.type, 
-            fileObj.file.name
+            fileObj.file.name,
+            userEmail || 'Desconocido'
           );
           
           if (result.success) {
@@ -190,12 +209,25 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
         }
       }
       alert(`Se subieron ${successCount} de ${totalArchivos} archivos correctamente al Repositorio Digital de Drive.`);
+      cargarArchivosExistentes();
     } catch (error) {
       console.error("Error general subiendo archivos:", error);
       alert("Ocurrió un error inesperado al subir los archivos.");
     } finally {
       setIsUploading(false);
       setUploadProgress('');
+    }
+  };
+
+  const handleBorrarArchivo = async (fileUrl: string, fileName: string) => {
+    if (window.confirm('¿Está seguro de eliminar este archivo permanentemente?')) {
+      const res = await borrarArchivoEvidencia(caseId, fileUrl, userEmail || 'Sistema', fileName);
+      if (res.success) {
+        alert('Archivo eliminado');
+        cargarArchivosExistentes();
+      } else {
+        alert('Error al eliminar archivo');
+      }
     }
   };
 
@@ -329,6 +361,75 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
                           </React.Fragment>
                         );
                       })}
+                    </List>
+                  )}
+                </Paper>
+                
+                {/* LISTA DE ARCHIVOS EXISTENTES */}
+                <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff', mt: 3 }}>
+                  <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderBottom: '1px solid #ddd' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos Existentes en Repositorio</Typography>
+                  </Box>
+                  {loadingFiles ? (
+                    <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>
+                  ) : (
+                    <List sx={{ pt: 0 }}>
+                      {(() => {
+                         const carpetaData = archivosExistentes.find(c => c.carpeta === cat.id);
+                         if (!carpetaData || carpetaData.archivos.length === 0) {
+                           return (
+                             <Box sx={{ p: 4, textAlign: 'center' }}>
+                               <Typography variant="body2" color="text.secondary">No hay archivos guardados en esta categoría.</Typography>
+                             </Box>
+                           );
+                         }
+                         return carpetaData.archivos.map((fileObj: any, idx: number) => {
+                           const isPdf = fileObj.mimeType === 'application/pdf';
+                           const canDelete = currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SUPERADMIN' || fileObj.uploadedBy === userEmail;
+                           return (
+                             <React.Fragment key={`exist-${idx}`}>
+                               <ListItem
+                                 secondaryAction={
+                                   canDelete && (
+                                     <IconButton edge="end" color="error" onClick={() => handleBorrarArchivo(fileObj.url, fileObj.name)}>
+                                       <DeleteIcon />
+                                     </IconButton>
+                                   )
+                                 }
+                               >
+                                 <ListItemIcon>
+                                   {isPdf ? <PictureAsPdfIcon color="primary" fontSize="large" /> : (
+                                     <Box 
+                                       component="img" 
+                                       src={fileObj.url} 
+                                       alt="preview" 
+                                       sx={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 1, border: '1px solid #ccc' }} 
+                                     />
+                                   )}
+                                 </ListItemIcon>
+                                 <ListItemText 
+                                   primary={
+                                     <Typography 
+                                       variant="body2" 
+                                       noWrap 
+                                       sx={{ fontWeight: 'medium', cursor: 'pointer', color: 'primary.main', textDecoration: 'underline' }}
+                                       onClick={() => window.open(fileObj.url, '_blank')}
+                                     >
+                                       {fileObj.name}
+                                     </Typography>
+                                   }
+                                   secondary={
+                                     <Typography variant="caption" color="text.secondary">
+                                       {formatBytes(fileObj.size)} • Subido por: {fileObj.uploadedBy || 'Desconocido'}
+                                     </Typography>
+                                   }
+                                 />
+                               </ListItem>
+                               <Divider component="li" />
+                             </React.Fragment>
+                           );
+                         });
+                      })()}
                     </List>
                   )}
                 </Paper>

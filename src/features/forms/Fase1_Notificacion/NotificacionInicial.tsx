@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useCatalogStore } from '../../../store/useCatalogStore';
-import { guardarEnSheets, crearCarpetaCaso, crearNotificacion } from '../../../services/firebaseService';
+import { guardarEnSheets, crearCarpetaCaso, crearNotificacion, verificarDuplicado } from '../../../services/firebaseService';
 
 // Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -87,7 +87,14 @@ const CRITERIOS_GRAVEDAD = [
   "Otro"
 ];
 
-export default function NotificacionInicial() {
+interface NotificacionInicialProps {
+  isModal?: boolean;
+  casoIdEdit?: string;
+  readOnly?: boolean;
+  onClose?: () => void;
+}
+
+export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onClose }: NotificacionInicialProps) {
   const navigate = useNavigate();
   const crearCaso = useCasesStore(state => state.crearCaso);
   const { userEmail } = useAuthStore();
@@ -103,6 +110,17 @@ export default function NotificacionInicial() {
       fechaInicioReaccion: '', horaInicioReaccion: '', fechaFinReaccion: '', sintomasReaccion: '', eventoGravedad: '', criterioGravedad: [], desenlace: '', tratamientoRecibido: '', antecedentesMedicosRelevantes: '', observacionesAdicionales: ''
     }
   });
+
+  const casos = useCasesStore(state => state.casos);
+
+  useEffect(() => {
+    if (casoIdEdit) {
+      const caso = casos.find(c => c.id === casoIdEdit);
+      if (caso && caso.datosFase1) {
+        reset(caso.datosFase1);
+      }
+    }
+  }, [casoIdEdit, casos, reset]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const padeceOtrasEnfermedades = watch('padeceOtrasEnfermedades');
@@ -276,6 +294,23 @@ export default function NotificacionInicial() {
   };
 
   const onSubmit = async (data: NotificacionFormValues) => {
+    // 1. Validación de duplicados
+    if (!casoIdEdit) {
+      const resDuplicado = await verificarDuplicado(
+        data.pacienteDUI || '',
+        data.nombrePaciente,
+        data.nombreVacuna,
+        data.fechaAdministracion,
+        data.nombreNotificador
+      );
+      
+      if (resDuplicado && resDuplicado.isDuplicado) {
+        if (!window.confirm(`ATENCIÓN: Se ha detectado un posible caso duplicado en el sistema (Caso ${resDuplicado.id_caso}). ¿Desea registrar esta notificación de todos modos?`)) {
+          return;
+        }
+      }
+    }
+
     console.log("Notificación Inicial Registrada:", data);
     
     const casosActuales = useCasesStore.getState().casos;
@@ -293,7 +328,7 @@ export default function NotificacionInicial() {
         id_caso: idCasoNuevo,
         id_creador: userEmail || 'desconocido',
         estado_flujo: 'NUEVO', // REGLA DE NEGOCIO ESTRICTA
-        fecha_notificacion: new Date().toISOString().split('T')[0],
+        fecha_notificacion: data.fechaNotificacion || new Date().toISOString().split('T')[0],
         identificador_paciente: data.expedienteClinico || '',
         tiene_evidencias: true,
         establecimiento_notificador: data.establecimientoNotificador || '',
@@ -315,6 +350,22 @@ export default function NotificacionInicial() {
         observaciones_adicionales: data.observacionesAdicionales || ''
       }
     };
+
+    if (casoIdEdit) {
+      // MODO EDICIÓN
+      if (import.meta.env.VITE_USE_API === 'true') {
+        payload.datos.id_caso = casoIdEdit;
+        await guardarEnSheets('EXPEDIENTES', payload.datos);
+        const { registrarLog } = await import('../../../services/firebaseService');
+        await registrarLog(casoIdEdit, userEmail || 'Sistema', 'Se editó la notificación inicial (Fase 1)');
+        
+        // Recargar datos en memoria para que se reflejen los cambios sin refrescar
+        useCasesStore.getState().cargarDatosBackend();
+      }
+      alert('Notificación actualizada exitosamente.');
+      if (onClose) onClose();
+      return;
+    }
 
       let urlCarpetaDrive = '';
       
@@ -350,7 +401,8 @@ export default function NotificacionInicial() {
       riesgo: 'Sin clasificar',
       fecha: new Date().toISOString(),
       reuniones: [],
-      miembrosERR: []
+      miembrosERR: [],
+      datosFase1: data
     };
 
     await crearCaso(nuevoCaso, data);
@@ -382,37 +434,40 @@ export default function NotificacionInicial() {
   });
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1050, margin: 'auto', pb: 8, pt: 4 }}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={isModal ? {} : { maxWidth: 1050, margin: 'auto', pb: 8, pt: 4 }}>
       
       {/* CABECERA */}
-      <Box sx={{ mb: 5, textAlign: 'center' }}>
-        <Typography variant="h4" color="primary" sx={{ fontWeight: '800', mb: 1 }}>
-          Formulario de Notificación Inicial ESAVI
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Registro primario de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización.
-        </Typography>
+      {!isModal && (
+        <Box sx={{ mb: 5, textAlign: 'center' }}>
+          <Typography variant="h4" color="primary" sx={{ fontWeight: '800', mb: 1 }}>
+            Formulario de Notificación Inicial ESAVI
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Registro primario de Eventos Supuestamente Atribuibles a la Vacunación o Inmunización.
+          </Typography>
 
-        <Box sx={{ mt: 3 }}>
-          <input
-            type="file"
-            accept="application/pdf"
-            style={{ display: 'none' }}
-            ref={fileInputRef}
-            onChange={procesarPDF}
-          />
-          <Button
-            variant="contained"
-            color="secondary"
-            startIcon={<UploadFileIcon />}
-            onClick={() => fileInputRef.current?.click()}
-            sx={{ fontWeight: 'bold' }}
-          >
-            Importar PDF de Noti-FACEDRA (Autocompletado)
-          </Button>
+          <Box sx={{ mt: 3 }}>
+            <input
+              type="file"
+              accept="application/pdf"
+              style={{ display: 'none' }}
+              ref={fileInputRef}
+              onChange={procesarPDF}
+            />
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<UploadFileIcon />}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{ fontWeight: 'bold' }}
+            >
+              Importar PDF de Noti-FACEDRA (Autocompletado)
+            </Button>
+          </Box>
         </Box>
-      </Box>
+      )}
 
+      <fieldset disabled={readOnly} style={{ border: 'none', padding: 0, margin: 0 }}>
       {/* SECCIÓN A: Datos del Notificador */}
       <Paper elevation={2} sx={{ mb: 4, borderRadius: 2, overflow: 'hidden' }}>
         <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 1.5, px: 3 }}>
@@ -422,14 +477,14 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="fechaNotificacion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de notificación" required 
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 8 }}>
+            <Grid item xs={12} md={8}>
               <Controller name="establecimientoNotificador" control={control} render={({ field, fieldState }) => (
                 <Autocomplete
                   {...field}
@@ -442,23 +497,23 @@ export default function NotificacionInicial() {
                 />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
+            <Grid item xs={12} md={5}>
               <Controller name="nombreNotificador" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombre del notificador" required 
                   error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="cargoNotificador" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Cargo" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="correoNotificador" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Correo electrónico" type="email" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="telefonoNotificador" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Teléfono de contacto" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
@@ -476,17 +531,17 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 8 }}>
+            <Grid item xs={12} md={8}>
               <Controller name="nombrePaciente" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombre Completo del Paciente" required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="expedienteClinico" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nº de Expediente Clínico" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="genero" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Género" required error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="Femenino">Femenino</MenuItem>
@@ -495,14 +550,14 @@ export default function NotificacionInicial() {
                 </TextField>
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="fechaNacimiento" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de Nacimiento"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
+            <Grid item xs={12} md={2}>
               <Controller name="edad" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field}
@@ -512,7 +567,7 @@ export default function NotificacionInicial() {
                 />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
+            <Grid item xs={12} md={2}>
               <Controller name="unidadEdad" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Unidad" error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="Años">Años</MenuItem>
@@ -521,7 +576,7 @@ export default function NotificacionInicial() {
                 </TextField>
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid item xs={12} md={3}>
               <Controller name="pesoKg" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field}
@@ -531,7 +586,7 @@ export default function NotificacionInicial() {
                 />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid item xs={12} md={3}>
               <Controller name="alturaCm" control={control} render={({ field, fieldState }) => (
                 <TextField 
                   {...field}
@@ -541,12 +596,12 @@ export default function NotificacionInicial() {
                 />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid item xs={12} md={6}>
               <Controller name="pacienteDUI" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Identidad (DUI/Pas)" placeholder="Ej: 12345678-9" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12 }}>
+            <Grid item xs={12}>
               <Controller name="padeceOtrasEnfermedades" control={control} render={({ field }) => (
                 <FormControlLabel
                   control={<Checkbox checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />}
@@ -556,24 +611,24 @@ export default function NotificacionInicial() {
             </Grid>
             {padeceOtrasEnfermedades && (
               <>
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid item xs={12} md={6}>
                   <Controller name="nombreEnfermedad" control={control} render={({ field, fieldState }) => (
                     <TextField {...field} fullWidth label="Nombre de la enfermedad" error={!!fieldState.error} helperText={fieldState.error?.message} />
                   )}/>
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid item xs={12} md={6}>
                   <Controller name="fechaDiagnostico" control={control} render={({ field, fieldState }) => (
                     <TextField {...field} fullWidth type="date" label="Fecha de diagnóstico" slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} error={!!fieldState.error} helperText={fieldState.error?.message} />
                   )}/>
                 </Grid>
               </>
             )}
-            <Grid size={{ xs: 12, md: 12 }}>
+            <Grid item xs={12} md={12}>
               <Controller name="pacienteDireccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Dirección de residencia completa" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 12 }}>
+            <Grid item xs={12} md={12}>
               <Controller name="pacienteResponsable" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombre del responsable (si es menor o dependiente)" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
@@ -591,26 +646,26 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid item xs={12} md={6}>
               <Controller name="nombreVacuna" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombre de la Vacuna o Medicamento" required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid item xs={12} md={3}>
               <Controller name="fechaAdministracion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de administración" required 
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
+            <Grid item xs={12} md={3}>
               <Controller name="horaAdministracion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="time" label="Hora de administración"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="dosisAdministradas" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Dosis administradas (Ej. 1a, 2a)" error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="1ra">1ra Dosis</MenuItem>
@@ -621,44 +676,44 @@ export default function NotificacionInicial() {
                 </TextField>
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="lote" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Número de Lote" required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="fabricante" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Nombre del Fabricante" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="fechaCaducidad" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de caducidad"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 8 }}>
+            <Grid item xs={12} md={8}>
               <Controller name="sitioAnatomico" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Sitio anatómico de aplicación (Ej. Brazo izquierdo)" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="viaAdministracion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Vía de administración (Ej. Intramuscular)" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="dosisYPosologia" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Dosis y Posología (Ej. 0.5ML)" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 8 }}>
+            <Grid item xs={12} md={8}>
               <Controller name="establecimientoVacunacion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth label="Establecimiento de vacunación" error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid item xs={12} md={6}>
               <Controller name="medidasTomadas" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Medidas tomadas con el fármaco" error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="Retirada del fármaco">Retirada del fármaco</MenuItem>
@@ -681,28 +736,28 @@ export default function NotificacionInicial() {
         </Box>
         <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="fechaInicioReaccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha inicio de reacción" required 
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="horaInicioReaccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="time" label="Hora inicio de reacción"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="fechaFinReaccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha fin de reacción"
                   error={!!fieldState.error} helperText={fieldState.error?.message}
                   slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
               )}/>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
+            <Grid item xs={12} md={4}>
               <Controller name="eventoGravedad" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Gravedad del Evento" required error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="No Grave">No Grave</MenuItem>
@@ -712,7 +767,7 @@ export default function NotificacionInicial() {
             </Grid>
 
             {eventoGravedad === 'Grave' && (
-              <Grid size={{ xs: 12 }}>
+              <Grid item xs={12}>
                 <Controller name="criterioGravedad" control={control} render={({ field }) => (
                   <FormControl component="fieldset" sx={{ mt: 1, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: '#fff3e0' }}>
                     <FormLabel component="legend" sx={{ fontWeight: 'bold', color: 'text.primary' }}>Criterios de Gravedad (Seleccione los que apliquen)</FormLabel>
@@ -742,25 +797,25 @@ export default function NotificacionInicial() {
               </Grid>
             )}
 
-            <Grid size={{ xs: 12 }}>
+            <Grid item xs={12}>
               <Controller name="sintomasReaccion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth multiline rows={4} label="Síntomas / Diagnóstico de la Reacción" placeholder="Describa a detalle los signos, síntomas, texto diagnóstico..." required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 
-            <Grid size={{ xs: 12 }}>
+            <Grid item xs={12}>
               <Controller name="observacionesAdicionales" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth multiline rows={2} label="Observaciones Adicionales" placeholder="Notas extra provenientes de la notificación..." error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 
-            <Grid size={{ xs: 12 }}>
+            <Grid item xs={12}>
               <Controller name="antecedentesMedicosRelevantes" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth multiline rows={3} label="Antecedentes médicos relevantes y alergias" placeholder="Detalle alergias a medicamentos u otras condiciones clínicas..." error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid item xs={12} md={6}>
               <Controller name="desenlace" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Desenlace actual" error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="Recuperado">Recuperado</MenuItem>
@@ -772,7 +827,7 @@ export default function NotificacionInicial() {
               )}/>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid item xs={12} md={6}>
               <Controller name="tratamientoRecibido" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} select fullWidth label="Tratamiento recibido por la reacción" error={!!fieldState.error} helperText={fieldState.error?.message}>
                   <MenuItem value="Farmacológico">Farmacológico</MenuItem>
@@ -790,41 +845,45 @@ export default function NotificacionInicial() {
       <Divider sx={{ mb: 3 }} />
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
         
-        <Button 
-          variant="outlined" 
-          color="primary" 
-          startIcon={<DownloadIcon />}
-          onClick={handleDescargarPlantilla}
-          fullWidth
-          sx={{ maxWidth: { md: 400 } }}
-        >
-          Descargar Plantilla Anexo II (Presentación)
-        </Button>
+        {!isModal && (
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            startIcon={<DownloadIcon />}
+            onClick={handleDescargarPlantilla}
+            fullWidth
+            sx={{ maxWidth: { md: 400 } }}
+          >
+            Descargar Plantilla Anexo II (Presentación)
+          </Button>
+        )}
 
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, ml: isModal ? 'auto' : 0 }}>
           <Button 
             variant="outlined" 
             color="inherit" 
             size="large" 
-            onClick={() => reset()}
+            onClick={() => isModal && onClose ? onClose() : reset()}
             fullWidth
             sx={{ maxWidth: { sm: 200 } }}
           >
-            Limpiar Campos
+            {readOnly ? 'Cerrar' : (isModal ? 'Cancelar' : 'Limpiar Campos')}
           </Button>
-          <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary" 
-            size="large" 
-            fullWidth
-            sx={{ px: { xs: 2, md: 4 }, py: 1.5, fontWeight: 'bold', maxWidth: { sm: 300 } }}
-          >
-            Registrar Notificación Inicial
-          </Button>
+          {!readOnly && (
+            <Button 
+              type="submit" 
+              variant="contained" 
+              color="primary" 
+              size="large" 
+              fullWidth
+              sx={{ px: { xs: 2, md: 4 }, py: 1.5, fontWeight: 'bold', maxWidth: { sm: 300 } }}
+            >
+              {casoIdEdit ? 'Actualizar Notificación' : 'Registrar Notificación Inicial'}
+            </Button>
+          )}
         </Box>
       </Box>
-
+      </fieldset>
     </Box>
   );
 }

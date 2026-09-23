@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, addDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, listAll } from 'firebase/storage';
 import { db } from '../config/firebase';
 
@@ -76,14 +76,14 @@ export async function obtenerExpediente(id_caso: string) {
     let matriz = null;
     if (matrizSnap.exists()) {
       const mData = matrizSnap.data();
-      matriz = mData.datos_formulario_json || mData;
+      matriz = typeof mData.datos_formulario_json === 'string' ? JSON.parse(mData.datos_formulario_json) : (mData.datos_formulario_json || mData);
     } else {
       // Fallback para registros antiguos guardados con ID autogenerado
       const qMatriz = query(collection(db, 'MATRIZ_RIESGO'), where('id_caso', '==', id_caso));
       const qMatrizSnap = await getDocs(qMatriz);
       if (!qMatrizSnap.empty) {
         const mData = qMatrizSnap.docs[0].data();
-        matriz = mData.datos_formulario_json || mData;
+        matriz = typeof mData.datos_formulario_json === 'string' ? JSON.parse(mData.datos_formulario_json) : (mData.datos_formulario_json || mData);
       }
     }
 
@@ -92,14 +92,14 @@ export async function obtenerExpediente(id_caso: string) {
     let asignaciones = null;
     if (asigSnap.exists()) {
       const aData = asigSnap.data();
-      asignaciones = aData.datos_formulario_json ? aData.datos_formulario_json : aData;
+      asignaciones = typeof aData.datos_formulario_json === 'string' ? JSON.parse(aData.datos_formulario_json) : (aData.datos_formulario_json || aData);
     } else {
       // Fallback para registros antiguos guardados con ID autogenerado
       const qAsig = query(collection(db, 'ASIGNACIONES_ERR'), where('id_caso', '==', id_caso));
       const qAsigSnap = await getDocs(qAsig);
       if (!qAsigSnap.empty) {
         const aData = qAsigSnap.docs[0].data();
-        asignaciones = aData.datos_formulario_json ? aData.datos_formulario_json : aData;
+        asignaciones = typeof aData.datos_formulario_json === 'string' ? JSON.parse(aData.datos_formulario_json) : (aData.datos_formulario_json || aData);
       }
     }
 
@@ -141,7 +141,7 @@ export async function obtenerExpediente(id_caso: string) {
   }
 }
 
-export async function subirArchivoEvidencia(id_caso: string, categoria: string, base64: string, mimeType: string, filename: string) {
+export async function subirArchivoEvidencia(id_caso: string, categoria: string, base64: string, mimeType: string, filename: string, usuario: string = 'Desconocido') {
   try {
     const url = `https://api.cloudinary.com/v1_1/dowejnpvd/auto/upload`;
     
@@ -183,7 +183,8 @@ export async function subirArchivoEvidencia(id_caso: string, categoria: string, 
       mimeType: mimeType,
       size: fileSize || 0,
       categoria: categoria,
-      fecha_subida: new Date().toISOString()
+      fecha_subida: new Date().toISOString(),
+      uploadedBy: usuario
     };
     
     anexos.push(nuevoArchivo);
@@ -192,6 +193,27 @@ export async function subirArchivoEvidencia(id_caso: string, categoria: string, 
     return { success: true, data: { url: fileUrl, file_id: data.public_id } };
   } catch (error: any) {
     console.error("Error subiendo a Cloudinary:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function borrarArchivoEvidencia(id_caso: string, fileUrl: string, usuario: string, fileName: string) {
+  try {
+    const casoRef = doc(db, 'casos', id_caso);
+    const casoSnap = await getDoc(casoRef);
+    if (!casoSnap.exists()) return { success: false, error: 'Caso no encontrado' };
+
+    let anexos: any[] = casoSnap.data().archivosAdjuntos || [];
+    const anexoToDelete = anexos.find(a => a.url === fileUrl);
+    
+    anexos = anexos.filter(a => a.url !== fileUrl);
+    await updateDoc(casoRef, { archivosAdjuntos: anexos });
+    
+    await registrarLog(id_caso, usuario, `Eliminó el archivo "${fileName || (anexoToDelete ? anexoToDelete.name : '')}" del Gestor de Evidencias.`);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error borrando archivo:", error);
     return { success: false, error: error.message };
   }
 }
@@ -214,7 +236,8 @@ export async function listarArchivosCaso(id_caso: string) {
         name: file.name,
         url: file.url,
         mimeType: file.mimeType,
-        size: file.size
+        size: file.size,
+        uploadedBy: file.uploadedBy || 'Desconocido'
       });
     }
     
@@ -224,6 +247,16 @@ export async function listarArchivosCaso(id_caso: string) {
     }));
     
     return { success: true, data: estructura };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function eliminarCaso(idCaso: string) {
+  try {
+    await deleteDoc(doc(db, 'casos', idCaso));
+    await deleteDoc(doc(db, 'EXPEDIENTES', idCaso));
+    return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -353,4 +386,38 @@ export async function listarHistoriales() {
 export async function apiRequest(payload: any) {
   console.warn("apiRequest llamado en Firebase Service. Revisa quién lo usa:", payload);
   return { success: false, error: "Migrado a Firebase" };
+}
+
+export async function verificarDuplicado(pacienteDUI: string, nombrePaciente: string, nombreVacuna: string, fechaAplicacion: string, nombreNotificador: string) {
+  try {
+    const casosRef = collection(db, 'casos');
+    
+    // As in Firebase we cannot do complex OR/AND queries easily on multiple full-text fields without compound indexes,
+    // we fetch all active cases (not closed) and filter in memory, since this is a relatively small dataset per year.
+    const querySnapshot = await getDocs(casosRef);
+    const duplicados = querySnapshot.docs.filter(doc => {
+      const data = doc.data();
+      // Only check active cases
+      if (data.estado_flujo === 'CERRADO' || data.estado_flujo === 'CERRADO_DICTAMINADO') return false;
+      
+      const matchDUI = pacienteDUI && data.identificador_paciente === pacienteDUI;
+      const matchPaciente = nombrePaciente && data.nombre_paciente?.toLowerCase() === nombrePaciente.toLowerCase();
+      const matchVacuna = nombreVacuna && data.nombre_vacuna?.toLowerCase() === nombreVacuna.toLowerCase();
+      const matchFecha = fechaAplicacion && data.fecha_vacunacion === fechaAplicacion;
+      const matchNotificador = nombreNotificador && data.nombre_notificador?.toLowerCase() === nombreNotificador.toLowerCase();
+
+      // Criterio de duplicidad: Si coinciden al menos Paciente (o DUI) + Vacuna + Fecha Aplicacion
+      const isDuplicado = (matchDUI || matchPaciente) && matchVacuna && matchFecha;
+      return isDuplicado;
+    });
+
+    if (duplicados.length > 0) {
+      return { success: true, isDuplicado: true, id_caso: duplicados[0].id };
+    }
+
+    return { success: true, isDuplicado: false };
+  } catch (error: any) {
+    console.error("Error verificando duplicado:", error);
+    return { success: false, error: error.message };
+  }
 }

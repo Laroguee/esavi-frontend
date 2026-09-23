@@ -52,8 +52,15 @@ export default function FormularioApertura() {
   useEffect(() => {
     const casosActuales = useCasesStore.getState().casos;
     const anioActual = new Date().getFullYear();
-    const casosDelAnio = casosActuales.filter(c => c.id.includes(`ESAVI-${anioActual}-`));
-    const correlativo = casosDelAnio.length + 1; 
+    
+    let correlativo = 1;
+    while (true) {
+      const sufijo = correlativo.toString().padStart(3, '0');
+      const existe = casosActuales.some(c => c.id.includes(`-${anioActual}-${sufijo}`));
+      if (!existe) break;
+      correlativo++;
+    }
+    
     const nuevoID = `ESAVI-${institucionSeleccionada}-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
     setValue('idUnico', nuevoID); 
   }, [institucionSeleccionada, setValue]);

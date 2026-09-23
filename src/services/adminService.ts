@@ -29,14 +29,17 @@ export async function crearUsuario(user: Partial<MockUser>) {
     const secondaryApp = createSecondaryApp();
     const secondaryAuth = getAuth(secondaryApp);
 
+    const emailClean = user.email.trim().toLowerCase();
+    const passwordClean = user.password.trim();
+
     // Crear en Firebase Auth
-    await createUserWithEmailAndPassword(secondaryAuth, user.email, user.password);
+    await createUserWithEmailAndPassword(secondaryAuth, emailClean, passwordClean);
 
     // Guardar perfil extendido en Firestore, PERO NO guardar la contraseña
-    const userToSave = { ...user };
+    const userToSave = { ...user, email: emailClean };
     delete userToSave.password; // Por seguridad
 
-    await setDoc(doc(db, 'usuarios', user.email), userToSave);
+    await setDoc(doc(db, 'usuarios', emailClean), userToSave);
     
     // Cerramos la sesión secundaria preventivamente para que no estorbe
     await secondaryAuth.signOut();

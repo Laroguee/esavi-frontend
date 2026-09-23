@@ -31,7 +31,7 @@ export default function AsignacionERR() {
   const [chkReporte, setChkReporte] = useState(false);
   const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico';
 
-  const { control, handleSubmit, watch, setValue } = useForm({
+  const { control, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       inst_farmacovigilancia: '',
       farmacovigilancia: '',
@@ -42,6 +42,25 @@ export default function AsignacionERR() {
       instrucciones: ''
     }
   });
+
+  // Pre-llenar si ya hay asignados (Reasignación)
+  useEffect(() => {
+    if (casoActual?.miembrosERR && casoActual.miembrosERR.length > 0 && usuariosBD.length > 0) {
+      const farma = usuariosBD.find(u => String(u.role).includes('ESAVI') && casoActual.miembrosERR.includes(u.email));
+      const inmuno = usuariosBD.find(u => String(u.role).includes('INMUNO') && casoActual.miembrosERR.includes(u.email));
+      const epidemio = usuariosBD.find(u => String(u.role).includes('EPIDEMIO') && casoActual.miembrosERR.includes(u.email));
+
+      reset({
+        inst_farmacovigilancia: farma?.establecimiento || '',
+        farmacovigilancia: farma?.email || '',
+        inst_inmunizaciones: inmuno?.establecimiento || '',
+        inmunizaciones: inmuno?.email || '',
+        inst_epidemiologia: epidemio?.establecimiento || '',
+        epidemiologia: epidemio?.email || '',
+        instrucciones: ''
+      });
+    }
+  }, [casoActual, usuariosBD, reset]);
 
   const valores = watch();
 
@@ -78,31 +97,28 @@ export default function AsignacionERR() {
       const miembrosSeleccionados = [data.farmacovigilancia, data.inmunizaciones, data.epidemiologia].filter(Boolean);
       asignarMiembrosERR(id, miembrosSeleccionados);
 
-      // Agendar la reunión de lineamientos automáticamente (POE)
-      await agendarReunionStore(id, {
-        faseRelacionada: 'Fase 3: Asignación ERR',
-        fecha: new Date().toISOString().split('T')[0],
-        hora: '14:00', // Valor por defecto
-        tema: 'Reunión de Lineamientos previos al Trabajo de Campo',
-        modalidad: 'Presencial',
-        estado: 'REALIZADA',
-        enlaceOLugar: 'Sede Institucional',
-        convocados: miembrosSeleccionados
-      });
+
 
       // Notificar a los miembros asignados
       if (import.meta.env.VITE_USE_API === 'true') {
         miembrosSeleccionados.forEach(async (miembroEmail) => {
-          await crearNotificacion({
-            id_caso: id,
-            email_destino: miembroEmail,
-            texto: `Ha sido asignado al Equipo de Respuesta Rápida (ERR) para la investigación del Caso ${id}.`
-          });
+          if (!casoActual?.miembrosERR?.includes(miembroEmail)) {
+            await crearNotificacion({
+              id_caso: id,
+              email_destino: miembroEmail,
+              texto: `Ha sido asignado al Equipo de Respuesta Rápida (ERR) para la investigación del Caso ${id}.`
+            });
+          }
         });
       }
 
-      const msg = 'Equipo de Respuesta Rápida asignado. Comienza la investigación de campo.';
-      avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', msg);
+      if (casoActual?.estadoFlujo === 'ASIGNADO_A_ERR' || casoActual?.estadoFlujo === 'EN_EVALUACION') {
+        const msg = 'Equipo de Respuesta Rápida asignado. Comienza la investigación de campo.';
+        avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', msg);
+      } else {
+        await registrarLog(id, userEmail || 'Sistema', 'Se ha actualizado la asignación del Equipo de Respuesta Rápida (ERR).');
+      }
+      alert("Asignación de equipo completada exitosamente.");
       navigate('/caso/' + id);
     }
   };
@@ -153,7 +169,7 @@ export default function AsignacionERR() {
         
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-            Fase 3: Asignación de ERR
+            Fase 3: Asignación de ERR <Typography component="span" variant="h6" color="text.secondary">(Llenado por: Jefaturas)</Typography>
           </Typography>
           <Button variant="outlined" onClick={() => navigate('/caso/' + id)}>
             Cancelar

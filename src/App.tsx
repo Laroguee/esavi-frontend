@@ -11,6 +11,7 @@ import DictamenCausalidad from './features/comittee/DictamenCausalidad';
 import NotificacionInicial from './features/forms/Fase1_Notificacion/NotificacionInicial';
 import AsignacionERR from './features/forms/Fase3_Asignacion/AsignacionERR';
 import AnexoIII_Logistica from './features/forms/Fase4_Investigacion/AnexoIII_Logistica';
+import InformeTecnico from './features/cases/InformeTecnico';
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import TrabajoCampo from './features/cases/TrabajoCampo';
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="bandeja-comite" element={<BandejaComite />} />
             <Route path="administracion" element={<ModuloAdministracion />} />
             <Route path="caso/:id/expediente" element={<ExpedienteDigital />} />
+            <Route path="informe-tecnico/:id" element={<InformeTecnico />} />
           </Route>
         </Route>
       </Routes>

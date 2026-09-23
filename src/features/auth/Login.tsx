@@ -29,8 +29,9 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setErrorMsg(null); 
     setLoading(true);
-
-    const result = await login(data.email, data.password);
+    const emailClean = data.email.trim().toLowerCase();
+    const passwordClean = data.password.trim();
+    const result = await login(emailClean, passwordClean);
     
     if (result.success && result.user) {
       setSession(result.user as any);

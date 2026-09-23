@@ -1,25 +1,26 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert } from '@mui/material';
+import { Box, Paper, Typography, TextField, MenuItem, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Alert, Backdrop, CircularProgress } from '@mui/material';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useReactToPrint } from 'react-to-print';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/firebaseService';
+import { guardarEnSheets, registrarLog, crearNotificacion, obtenerExpediente } from '../../../services/firebaseService';
 
 export default function MatrizRiesgo() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const userEmail = useAuthStore(state => state.userEmail);
+  const { userEmail, currentRole } = useAuthStore();
   const avanzarCaso = useCasesStore(state => state.avanzarCaso);
   const agendarReunionStore = useCasesStore(state => state.agendarReunionStore);
   const componentRef = useRef<HTMLDivElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Inicializamos todos los puntajes en 0 y las justificaciones vacías
-  const { control, watch, handleSubmit, formState: { errors } } = useForm({
+  const { control, watch, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
       fechaReunionEvaluacion: new Date().toISOString().split('T')[0],
       desenlaceFatal: 0, just_desenlaceFatal: '',
@@ -44,7 +45,33 @@ export default function MatrizRiesgo() {
     }
   });
 
+  useEffect(() => {
+    if (id) {
+      setIsLoading(true);
+      obtenerExpediente(id).then(exp => {
+        if (exp.success && exp.data && exp.data.matriz) {
+          // Filtrar campos técnicos (id_caso) y setear el resto
+          const { id_caso, ...datosFormulario } = exp.data.matriz;
+          
+          // Asegurar que los campos numéricos sean Numbers para que MUI Select haga match
+          const datosCasteados = { ...datosFormulario };
+          Object.keys(datosCasteados).forEach(k => {
+            if (k !== 'fechaReunionEvaluacion' && !k.startsWith('just_')) {
+              datosCasteados[k] = Number(datosCasteados[k]) || 0;
+            }
+          });
+          
+          reset(datosCasteados);
+        }
+        setIsLoading(false);
+      }).catch(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
+    }
+  }, [id, reset]);
+
   const valores = watch();
+
 
   // Cálculos de Subtotales en vivo
   const subtotalEvento = 
@@ -158,17 +185,7 @@ export default function MatrizRiesgo() {
           const msg = `Reunión de evaluación realizada el ${data.fechaReunionEvaluacion}. Nivel de riesgo: ${riesgoActual.etiqueta}.`;
           await registrarLog(id, userEmail || 'desconocido', msg);
 
-          // 1. Agendar la reunión formalmente (POE)
-          await agendarReunionStore(id, {
-            faseRelacionada: 'Fase 2: Evaluación',
-            fecha: data.fechaReunionEvaluacion,
-            hora: '08:00', // Valor por defecto
-            tema: 'Evaluación de Triaje y Matriz de Riesgo ESAVI',
-            modalidad: 'Virtual',
-            estado: 'REALIZADA',
-            enlaceOLugar: 'Generado Automáticamente',
-            convocados: ['Equipo Coordinador']
-          });
+
 
           // 2. Notificar al Secretariado (POE)
           await crearNotificacion({
@@ -243,6 +260,26 @@ export default function MatrizRiesgo() {
     { val: 3, label: 'Sí' }
   ];
 
+  if (isLoading) {
+    return (
+      <Backdrop open={true} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1, flexDirection: 'column' }}>
+        <CircularProgress color="inherit" />
+        <Typography variant="h6" sx={{ mt: 2 }}>Recuperando datos de la matriz...</Typography>
+      </Backdrop>
+    );
+  }
+
+  if (currentRole !== 'ESAVI_INSTITUCIONAL' && currentRole !== 'SUPERADMIN') {
+    return (
+      <Box sx={{ p: 4, maxWidth: 600, margin: 'auto', mt: 4 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <strong>Acceso Restringido:</strong> Solo el rol de ESAVI Institucional (Equipo Coordinador) puede evaluar y registrar la Matriz de Riesgo.
+        </Alert>
+        <Button variant="contained" onClick={() => navigate(-1)}>Volver al Expediente</Button>
+      </Box>
+    );
+  }
+
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ pb: 10 }} ref={componentRef}>
       
@@ -251,7 +288,7 @@ export default function MatrizRiesgo() {
         
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', xl: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'center', xl: 'center' }, gap: 2, mb: 2 }}>
           <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold', textAlign: { xs: 'center', xl: 'left' } }}>
-            Matriz de Riesgo ESAVI
+            Matriz de Riesgo ESAVI <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: ESAVI Institucional)</Typography>
           </Typography>
           
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', gap: 2 }}>

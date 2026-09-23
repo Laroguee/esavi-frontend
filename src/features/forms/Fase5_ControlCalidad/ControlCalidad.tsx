@@ -20,15 +20,17 @@ type EvaluacionAnexo = {
 export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps) {
   const navigate = useNavigate();
   const { currentRole } = useAuthStore();
-  const { casos, devolverCaso, avanzarCaso } = useCasesStore();
+  const { casos, devolverCaso, avanzarCaso, guardarAuditoriaParcialStore } = useCasesStore();
   
   const caso = casos.find(c => c.id === casoId);
 
-  const [evaluaciones, setEvaluaciones] = useState<Record<string, EvaluacionAnexo>>({
-    'Anexo III (Logística)': { estado: '', observacion: '' },
-    'Anexo V (Puesto de Vacunación)': { estado: '', observacion: '' },
-    'Anexo VI (Domiciliaria)': { estado: '', observacion: '' },
-    'Anexo VII (Clínico)': { estado: '', observacion: '' },
+  const [evaluaciones, setEvaluaciones] = useState<Record<string, EvaluacionAnexo>>(() => {
+    return caso?.evaluaciones_fase5 || {
+      'Anexo III (Logística)': { estado: '', observacion: '' },
+      'Anexo V (Puesto de Vacunación)': { estado: '', observacion: '' },
+      'Anexo VI (Domiciliaria)': { estado: '', observacion: '' },
+      'Anexo VII (Clínico)': { estado: '', observacion: '' },
+    };
   });
 
   // --- CANDADOS NORMATIVOS POE FASE 5 ---
@@ -50,47 +52,49 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
     }));
   };
 
-  const handleDevolver = () => {
-    const anexoObservado = Object.entries(evaluaciones).find(([_, evalData]) => evalData.estado === 'observado');
-    
-    if (!anexoObservado) {
-      alert("Debe seleccionar al menos un anexo con observaciones para devolver el expediente.");
-      return;
-    }
-
-    const [nombreAnexo, evalData] = anexoObservado;
-    
-    if (!evalData.observacion.trim()) {
-      alert(`Debe ingresar la justificación de la observación para el ${nombreAnexo}.`);
-      return;
-    }
-
-    const nuevoEstado = currentRole === 'ESAVI_INSTITUCIONAL' ? 'DEVUELTO_A_ERR' : 'DEVUELTO_A_INSTITUCIONAL';
-    const msg = `Expediente devuelto por ${currentRole} para corrección en ${nombreAnexo}.`;
-
-    guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
-    devolverCaso(casoId, nuevoEstado, evalData.observacion, nombreAnexo, msg);
-    alert(`Expediente devuelto exitosamente a estado ${nuevoEstado}.`);
-    if (onClose) onClose(); else navigate(`/caso/${casoId}`);
+  const isAnexoEditable = (anexoNombre: string) => {
+    if (currentRole === 'SECRETARIADO') return true;
+    if (currentRole === 'EPIDEMIO_INSTITUCIONAL' && (anexoNombre === 'Anexo III (Logística)' || anexoNombre === 'Anexo VI (Domiciliaria)')) return true;
+    if (currentRole === 'INMUNO_INSTITUCIONAL' && anexoNombre === 'Anexo V (Puesto de Vacunación)') return true;
+    if (currentRole === 'ESAVI_INSTITUCIONAL' && anexoNombre === 'Anexo VII (Clínico)') return true;
+    return false;
   };
 
-  const handleAprobar = () => {
-    // Validar que todos los anexos estén evaluados
-    const anexosFaltantes = Object.keys(evaluaciones).filter(k => evaluaciones[k].estado === '');
-    if (anexosFaltantes.length > 0) {
-      alert("Debe evaluar todos los anexos antes de aprobar el expediente.");
+  const handleGuardarParcial = async (anexo: string) => {
+    const evalData = evaluaciones[anexo];
+    if (!evalData.estado) {
+      alert('Seleccione un estado (Aprobado u Observado) antes de guardar.');
+      return;
+    }
+    if (evalData.estado === 'observado' && !evalData.observacion.trim()) {
+      alert('Debe ingresar la justificación de la observación.');
       return;
     }
 
-    const hayObservaciones = Object.values(evaluaciones).some(e => e.estado === 'observado');
-    if (hayObservaciones) {
-      alert("No puede aprobar un expediente si existen anexos con observaciones.");
+    await guardarAuditoriaParcialStore(casoId, anexo, evalData.estado, evalData.observacion);
+    
+    if (evalData.estado === 'observado') {
+      const nuevoEstado = currentRole === 'SECRETARIADO' ? 'DEVUELTO_A_INSTITUCIONAL' : 'DEVUELTO_A_ERR';
+      const msg = `Expediente devuelto por ${currentRole} para corrección en ${anexo}.`;
+      guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
+      await devolverCaso(casoId, nuevoEstado, evalData.observacion, anexo, msg);
+      alert(`Anexo observado. Expediente devuelto exitosamente a estado ${nuevoEstado}.`);
+      if (onClose) onClose(); else navigate(`/caso/${casoId}`);
+    } else {
+      alert(`Evaluación de ${anexo} guardada exitosamente.`);
+    }
+  };
+
+  const handleAprobarFinal = () => {
+    const todosAprobados = Object.values(evaluaciones).every(e => e.estado === 'aprobado');
+    if (!todosAprobados && currentRole !== 'SECRETARIADO') {
+      alert("No puede enviar el expediente al Secretariado hasta que TODOS los anexos estén aprobados por sus respectivos especialistas.");
       return;
     }
 
-    const isPaseDeMando = currentRole === 'ESAVI_INSTITUCIONAL' && caso?.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL';
+    const isSecretariado = currentRole === 'SECRETARIADO';
 
-    if (!isPaseDeMando) {
+    if (!isSecretariado) {
       if (!chkMinuta || !chkLineaTiempo || !chkInformeFinal) {
         alert("Debe confirmar todos los Requisitos de Cierre Institucional marcando las casillas.");
         return;
@@ -138,57 +142,91 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
             </Alert>
           </Grid>
         ) : (
-          Object.entries(evaluaciones).map(([anexoNombre, evalData]) => (
-            <Grid size={{ xs: 12 }} key={anexoNombre}>
-              <Card elevation={2} sx={{ borderLeft: evalData.estado === 'observado' ? '4px solid #d32f2f' : evalData.estado === 'aprobado' ? '4px solid #2e7d32' : '4px solid #1976d2' }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>{anexoNombre}</Typography>
-                  
-                  <RadioGroup 
-                    row 
-                    value={evalData.estado} 
-                    onChange={(e) => handleRadioChange(anexoNombre, e.target.value)}
-                  >
-                    <FormControlLabel value="aprobado" control={<Radio color="success" />} label="Aprobado" />
-                    <FormControlLabel value="observado" control={<Radio color="error" />} label="Con Observaciones" />
-                  </RadioGroup>
-
-                  {evalData.estado === 'observado' && (
-                    <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                      <WarningAmberIcon color="error" sx={{ mt: 1 }} />
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        label={`Observaciones para ${anexoNombre}`}
-                        variant="outlined"
-                        color="error"
-                        value={evalData.observacion}
-                        onChange={(e) => handleObsChange(anexoNombre, e.target.value)}
-                        required
-                      />
+          Object.entries(evaluaciones).map(([anexoNombre, evalData]) => {
+            const editable = isAnexoEditable(anexoNombre);
+            return (
+              <Grid size={{ xs: 12 }} key={anexoNombre}>
+                <Card elevation={2} sx={{ borderLeft: evalData.estado === 'observado' ? '4px solid #d32f2f' : evalData.estado === 'aprobado' ? '4px solid #2e7d32' : '4px solid #1976d2', opacity: editable ? 1 : 0.7 }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{anexoNombre}</Typography>
+                      {!editable && <Typography variant="caption" color="text.secondary">(Solo lectura)</Typography>}
                     </Box>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          ))
+                    
+                    <RadioGroup 
+                      row 
+                      value={evalData.estado} 
+                      onChange={(e) => editable && handleRadioChange(anexoNombre, e.target.value)}
+                    >
+                      <FormControlLabel value="aprobado" control={<Radio color="success" disabled={!editable} />} label="Aprobado" />
+                      <FormControlLabel value="observado" control={<Radio color="error" disabled={!editable} />} label="Con Observaciones" />
+                    </RadioGroup>
+
+                    {evalData.estado === 'observado' && (
+                      <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                        <WarningAmberIcon color="error" sx={{ mt: 1 }} />
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          label={`Observaciones para ${anexoNombre}`}
+                          variant="outlined"
+                          color="error"
+                          value={evalData.observacion}
+                          onChange={(e) => editable && handleObsChange(anexoNombre, e.target.value)}
+                          disabled={!editable}
+                          required
+                        />
+                      </Box>
+                    )}
+
+                    {editable && (
+                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                         <Button variant="outlined" size="small" color="primary" onClick={() => handleGuardarParcial(anexoNombre)}>
+                           Guardar Evaluación de {anexoNombre}
+                         </Button>
+                       </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })
         )}
       </Grid>
 
-      {!isPaseDeMando && (
-        <Box sx={{ mb: 3, p: 2, bgcolor: '#f4f6f8', borderRadius: 1, border: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
-            Requisitos de Cierre Institucional (Paso 16 del POE)
-          </Typography>
-          <FormControlLabel control={<Checkbox checked={chkMinuta} onChange={(e) => setChkMinuta(e.target.checked)} />} label={<Typography variant="body2">Minuta de reunión de cierre elaborada</Typography>} />
-          <FormControlLabel control={<Checkbox checked={chkLineaTiempo} onChange={(e) => setChkLineaTiempo(e.target.checked)} />} label={<Typography variant="body2">Línea de tiempo del caso documentada</Typography>} />
-          <FormControlLabel control={<Checkbox checked={chkInformeFinal} onChange={(e) => setChkInformeFinal(e.target.checked)} />} label={<Typography variant="body2">Informe final consolidado en el Gestor de Evidencias</Typography>} />
+      {(!isPaseDeMando && (currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SECRETARIADO')) && (
+        <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e0e0e0' }}>
+          {currentRole === 'ESAVI_INSTITUCIONAL' && (
+            <Box sx={{ mb: 3, p: 2, bgcolor: '#f4f6f8', borderRadius: 1, border: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
+                Requisitos de Cierre Institucional (Paso 16 del POE)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+                Solo habilitado cuando los 4 anexos estén aprobados.
+              </Typography>
+              <FormControlLabel control={<Checkbox checked={chkMinuta} onChange={(e) => setChkMinuta(e.target.checked)} />} label={<Typography variant="body2">Minuta de reunión de cierre elaborada</Typography>} />
+              <FormControlLabel control={<Checkbox checked={chkLineaTiempo} onChange={(e) => setChkLineaTiempo(e.target.checked)} />} label={<Typography variant="body2">Línea de tiempo del caso documentada</Typography>} />
+              <FormControlLabel control={<Checkbox checked={chkInformeFinal} onChange={(e) => setChkInformeFinal(e.target.checked)} />} label={<Typography variant="body2">Informe final consolidado en el Gestor de Evidencias</Typography>} />
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button 
+              variant="contained" 
+              color="success" 
+              onClick={handleAprobarFinal}
+              disabled={currentRole === 'ESAVI_INSTITUCIONAL' ? (!chkMinuta || !chkLineaTiempo || !chkInformeFinal || !Object.values(evaluaciones).every(e => e.estado === 'aprobado')) : false}
+              sx={{ fontWeight: 'bold', px: 4 }}
+            >
+              {currentRole === 'ESAVI_INSTITUCIONAL' ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comité'}
+            </Button>
+          </Box>
         </Box>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4, pt: 3, borderTop: '1px solid #e0e0e0' }}>
-        {isPaseDeMando ? (
+      {isPaseDeMando && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4, pt: 3, borderTop: '1px solid #e0e0e0' }}>
           <Button 
             variant="contained" 
             color="error" 
@@ -197,28 +235,8 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
           >
             Remitir Observaciones al Equipo de Campo (ERR)
           </Button>
-        ) : (
-          <>
-            <Button 
-              variant="outlined" 
-              color="error" 
-              onClick={handleDevolver}
-              sx={{ fontWeight: 'bold', px: 4 }}
-            >
-              Devolver Expediente
-            </Button>
-            <Button 
-              variant="contained" 
-              color="success" 
-              onClick={handleAprobar}
-              disabled={!chkMinuta || !chkLineaTiempo || !chkInformeFinal}
-              sx={{ fontWeight: 'bold', px: 4 }}
-            >
-              Aprobar y Enviar al Secretariado
-            </Button>
-          </>
-        )}
-      </Box>
+        </Box>
+      )}
     </Box>
   );
 }

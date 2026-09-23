@@ -141,7 +141,7 @@ export default function AnexoIII_Logistica() {
       
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, mb: 3, gap: 2 }}>
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-          Anexo III: Checklist Logístico
+          Anexo III: Checklist Logístico <Typography component="span" variant="h6" color="text.secondary">(Llenado por: Epidemiólogo / ESAVI Institucional)</Typography>
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>

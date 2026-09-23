@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, TextField, MenuItem, InputAdornment } from '@mui/material';
+import { Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Grid, TextField, MenuItem, InputAdornment, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, IconButton } from '@mui/material';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SearchIcon from '@mui/icons-material/Search';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import DeleteIcon from '@mui/icons-material/Delete';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -13,6 +14,24 @@ import { useCasesStore } from '../../store/useCasesStore';
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentRole } = useAuthStore();
+  const { eliminarCasoStore } = useCasesStore();
+
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
+
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setCaseToDelete(id);
+    setOpenDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (caseToDelete) {
+      await eliminarCasoStore(caseToDelete);
+    }
+    setOpenDeleteDialog(false);
+    setCaseToDelete(null);
+  };
 
   // --- TRAEMOS LOS CASOS DEL STORE ---
   const casosGlobales = useCasesStore((state) => state.casos);
@@ -146,7 +165,16 @@ export default function Dashboard() {
                   <TableCell>{caso.id}</TableCell>
                   <TableCell>{caso.paciente}</TableCell>
                   <TableCell>{caso.establecimiento}</TableCell>
-                  <TableCell><Chip label="Oficializar" color="warning" size="small" variant="outlined" /></TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Chip label="Oficializar" color="warning" size="small" variant="outlined" />
+                      {currentRole === 'ESAVI_INSTITUCIONAL' && (
+                        <IconButton size="small" color="error" onClick={(e) => handleDeleteClick(e, caso.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
@@ -283,6 +311,22 @@ export default function Dashboard() {
         </Table>
       </TableContainer>
 
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+        <DialogTitle sx={{ color: 'error.main' }}>Eliminar Notificación</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Estás seguro que deseas eliminar la notificación pendiente <strong>{caseToDelete}</strong>?
+            Esta acción es irreversible.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDeleteDialog(false)} color="inherit">Cancelar</Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">
+            Sí, Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

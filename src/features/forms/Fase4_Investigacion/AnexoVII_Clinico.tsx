@@ -389,7 +389,7 @@ export default function AnexoVII_Clinico() {
       
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 2 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
-          Anexo VII: Evaluación Clínica
+          Anexo VII: Evaluación Clínica <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: Farmacovigilancia / Clínico)</Typography>
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" size="small" onClick={() => handlePrint()}>
