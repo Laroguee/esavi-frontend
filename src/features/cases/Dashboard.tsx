@@ -59,8 +59,17 @@ export default function Dashboard() {
     }
   }, [currentRole, navigate]);
 
-  const getSLAStatus = (fechaIso: string) => {
-    const horas = dayjs().diff(dayjs(fechaIso), 'hour');
+  const getSLAStatus = (caso: any) => {
+    if (['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(caso.estadoFlujo)) {
+      const cierreLog = caso.historial_cambios?.find((h: any) => ['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(h.accion));
+      if (cierreLog) {
+        const horas = dayjs(cierreLog.fecha).diff(dayjs(caso.fecha), 'hour');
+        return { label: `Cerrado en ${horas}h`, color: 'success', rowColor: 'inherit' };
+      }
+      return { label: `Cerrado`, color: 'success', rowColor: 'inherit' };
+    }
+    
+    const horas = dayjs().diff(dayjs(caso.fecha), 'hour');
     if (horas > 24) return { label: `Vencido (${horas}h)`, color: 'error', rowColor: '#ffebee' };
     if (horas > 20) return { label: `Por vencer (${horas}h)`, color: 'warning', rowColor: '#fff8e1' };
     return { label: `A tiempo (${horas}h)`, color: 'success', rowColor: 'inherit' };
@@ -272,7 +281,7 @@ export default function Dashboard() {
           <TableBody>
             {casosFiltrados.length > 0 ? (
               casosFiltrados.map((caso) => {
-                const sla = getSLAStatus(caso.fecha);
+                const sla = getSLAStatus(caso);
                 const isError = caso.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || caso.estadoFlujo === 'DEVUELTO_A_ERR';
                 return (
                   <TableRow key={caso.id} hover onClick={() => navigate(`/caso/${caso.id}`)} sx={{ backgroundColor: isError ? '#ffebee' : sla.rowColor, cursor: 'pointer' }}>

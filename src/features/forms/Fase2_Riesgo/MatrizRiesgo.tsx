@@ -264,7 +264,7 @@ export default function MatrizRiesgo() {
     return (
       <Backdrop open={true} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1, flexDirection: 'column' }}>
         <CircularProgress color="inherit" />
-        <Typography variant="h6" sx={{ mt: 2 }}>Recuperando datos de la matriz...</Typography>
+        <Typography variant="h6" sx={{ mt: 2 }}>Cargando Matriz de Riesgo...</Typography>
       </Backdrop>
     );
   }

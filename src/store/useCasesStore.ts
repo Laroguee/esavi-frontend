@@ -62,6 +62,8 @@ export interface CasoESAVI {
   historial_cambios?: { id: string; fecha: string; usuario: string; accion: string; rol?: string }[];
   notasOficializacion?: string;
   notasPreFase4?: string;
+  notasFase4?: string;
+  notasCierre?: string;
   datosFase1?: any; // Para guardar el formulario completo si no hay DB
 }
 
@@ -87,7 +89,7 @@ interface CasesState {
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
   asignarMiembrosERR: (idCaso: string, miembros: string[]) => Promise<void>;
-  guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4', texto: string) => Promise<void>;
+  guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasCierre', texto: string) => Promise<void>;
   eliminarCasoStore: (idCaso: string) => Promise<void>;
   guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
 }
@@ -146,7 +148,7 @@ export const useCasesStore = create<CasesState>()(
               fase: mapEstadoToFase(estadoFinal),
               estadoFlujo: estadoFinal,
               riesgo: usarLocal ? (existingCaso?.riesgo || 'Sin clasificar') : (row.riesgo || 'Sin clasificar'),
-              fecha: row.fecha_notificacion || new Date().toISOString(),
+              fecha: row.fecha_creacion_sistema || row.fecha_notificacion || new Date().toISOString(),
               edad: row.edad ? Number(row.edad) : undefined,
               sexo: row.sexo || undefined,
               miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
@@ -160,18 +162,20 @@ export const useCasesStore = create<CasesState>()(
               anexoRechazado: row.anexo_rechazado || undefined,
               observacionRechazo: row.observacion_rechazo || undefined,
               observacionActual: row.observacion_rechazo || undefined,
+              evaluaciones_fase5: usarLocal ? existingCaso?.evaluaciones_fase5 : row.evaluaciones_fase5,
               notasOficializacion: usarLocal ? existingCaso?.notasOficializacion : row.notas_oficializacion,
               notasPreFase4: usarLocal ? existingCaso?.notasPreFase4 : row.notas_pre_fase4,
-              datosFase1: usarLocal && existingCaso?.datosFase1 ? existingCaso.datosFase1 : {
+              notasCierre: usarLocal ? existingCaso?.notasCierre : row.notas_cierre,
+              datosFase1: usarLocal && existingCaso?.datosFase1 ? existingCaso.datosFase1 : (row.datos_fase1_json ? JSON.parse(row.datos_fase1_json) : {
                 fechaNotificacion: row.fecha_notificacion || '',
-                nombreNotificador: '',
-                cargoNotificador: '',
+                nombreNotificador: row.nombre_notificador || '',
+                cargoNotificador: row.cargo_notificador || '',
                 establecimientoNotificador: row.establecimiento_notificador || '',
-                telefonoNotificador: '',
+                telefonoNotificador: row.telefono_notificador || '',
                 correoNotificador: row.correo_notificador || '',
                 nombrePaciente: row.nombre_paciente || '',
                 genero: row.sexo || '',
-                fechaNacimiento: '',
+                fechaNacimiento: row.fecha_nacimiento || '',
                 edad: row.edad ? Number(row.edad) : 0,
                 unidadEdad: 'Años',
                 expedienteClinico: row.identificador_paciente || '',
@@ -180,14 +184,14 @@ export const useCasesStore = create<CasesState>()(
                 padeceOtrasEnfermedades: false,
                 nombreEnfermedad: '',
                 fechaDiagnostico: '',
-                pacienteDUI: '',
+                pacienteDUI: row.paciente_dui || '',
                 pacienteDireccion: '',
                 pacienteResponsable: '',
                 nombreVacuna: row.nombre_vacuna || '',
                 fechaAdministracion: row.fecha_vacunacion || '',
-                horaAdministracion: '',
+                horaAdministracion: row.hora_vacunacion || '',
                 dosisAdministradas: '',
-                lote: '',
+                lote: row.lote_vacuna || '',
                 fabricante: '',
                 fechaCaducidad: '',
                 sitioAnatomico: '',
@@ -195,17 +199,17 @@ export const useCasesStore = create<CasesState>()(
                 medidasTomadas: '',
                 viaAdministracion: row.via_administracion || '',
                 dosisYPosologia: row.dosis_posologia || '',
-                fechaInicioReaccion: '',
+                fechaInicioReaccion: row.fecha_inicio_sintomas || '',
                 horaInicioReaccion: '',
-                fechaFinReaccion: '',
+                fechaFinReaccion: row.fecha_defuncion || '',
                 sintomasReaccion: row.sintomas || '',
                 eventoGravedad: '',
                 criterioGravedad: row.criterio_gravedad ? row.criterio_gravedad.split(',').map((s:string) => s.trim()) : [],
-                desenlace: '',
+                desenlace: row.desenlace || '',
                 tratamientoRecibido: '',
                 antecedentesMedicosRelevantes: '',
                 observacionesAdicionales: row.observaciones_adicionales || ''
-              }
+              })
             };
             });
 
@@ -527,7 +531,7 @@ export const useCasesStore = create<CasesState>()(
 
       guardarNotasCaso: async (idCaso, tipoNota, texto) => {
         const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
-        const colMap = tipoNota === 'notasOficializacion' ? 'notas_oficializacion' : 'notas_pre_fase4';
+        const colMap = tipoNota === 'notasOficializacion' ? 'notas_oficializacion' : (tipoNota === 'notasPreFase4' ? 'notas_pre_fase4' : 'notas_cierre');
         
         if (import.meta.env.VITE_USE_API === 'true') {
            await actualizarCaso(idCaso, { [colMap]: texto });

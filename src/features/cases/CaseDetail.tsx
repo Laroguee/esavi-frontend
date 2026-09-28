@@ -28,9 +28,9 @@ const fases = [
 // El historial se lee ahora directamente desde el Store
 
 export default function CaseDetail() {
-  const { id } = useParams(); 
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { currentRole, userEmail } = useAuthStore(); 
+  const { currentRole, userEmail } = useAuthStore();
 
   // --- CONEXIÓN AL STORE CENTRAL ---
   const { casos, devolverCaso, agendarReunionStore, avanzarCaso, guardarNotasCaso } = useCasesStore();
@@ -53,6 +53,8 @@ export default function CaseDetail() {
   // --- ESTADOS PARA NOTAS NUEVAS ---
   const [nuevaNotaOficializacion, setNuevaNotaOficializacion] = useState('');
   const [nuevaNotaPreFase4, setNuevaNotaPreFase4] = useState('');
+  const [nuevaNotaFase4, setNuevaNotaFase4] = useState('');
+  const [nuevaNotaCierre, setNuevaNotaCierre] = useState('');
 
   const [openAgendaModal, setOpenAgendaModal] = useState(false);
   const [openEnvioComiteModal, setOpenEnvioComiteModal] = useState(false);
@@ -112,10 +114,7 @@ export default function CaseDetail() {
     setOpenAgendaModal(false);
     setNuevaReunion({ tema: '', faseRelacionada: 'Fase 2', fecha: '', hora: '', modalidad: 'Virtual', enlaceOLugar: '' });
 
-    // Navegar directamente a la matriz de riesgo pasando la fecha y opcionalmente el archivo
-    if (casoActual?.estadoFlujo === 'NUEVO' || casoActual?.estadoFlujo === 'EN_EVALUACION') {
-      navigate(`/matriz-riesgo/${casoActual!.id}`, { state: { fechaReunion: nuevaReunion.fecha } });
-    }
+    // Eliminada la navegación automática a matriz-riesgo según requerimiento.
   };
 
   // =====================================================================
@@ -147,7 +146,7 @@ export default function CaseDetail() {
   // --- LÓGICA DE COMPLETITUD ---
   const f2Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION'].includes(casoActual.estadoFlujo);
   const f3Completado = !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
-  
+
   // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
   const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
 
@@ -160,7 +159,10 @@ export default function CaseDetail() {
   const isEsaviInstitucional = currentRole === 'ESAVI_INSTITUCIONAL';
   const isSecretariado = currentRole === 'SECRETARIADO';
   const isComite = currentRole === 'COMITE_EXTERNO';
-  const tieneReunionCierre = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 6');
+  const tieneReunionFase2 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 2');
+  const tieneReunionFase3 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 3' || r.tema?.toLowerCase().includes('pre-fase 4'));
+  const tieneReunionFase4 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 4' || r.tema?.toLowerCase().includes('campo'));
+  const tieneReunionCierre = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 6' || r.faseRelacionada === 'Fase 5');
 
   // --- COMPONENTE INTERNO: FILA DE ACCIÓN INTELIGENTE ---
   function ActionRow({ title, chipStatus, btnText, onClick, disabled, tooltipText, color = "secondary", variant = "contained", btnText2, onClick2, color2 = "primary", variant2 = "outlined" }: any) {
@@ -215,8 +217,8 @@ export default function CaseDetail() {
 
       {/* ================= BANNERS INTELIGENTES DE ESTADO DE FLUJO ================= */}
       {casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' && isJefe && (
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           variant="filled"
           sx={{ mb: 3, alignItems: 'center' }}
           action={
@@ -225,15 +227,15 @@ export default function CaseDetail() {
             </Button>
           }
         >
-          <strong>ATENCIÓN:</strong> El Secretariado de la SRS ha devuelto este expediente. 
-          <br/><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
+          <strong>ATENCIÓN:</strong> El Secretariado de la SRS ha devuelto este expediente.
+          <br /><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
         </Alert>
       )}
 
       {casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && isLocalOperativo && (
         <Alert severity="error" variant="filled" sx={{ mb: 3 }}>
-          <strong>ACCIÓN REQUERIDA:</strong> El ESAVI Institucional ha devuelto este expediente para corrección. 
-          <br/><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
+          <strong>ACCIÓN REQUERIDA:</strong> El ESAVI Institucional ha devuelto este expediente para corrección.
+          <br /><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
         </Alert>
       )}
 
@@ -245,7 +247,7 @@ export default function CaseDetail() {
             <Typography variant="subtitle1" color="text.secondary">Paciente: {casoActual.paciente} | Vacuna: {casoActual.vacuna}</Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>Establecimiento: {casoActual.establecimiento}</Typography>
           </Grid>
-          
+
           <Grid size={{ xs: 12, md: 5 }} sx={{ textAlign: 'right' }}>
             <Typography variant="overline" color="secondary" sx={{ fontWeight: 'bold', display: 'block' }}>ESTADO ACTUAL</Typography>
             <Typography variant="h6" sx={{ display: 'block', mb: 1 }} color={(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') ? "error.main" : "text.primary"}>
@@ -262,7 +264,7 @@ export default function CaseDetail() {
                 return casoActual.fase || 'Fase Activa';
               })()}
             </Typography>
-            
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', mt: 2 }}>
               <Button variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => setOpenNotif(true)} sx={{ width: '220px' }}>
                 Ver Notificación Inicial
@@ -317,18 +319,18 @@ export default function CaseDetail() {
             <CardContent sx={{ p: 0 }}>
               <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
                 <SearchIcon color="primary" />
-                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Información General del Caso (Fase 1)</Typography>
+                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Información General del Caso (Fase 1) - llenado por esavi institucional</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                 <ActionRow 
-                   title="Datos Originales de Notificación" 
-                   chipStatus="Completado" 
-                   btnText={isEsaviInstitucional ? "Editar Información" : undefined} 
-                   onClick={() => { setIsFase1ReadOnly(false); setOpenEdicionFase1(true); }} 
-                   btnText2="Ver Información"
-                   onClick2={() => { setIsFase1ReadOnly(true); setOpenEdicionFase1(true); }}
-                   color2="primary"
-                 />
+                <ActionRow
+                  title="Datos Originales de Notificación"
+                  chipStatus="Completado"
+                  btnText={isEsaviInstitucional ? "Editar Información" : undefined}
+                  onClick={() => { setIsFase1ReadOnly(false); setOpenEdicionFase1(true); }}
+                  btnText2="Ver Información"
+                  onClick2={() => { setIsFase1ReadOnly(true); setOpenEdicionFase1(true); }}
+                  color2="primary"
+                />
               </Box>
             </CardContent>
           </Card>
@@ -338,79 +340,83 @@ export default function CaseDetail() {
             <CardContent sx={{ p: 0 }}>
               <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
                 <AssignmentIcon color="primary" />
-                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3)</Typography>
+                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3): esavi institucional, epidemio institucional e inmuno institucional (equipo coordinador)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow 
-                  title="Oficialización del Expediente" 
-                  chipStatus={casoActual.estadoFlujo === 'NUEVO' ? 'Pendiente' : 'Completado'} 
-                  btnText="Oficializar y Agendar Reunión" 
+                <ActionRow
+                  title="Oficialización del Expediente"
+                  chipStatus={(casoActual.estadoFlujo !== 'NUEVO' && tieneReunionFase2) ? 'Completado' : 'Pendiente'}
+                  btnText={casoActual.estadoFlujo !== 'NUEVO' && !tieneReunionFase2 ? "Agendar Reunión (Faltante)" : "Oficializar y Agendar Reunión"}
                   onClick={() => {
                     // Update the state to EN_EVALUACION first!
-                    useCasesStore.getState().avanzarCaso(casoActual.id, 'EN_EVALUACION', 'Fase 2: Evaluación', 'El caso ha entrado en fase de evaluación y triaje.', 'Sin clasificar');
+                    if (casoActual.estadoFlujo === 'NUEVO') {
+                      useCasesStore.getState().avanzarCaso(casoActual.id, 'EN_EVALUACION', 'Fase 2: Evaluación', 'El caso ha entrado en fase de evaluación y triaje.', 'Sin clasificar');
+                    }
                     setOpenAgendaModal(true);
-                  }} 
-                  disabled={!isJefe || casoActual.estadoFlujo !== 'NUEVO'} 
-                  tooltipText={!isJefe ? "Requiere rol de Jefatura." : (casoActual.estadoFlujo !== 'NUEVO' ? "El caso ya está oficializado." : "Oficializar expediente y agendar reunión.")} 
+                  }}
+                  disabled={!isJefe || (casoActual.estadoFlujo !== 'NUEVO' && tieneReunionFase2)}
+                  tooltipText={!isJefe ? "Requiere rol de Jefatura." : ((casoActual.estadoFlujo !== 'NUEVO' && tieneReunionFase2) ? "El caso ya está oficializado y agendado." : "Oficializar expediente y agendar reunión.")}
                   color="success"
                 />
 
                 {casoActual.estadoFlujo !== 'NUEVO' && (
                   <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #e0e0e0' }}>
-                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Equipo Coordinador)</Typography>
-                     
-                     {casoActual.notasOficializacion && (
-                       <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
-                         <Typography variant="body2">{casoActual.notasOficializacion}</Typography>
-                       </Paper>
-                     )}
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Equipo Coordinador)</Typography>
 
-                     <TextField 
-                       fullWidth 
-                       multiline 
-                       rows={3} 
-                       placeholder="Escriba una nueva observación o acuerdo..." 
-                       value={nuevaNotaOficializacion}
-                       onChange={(e) => setNuevaNotaOficializacion(e.target.value)}
-                       disabled={!isEsaviInstitucional}
-                     />
-                     {isEsaviInstitucional && (
-                       <Button 
-                         variant="contained" 
-                         size="small" 
-                         sx={{ mt: 1 }} 
-                         disabled={!nuevaNotaOficializacion.trim()}
-                         onClick={async () => {
-                           const concatenado = `${casoActual.notasOficializacion ? casoActual.notasOficializacion + '\n\n' : ''}[${dayjs().format('DD/MM/YYYY HH:mm')} - ${userEmail}]:\n${nuevaNotaOficializacion}`;
-                           await guardarNotasCaso(casoActual.id, 'notasOficializacion', concatenado);
-                           setNuevaNotaOficializacion('');
-                           alert('Nota agregada exitosamente.');
-                         }}
-                       >
-                         Agregar Nota
-                       </Button>
-                     )}
+                    {casoActual.notasOficializacion && (
+                      <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
+                        <Typography variant="body2">{casoActual.notasOficializacion}</Typography>
+                      </Paper>
+                    )}
+
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      placeholder="Escriba una nueva observación o acuerdo..."
+                      value={nuevaNotaOficializacion}
+                      onChange={(e) => setNuevaNotaOficializacion(e.target.value)}
+                      disabled={!isEsaviInstitucional || !tieneReunionFase2 || !f2Completado}
+                    />
+                    {!tieneReunionFase2 && <Typography variant="caption" color="error">Debe programar la reunión de Fase 2 en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>}
+                    {tieneReunionFase2 && !f2Completado && <Typography variant="caption" color="error">Debe llenar la Matriz de Riesgo antes de redactar los acuerdos.</Typography>}
+                    {isEsaviInstitucional && tieneReunionFase2 && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{ mt: 1 }}
+                        disabled={!nuevaNotaOficializacion.trim()}
+                        onClick={async () => {
+                          const concatenado = `${casoActual.notasOficializacion ? casoActual.notasOficializacion + '\n\n' : ''}[${dayjs().format('DD/MM/YYYY HH:mm')} - ${userEmail}]:\n${nuevaNotaOficializacion}`;
+                          await guardarNotasCaso(casoActual.id, 'notasOficializacion', concatenado);
+                          setNuevaNotaOficializacion('');
+                          alert('Nota agregada exitosamente.');
+                        }}
+                      >
+                        Agregar Nota
+                      </Button>
+                    )}
                   </Box>
                 )}
 
-                <ActionRow 
-                  title="Matriz de Riesgo (Fase 2)" 
-                  chipStatus={f2Completado ? 'Completado' : 'Pendiente'} 
-                  btnText={f2Completado ? "Editar Matriz" : "Evaluar Riesgo"} 
-                  onClick={() => navigate(`/matriz-riesgo/${id}`)} 
-                  disabled={!isJefe || (!f2Completado && !casoActual.notasOficializacion)} 
-                  tooltipText={!casoActual.notasOficializacion && !f2Completado ? "Debe guardar los acuerdos de la reunión (Notas) primero." : (f2Completado ? "Actualizar la matriz de riesgo." : "Evaluar riesgo.")} 
+                <ActionRow
+                  title="Matriz de Riesgo (Fase 2)"
+                  chipStatus={f2Completado ? 'Completado' : 'Pendiente'}
+                  btnText={f2Completado ? "Editar Matriz" : "Evaluar Riesgo"}
+                  onClick={() => navigate(`/matriz-riesgo/${id}`)}
+                  disabled={!isJefe || casoActual.estadoFlujo === 'NUEVO'}
+                  tooltipText={casoActual.estadoFlujo === 'NUEVO' ? "Debe oficializar el expediente primero." : (f2Completado ? "Actualizar la matriz de riesgo." : "Evaluar riesgo.")}
                   btnText2={f2Completado ? "Ver Resumen" : undefined}
                   onClick2={() => setOpenApertura(true)}
                   color2="primary"
                 />
-                <ActionRow 
-                  title="Asignación Equipo ERR (Fase 3)" 
-                  chipStatus={f3Completado ? 'Completado' : 'Pendiente'} 
-                  btnText={f3Completado ? "Ver / Reasignar Equipo" : "Asignar Equipo"} 
-                  onClick={() => navigate('/asignar-equipo/' + id)} 
-                  disabled={!isJefe || (!['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))} 
-                  tooltipText={isJefe ? "Puede reasignar el equipo en cualquier momento durante la investigación." : "Acceso exclusivo para Jefaturas."} 
+                <ActionRow
+                  title="Asignación Equipo ERR (Fase 3)"
+                  chipStatus={f3Completado ? 'Completado' : 'Pendiente'}
+                  btnText={f3Completado ? "Ver / Reasignar Equipo" : "Asignar Equipo"}
+                  onClick={() => navigate('/asignar-equipo/' + id)}
+                  disabled={!isJefe || (!['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
+                  tooltipText={isJefe ? "Puede reasignar el equipo en cualquier momento durante la investigación." : "Acceso exclusivo para Jefaturas."}
                 />
               </Box>
             </CardContent>
@@ -438,50 +444,56 @@ export default function CaseDetail() {
                 {/* ETIQUETA DINÁMICA DE ASIGNACIÓN AL ERR */}
                 {isLocalOperativo && isUserAssignedToERR && <Chip label="Asignado como Investigador ERR" color="secondary" size="small" sx={{ fontWeight: 'bold' }} />}
               </Box>
-              
-              <Box sx={{ p: 2 }}>
-                
-                {['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) && (
-                  <Box sx={{ mb: 3, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #e0e0e0' }}>
-                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Pre-Fase 4)</Typography>
-                     
-                     {casoActual.notasPreFase4 && (
-                       <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
-                         <Typography variant="body2">{casoActual.notasPreFase4}</Typography>
-                       </Paper>
-                     )}
 
-                     <TextField 
-                       fullWidth 
-                       multiline 
-                       rows={3} 
-                       placeholder="Escriba una nueva observación, indicación o acuerdo..." 
-                       value={nuevaNotaPreFase4}
-                       onChange={(e) => setNuevaNotaPreFase4(e.target.value)}
-                       disabled={!isEsaviInstitucional}
-                     />
-                     {isEsaviInstitucional && (
-                       <Button 
-                         variant="contained" 
-                         size="small" 
-                         sx={{ mt: 1 }} 
-                         disabled={!nuevaNotaPreFase4.trim()}
-                         onClick={async () => {
-                           const concatenado = `${casoActual.notasPreFase4 ? casoActual.notasPreFase4 + '\n\n' : ''}[${dayjs().format('DD/MM/YYYY HH:mm')} - ${userEmail}]:\n${nuevaNotaPreFase4}`;
-                           await guardarNotasCaso(casoActual.id, 'notasPreFase4', concatenado);
-                           setNuevaNotaPreFase4('');
-                           alert('Nota agregada exitosamente.');
-                         }}
-                       >
-                         Agregar Nota
-                       </Button>
-                     )}
+              <Box sx={{ p: 2 }}>
+
+                {(casoActual.notasPreFase4 || ['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo)) && (
+                  <Box sx={{ mb: 3, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Pre-Fase 4)</Typography>
+
+                    {casoActual.notasPreFase4 && (
+                      <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
+                        <Typography variant="body2">{casoActual.notasPreFase4}</Typography>
+                      </Paper>
+                    )}
+
+                    {['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) && (
+                      <>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          placeholder="Escriba una nueva observación, indicación o acuerdo..."
+                          value={nuevaNotaPreFase4}
+                          onChange={(e) => setNuevaNotaPreFase4(e.target.value)}
+                          disabled={!isEsaviInstitucional || !tieneReunionFase3 || !f2Completado}
+                        />
+                        {!tieneReunionFase3 && <Typography variant="caption" color="error">Debe programar la reunión Pre-Fase 4 (Fase 3) en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>}
+                        {tieneReunionFase3 && !f2Completado && <Typography variant="caption" color="error">Debe llenar la Matriz de Riesgo antes de redactar los acuerdos.</Typography>}
+                        {isEsaviInstitucional && tieneReunionFase3 && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            sx={{ mt: 1 }}
+                            disabled={!nuevaNotaPreFase4.trim()}
+                            onClick={async () => {
+                              const concatenado = `${casoActual.notasPreFase4 ? casoActual.notasPreFase4 + '\n\n' : ''}[${dayjs().format('DD/MM/YYYY HH:mm')} - ${userEmail}]:\n${nuevaNotaPreFase4}`;
+                              await guardarNotasCaso(casoActual.id, 'notasPreFase4', concatenado);
+                              setNuevaNotaPreFase4('');
+                              alert('Nota agregada exitosamente.');
+                            }}
+                          >
+                            Agregar Nota
+                          </Button>
+                        )}
+                      </>
+                    )}
                   </Box>
                 )}
 
                 {(() => {
                   const isViewer = isEsaviInstitucional || isSecretariado || isComite || isUserAssignedToERR;
-                  
+
                   const a3Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo III (')) ? 'Corrección' : casoActual.anexoIII_completado ? 'Completado' : 'Pendiente';
                   const a5Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo V (')) ? 'Corrección' : casoActual.anexoV_completado ? 'Completado' : 'Pendiente';
                   const a6Status = (casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && casoActual.anexoRechazado?.includes('Anexo VI (')) ? 'Corrección' : casoActual.anexoVI_completado ? 'Completado' : 'Pendiente';
@@ -489,61 +501,105 @@ export default function CaseDetail() {
 
                   return (
                     <>
-                      <ActionRow 
-                        title="Evaluación Logística (Anexo III)" 
-                        chipStatus={a3Status} 
-                        btnText={a3Status === 'Completado' ? "VER ANEXO" : a3Status === 'Corrección' ? "Modificar Anexo" : "Completar Logística"} 
+                      <ActionRow
+                        title="Evaluación Logística (Anexo III) (llena esavi local)"
+                        chipStatus={a3Status}
+                        btnText={a3Status === 'Completado' ? "VER ANEXO" : a3Status === 'Corrección' ? "Modificar Anexo" : "Completar Logística"}
                         variant={a3Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a3Status === 'Completado') navigate(`/anexo-logistica/${id}?mode=view`);
                           else navigate('/anexo-logistica/' + id);
-                        }} 
+                        }}
                         disabled={a3Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
                         tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 (Notas) primero." : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) ? "Acceso exclusivo para Coordinador Local." : "Habilitado para completar."))}
                         color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
                       />
-                      <ActionRow 
-                        title="Evaluación Clínica (Anexo VII)" 
-                        chipStatus={a7Status} 
-                        btnText={a7Status === 'Completado' ? "VER ANEXO" : a7Status === 'Corrección' ? "Modificar Anexo" : "Llenar Clínico"} 
+                      <ActionRow
+                        title="Evaluación Clínica (Anexo VII) (llena esavi local)"
+                        chipStatus={a7Status}
+                        btnText={a7Status === 'Completado' ? "VER ANEXO" : a7Status === 'Corrección' ? "Modificar Anexo" : "Llenar Clínico"}
                         variant={a7Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a7Status === 'Completado') navigate(`/anexo-clinico/${id}?mode=view`);
                           else navigate(`/anexo-clinico/${id}`);
-                        }} 
-                        disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))} 
+                        }}
+                        disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))}
                         tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a7Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) ? "Acceso exclusivo para Referente Clínico." : "Habilitado para completar.")))}
                         color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
                       />
-                      <ActionRow 
-                        title="Puesto Vacunación (Anexo V)" 
-                        chipStatus={a5Status} 
-                        btnText={a5Status === 'Completado' ? "VER ANEXO" : a5Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo V"} 
+                      <ActionRow
+                        title="Puesto Vacunación (Anexo V) (llena inmuno local)"
+                        chipStatus={a5Status}
+                        btnText={a5Status === 'Completado' ? "VER ANEXO" : a5Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo V"}
                         variant={a5Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a5Status === 'Completado') navigate(`/anexo-puesto/${id}?mode=view`);
                           else navigate(`/anexo-puesto/${id}`);
-                        }} 
-                        disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))} 
+                        }}
+                        disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))}
                         tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a5Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) ? "Acceso exclusivo para Inmunizaciones." : "Habilitado para completar.")))}
                         color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
                       />
-                      <ActionRow 
-                        title="Inv. Domiciliaria (Anexo VI)" 
-                        chipStatus={a6Status} 
-                        btnText={a6Status === 'Completado' ? "VER ANEXO" : a6Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo VI"} 
+                      <ActionRow
+                        title="Inv. Domiciliaria (Anexo VI) (llena epidemiólogo local)"
+                        chipStatus={a6Status}
+                        btnText={a6Status === 'Completado' ? "VER ANEXO" : a6Status === 'Corrección' ? "Modificar Anexo" : "Llenar Anexo VI"}
                         variant={a6Status === 'Completado' ? "outlined" : "contained"}
                         onClick={() => {
                           if (a6Status === 'Completado') navigate(`/anexo-domicilio/${id}?mode=view`);
                           else navigate(`/anexo-domicilio/${id}`);
-                        }} 
-                        disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}  
+                        }}
+                        disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}
                         tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a6Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) ? "Acceso exclusivo para Epidemiólogo." : "Habilitado para completar.")))}
                         color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                     </>
                   );
                 })()}
+
+                {/* NUEVO BLOQUE: NOTAS POST-CAMPO (FASE 4) */}
+                {(casoActual.notasFase4 || ['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo)) && (
+                  <Box sx={{ mt: 3, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Cierre de Campo (Fase 4)</Typography>
+                    
+                    {casoActual.notasFase4 && (
+                      <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
+                        <Typography variant="body2">{casoActual.notasFase4}</Typography>
+                      </Paper>
+                    )}
+
+                    {['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo) && (
+                      <>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          placeholder="Escriba observaciones tras la investigación del ERR..."
+                          value={nuevaNotaFase4}
+                          onChange={(e) => setNuevaNotaFase4(e.target.value)}
+                          disabled={!isEsaviInstitucional || !tieneReunionFase4}
+                        />
+                        {!tieneReunionFase4 && <Typography variant="caption" color="error">Debe programar la reunión de Cierre de Campo (Fase 4) en la pestaña "Agenda" para ingresar las notas.</Typography>}
+                        {isEsaviInstitucional && tieneReunionFase4 && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            sx={{ mt: 1 }}
+                            disabled={!nuevaNotaFase4.trim()}
+                            onClick={async () => {
+                              const concatenado = `${casoActual.notasFase4 ? casoActual.notasFase4 + '\n\n' : ''}[${dayjs().format('DD/MM/YYYY HH:mm')} - ${userEmail}]:\n${nuevaNotaFase4}`;
+                              await guardarNotasCaso(casoActual.id, 'notasFase4', concatenado);
+                              setNuevaNotaFase4('');
+                              alert('Nota de Fase 4 agregada exitosamente.');
+                            }}
+                          >
+                            Agregar Nota
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -556,23 +612,23 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#ed6c02' }}>Control de Calidad (Fase 5)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow 
-                  title="Auditoría Institucional (Fase 5.1)" 
-                  chipStatus={['EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'} 
-                  btnText="Auditoría Institucional" 
-                  color="warning" 
-                  onClick={() => setOpenAuditoria(true)} 
-                  disabled={!(isEsaviInstitucional && casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && ['EN_INVESTIGACION', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo))} 
-                  tooltipText={!isEsaviInstitucional ? "Exclusivo para ESAVI Institucional." : "Requiere todos los anexos completados."} 
+                <ActionRow
+                  title="Auditoría Institucional (Fase 5.1) evalúa equipo coordinador"
+                  chipStatus={['EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
+                  btnText="Auditoría Institucional"
+                  color="warning"
+                  onClick={() => setOpenAuditoria(true)}
+                  disabled={!((isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL') && casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && ['EN_INVESTIGACION', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
+                  tooltipText={!(isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL') ? "Exclusivo para Equipo Coordinador (Nivel Institucional)." : "Requiere todos los anexos completados."}
                 />
-                <ActionRow 
-                  title="Auditoría Secretariado (Fase 5.2)" 
-                  chipStatus={['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'} 
-                  btnText="Auditoría Secretariado" 
-                  color="warning" 
-                  onClick={() => setOpenAuditoria(true)} 
-                  disabled={!(isSecretariado && casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')} 
-                  tooltipText={!isSecretariado ? "Exclusivo para Secretariado." : "Requiere que ESAVI Institucional haya aprobado."} 
+                <ActionRow
+                  title="Auditoría Secretariado (Fase 5.2)"
+                  chipStatus={['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
+                  btnText="Auditoría Secretariado"
+                  color="warning"
+                  onClick={() => setOpenAuditoria(true)}
+                  disabled={!(isSecretariado && casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')}
+                  tooltipText={!isSecretariado ? "Exclusivo para Secretariado." : "Requiere que ESAVI Institucional haya aprobado."}
                 />
               </Box>
             </CardContent>
@@ -586,40 +642,78 @@ export default function CaseDetail() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
               </Box>
               <Box sx={{ p: 2 }}>
-                <ActionRow 
-                  title="Acta Oficial Causalidad (Fase 6)" 
-                  chipStatus={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'} 
-                  btnText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "Dictamen Emitido" : "Emitir Dictamen"} 
-                  color="primary" 
-                  onClick={() => navigate('/dictamen/' + id)} 
-                  disabled={!isComite || ['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo)} 
-                  tooltipText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "El dictamen ya fue emitido para este expediente." : "Solo Comité."} 
+                <ActionRow
+                  title="Acta Oficial Causalidad (Fase 6)"
+                  chipStatus={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
+                  btnText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "Dictamen Emitido" : "Emitir Dictamen"}
+                  color="primary"
+                  onClick={() => navigate('/dictamen/' + id)}
+                  disabled={!isComite || ['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo)}
+                  tooltipText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "El dictamen ya fue emitido para este expediente." : "Solo Comité."}
                 />
-                <ActionRow 
-                  title="Sala de Espera (Fase 5)" 
-                  chipStatus={['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'} 
-                  btnText="Agendar para Comité" 
-                  color="secondary" 
-                  onClick={() => setOpenEnvioComiteModal(true)} 
-                  disabled={!isSecretariado || casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE' || !tieneReunionCierre} 
+                <ActionRow
+                  title="Sala de Espera (Fase 5)"
+                  chipStatus={['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
+                  btnText="Agendar para Comité"
+                  color="secondary"
+                  onClick={() => setOpenEnvioComiteModal(true)}
+                  disabled={!isSecretariado || casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE' || !tieneReunionCierre}
                   tooltipText={
-                    !isSecretariado 
-                      ? "Solo Secretariado." 
-                      : !tieneReunionCierre 
+                    !isSecretariado
+                      ? "Solo Secretariado."
+                      : !tieneReunionCierre
                         ? "Bloqueado: ESAVI Institucional debe programar la Reunión de Cierre en la pestaña de Agenda primero."
                         : ""
                   }
                 />
-                <ActionRow 
-                  title="Informe Técnico de Autoridades" 
-                  chipStatus={faseActual >= 5 ? 'Disponible' : 'Pendiente'} 
-                  btnText="Generar Informe" 
-                  color="info" 
-                  onClick={() => window.open('#/informe-tecnico/' + id, '_blank')} 
-                  disabled={faseActual < 5} 
-                  tooltipText="Disponible a partir de la Fase 5 para presentar a autoridades." 
+                <ActionRow
+                  title="Informe Técnico de Autoridades"
+                  chipStatus={['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? 'Disponible' : 'Pendiente'}
+                  btnText="ver Informe"
+                  color="info"
+                  onClick={() => navigate('/informe-tecnico/' + id)}
+                  disabled={!['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo)}
+                  tooltipText="Disponible una vez que el Secretariado haya aprobado el pase al Comité."
                 />
               </Box>
+
+              {['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO', 'EN_REVISION_SECRETARIADO'].includes(casoActual.estadoFlujo) && (
+                <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', bgcolor: '#fff' }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Cierre y Secretariado)</Typography>
+
+                  {casoActual.notasCierre && (
+                    <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#f9f9f9', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
+                      <Typography variant="body2">{casoActual.notasCierre}</Typography>
+                    </Paper>
+                  )}
+
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    placeholder="Escriba una nueva observación, indicación o acuerdo..."
+                    value={nuevaNotaCierre}
+                    onChange={(e) => setNuevaNotaCierre(e.target.value)}
+                    disabled={!(isEsaviInstitucional || isSecretariado)}
+                  />
+                  {(isEsaviInstitucional || isSecretariado) && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      sx={{ mt: 1 }}
+                      disabled={!nuevaNotaCierre.trim()}
+                      onClick={async () => {
+                        const concatenado = `${casoActual.notasCierre ? casoActual.notasCierre + '\n\n' : ''}[${dayjs().format('DD/MM/YYYY HH:mm')} - ${userEmail}]:\n${nuevaNotaCierre}`;
+                        await guardarNotasCaso(casoActual.id, 'notasCierre', concatenado);
+                        setNuevaNotaCierre('');
+                      }}
+                    >
+                      Guardar Nota
+                    </Button>
+                  )}
+                </Box>
+              )}
+
             </CardContent>
           </Card>
         </Box>
@@ -720,10 +814,10 @@ export default function CaseDetail() {
 
       {/* MODAL: VER / EDITAR FASE 1 */}
       {openEdicionFase1 && (
-        <EdicionFase1Modal 
-          open={openEdicionFase1} 
-          onClose={() => setOpenEdicionFase1(false)} 
-          casoId={casoActual.id} 
+        <EdicionFase1Modal
+          open={openEdicionFase1}
+          onClose={() => setOpenEdicionFase1(false)}
+          casoId={casoActual.id}
           readOnly={isFase1ReadOnly}
         />
       )}
@@ -752,6 +846,7 @@ export default function CaseDetail() {
           >
             <MenuItem value="Fase 2">Fase 2: Evaluación</MenuItem>
             <MenuItem value="Fase 3">Fase 3: Asignación ERR</MenuItem>
+            <MenuItem value="Fase 4">Fase 4: Investigación (Cierre)</MenuItem>
             <MenuItem value="Fase 6">Fase 6: Comité Externo</MenuItem>
           </TextField>
           <TextField
@@ -812,9 +907,9 @@ export default function CaseDetail() {
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
           <Button onClick={() => setOpenAgendaModal(false)} variant="outlined" color="inherit">Cancelar</Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
+          <Button
+            variant="contained"
+            color="primary"
             onClick={handleGuardarReunion}
             disabled={!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora}
           >
@@ -852,10 +947,10 @@ export default function CaseDetail() {
             if (!casoActual.riesgo || casoActual.riesgo === 'Sin clasificar') {
               return <Alert severity="info" sx={{ mt: 2, fontWeight: 'bold' }}>Matriz de Riesgo Pendiente de Evaluar</Alert>;
             }
-            
+
             let color: "error" | "warning" | "success" | "info" = "info";
             let respuesta = "LOCAL";
-            
+
             if (casoActual.riesgo.includes('CRÍTICO')) {
               color = "error";
               respuesta = "NACIONAL";
@@ -869,7 +964,7 @@ export default function CaseDetail() {
               color = "success";
               respuesta = "LOCAL";
             }
-            
+
             return (
               <Alert severity={color} sx={{ mt: 2, fontWeight: 'bold' }}>
                 Riesgo Calculado: {casoActual.riesgo} - Respuesta {respuesta}.
@@ -945,32 +1040,32 @@ export default function CaseDetail() {
                 <Grid size={{ xs: 12 }} key={reunion.id}>
                   <Card variant="outlined" sx={{ bgcolor: '#f9f9f9' }}>
                     <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                         <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{reunion.tema}</Typography>
-                         <Chip size="small" color="primary" label={reunion.estado} />
-                       </Box>
-                       <Typography variant="body2" color="text.secondary">Fecha: {reunion.fecha} a las {reunion.hora}</Typography>
-                       <Typography variant="body2" color="text.secondary">Modalidad: {reunion.modalidad}</Typography>
-                       <Typography variant="body2" color="text.secondary">{reunion.modalidad === 'Virtual' ? 'Enlace' : 'Lugar'}: {reunion.enlaceOLugar}</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>{reunion.tema}</Typography>
+                        <Chip size="small" color="primary" label={reunion.estado} />
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">Fecha: {reunion.fecha} a las {reunion.hora}</Typography>
+                      <Typography variant="body2" color="text.secondary">Modalidad: {reunion.modalidad}</Typography>
+                      <Typography variant="body2" color="text.secondary">{reunion.modalidad === 'Virtual' ? 'Enlace' : 'Lugar'}: {reunion.enlaceOLugar}</Typography>
                     </CardContent>
                   </Card>
                 </Grid>
               ))}
             </Grid>
           ) : (
-             <Alert severity="warning">No hay reuniones de Fase 6 asociadas a este expediente. Por favor, programa una en la pestaña Agenda.</Alert>
+            <Alert severity="warning">No hay reuniones de Fase 6 asociadas a este expediente. Por favor, programa una en la pestaña Agenda.</Alert>
           )}
 
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
           <Button onClick={() => setOpenEnvioComiteModal(false)} variant="outlined">Cancelar</Button>
-          <Button 
+          <Button
             onClick={() => {
               avanzarCaso(casoActual.id, 'EN_EVALUACION_COMITE', 'Fase 6: Evaluación de Comité', 'Caso agendado y enviado al Comité Externo.');
               setOpenEnvioComiteModal(false);
               navigate('/');
-            }} 
-            variant="contained" 
+            }}
+            variant="contained"
             color="secondary"
           >
             Confirmar y Enviar al Comité

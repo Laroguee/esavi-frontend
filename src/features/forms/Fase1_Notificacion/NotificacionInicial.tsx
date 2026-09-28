@@ -10,7 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useCatalogStore } from '../../../store/useCatalogStore';
-import { guardarEnSheets, crearCarpetaCaso, crearNotificacion, verificarDuplicado } from '../../../services/firebaseService';
+import { guardarEnSheets, crearCarpetaCaso, crearNotificacion, verificarDuplicado, listarCasos, registrarLog } from '../../../services/firebaseService';
 
 // Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -305,17 +305,29 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       );
       
       if (resDuplicado && resDuplicado.isDuplicado) {
-        if (!window.confirm(`ATENCIÓN: Se ha detectado un posible caso duplicado en el sistema (Caso ${resDuplicado.id_caso}). ¿Desea registrar esta notificación de todos modos?`)) {
-          return;
-        }
+        alert(`ERROR: Se ha detectado que este caso ya fue notificado previamente (Caso duplicado: ${resDuplicado.id_caso}). El sistema bloquea el registro automático.`);
+        return;
       }
     }
 
     console.log("Notificación Inicial Registrada:", data);
     
-    const casosActuales = useCasesStore.getState().casos;
+    // Obtener casos reales de la base de datos para generar un correlativo nacional exacto
     const anioActual = new Date().getFullYear();
-    const casosDelAnio = casosActuales.filter(c => c.id.includes(`ESAVI-${anioActual}-`));
+    const resCasos = await listarCasos();
+    let casosNacionales: any[] = [];
+    if (resCasos.success && resCasos.data) {
+      casosNacionales = resCasos.data;
+    } else {
+      // Fallback a los casos del store local si falla la base de datos
+      casosNacionales = useCasesStore.getState().casos;
+    }
+
+    const casosDelAnio = casosNacionales.filter((c: any) => {
+      const id = c.id_caso || c.id || '';
+      return id.includes(`ESAVI-${anioActual}-`);
+    });
+    
     const correlativo = casosDelAnio.length + 1;
     const idCasoNuevo = `ESAVI-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
     
@@ -328,6 +340,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         id_caso: idCasoNuevo,
         id_creador: userEmail || 'desconocido',
         estado_flujo: 'NUEVO', // REGLA DE NEGOCIO ESTRICTA
+        fecha_creacion_sistema: new Date().toISOString(),
         fecha_notificacion: data.fechaNotificacion || new Date().toISOString().split('T')[0],
         identificador_paciente: data.expedienteClinico || '',
         tiene_evidencias: true,
@@ -347,7 +360,21 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         via_administracion: data.viaAdministracion || '',
         dosis_posologia: data.dosisYPosologia || '',
         correo_notificador: data.correoNotificador || '',
-        observaciones_adicionales: data.observacionesAdicionales || ''
+        observaciones_adicionales: data.observacionesAdicionales || '',
+        // Campos para Informe Tecnico
+        fecha_inicio_sintomas: data.fechaInicioReaccion || '',
+        hora_vacunacion: data.horaAdministracion || '',
+        lote_vacuna: data.lote || '',
+        fecha_defuncion: data.desenlace === 'Mortal' || data.desenlace === 'Fallecido' ? data.fechaFinReaccion || '' : '',
+        desenlace: data.desenlace || '',
+        // Campos Faltantes Originales
+        nombre_notificador: data.nombreNotificador || '',
+        cargo_notificador: data.cargoNotificador || '',
+        telefono_notificador: data.telefonoNotificador || '',
+        fecha_nacimiento: data.fechaNacimiento || '',
+        paciente_dui: data.pacienteDUI || '',
+        // Carga útil completa para evitar pérdida de datos
+        datos_fase1_json: JSON.stringify(data)
       }
     };
 
@@ -356,7 +383,6 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       if (import.meta.env.VITE_USE_API === 'true') {
         payload.datos.id_caso = casoIdEdit;
         await guardarEnSheets('EXPEDIENTES', payload.datos);
-        const { registrarLog } = await import('../../../services/firebaseService');
         await registrarLog(casoIdEdit, userEmail || 'Sistema', 'Se editó la notificación inicial (Fase 1)');
         
         // Recargar datos en memoria para que se reflejen los cambios sin refrescar

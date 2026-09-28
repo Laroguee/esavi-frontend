@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { listarCasos } from '../../../services/firebaseService';
 
 // =======================================================
 // ESQUEMA ESTRICTO DE ZOD
@@ -50,19 +51,31 @@ export default function FormularioApertura() {
   const institucionSeleccionada = watch('institucion');
 
   useEffect(() => {
-    const casosActuales = useCasesStore.getState().casos;
-    const anioActual = new Date().getFullYear();
-    
-    let correlativo = 1;
-    while (true) {
-      const sufijo = correlativo.toString().padStart(3, '0');
-      const existe = casosActuales.some(c => c.id.includes(`-${anioActual}-${sufijo}`));
-      if (!existe) break;
-      correlativo++;
-    }
-    
-    const nuevoID = `ESAVI-${institucionSeleccionada}-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
-    setValue('idUnico', nuevoID); 
+    const fetchAndSetID = async () => {
+      const anioActual = new Date().getFullYear();
+      let casosActuales = useCasesStore.getState().casos;
+      
+      const resCasos = await listarCasos();
+      if (resCasos.success && resCasos.data) {
+        casosActuales = resCasos.data;
+      }
+      
+      let correlativo = 1;
+      while (true) {
+        const sufijo = correlativo.toString().padStart(3, '0');
+        const existe = casosActuales.some((c: any) => {
+          const id = c.id_caso || c.id || '';
+          return id.includes(`-${anioActual}-${sufijo}`);
+        });
+        if (!existe) break;
+        correlativo++;
+      }
+      
+      const nuevoID = `ESAVI-${institucionSeleccionada}-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
+      setValue('idUnico', nuevoID); 
+    };
+
+    fetchAndSetID();
   }, [institucionSeleccionada, setValue]);
 
   const { agendarReunionStore } = useCasesStore();

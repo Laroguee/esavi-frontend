@@ -27,8 +27,10 @@ export async function guardarEnSheets(tabla: string, datos: any) {
 
 export async function registrarLog(id_caso: string, usuario: string, accion: string) {
   try {
-    await addDoc(collection(db, 'historial_cambios'), {
-      id_log: `LOG-${Date.now()}`,
+    const id_log = `LOG-${Date.now()}`;
+    const docId = `${id_caso}_${id_log}`;
+    await setDoc(doc(db, 'historial_cambios', docId), {
+      id_log,
       id_caso,
       fecha: new Date().toISOString(),
       usuario,
@@ -119,6 +121,13 @@ export async function obtenerExpediente(id_caso: string) {
       const snap = await getDoc(doc(db, col.name, id_caso));
       if (snap.exists()) {
         const data = snap.data();
+        if (typeof data.datos_formulario_json === 'string') {
+          try {
+            data.datos_formulario_json = JSON.parse(data.datos_formulario_json);
+          } catch (e) {
+            // keep as is
+          }
+        }
         anexos.push({
           tipo_anexo: col.title,
           ...data
@@ -254,8 +263,26 @@ export async function listarArchivosCaso(id_caso: string) {
 
 export async function eliminarCaso(idCaso: string) {
   try {
+    // 1. Eliminar caso principal
     await deleteDoc(doc(db, 'casos', idCaso));
     await deleteDoc(doc(db, 'EXPEDIENTES', idCaso));
+
+    // 2. Eliminar documentos relacionados (anexos, matrices)
+    const tabls = ['ANEXO_II', 'ANEXO_III', 'ANEXO_VACUNACION', 'ANEXO_CAMPO', 'ANEXO_CLINICO', 'ANEXO_FARMACO', 'ANEXO_LABORATORIO', 'ANEXO_ESQUEMA', 'MATRIZ_RIESGO', 'ASIGNACIONES_ERR'];
+    for (const tb of tabls) {
+      await deleteDoc(doc(db, tb, idCaso));
+    }
+
+    // 3. Eliminar historiales, reuniones y notificaciones huérfanas
+    const coleccionesLimpiar = ['historial_cambios', 'notificaciones', 'reuniones'];
+    for (const col of coleccionesLimpiar) {
+      const q = query(collection(db, col), where('id_caso', '==', idCaso));
+      const snaps = await getDocs(q);
+      snaps.forEach(async (d) => {
+        await deleteDoc(d.ref);
+      });
+    }
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -345,7 +372,9 @@ export async function crearNotificacion(item: any) {
   try {
     item.fecha = new Date().toISOString();
     item.leido = false;
-    await addDoc(collection(db, 'notificaciones'), item);
+    const notifId = `NOTIF-${Date.now()}`;
+    const docId = item.id_caso ? `${item.id_caso}_${notifId}` : notifId;
+    await setDoc(doc(db, 'notificaciones', docId), item);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -364,8 +393,9 @@ export async function marcarNotificacionLeida(id: string | number) {
 
 export async function agendarReunion(item: any) {
   try {
-    const docId = item.id || `REU-${Date.now()}`;
-    await setDoc(doc(db, 'reuniones', docId), { ...item, id: docId });
+    const reuId = item.id || `REU-${Date.now()}`;
+    const docId = item.id_caso ? `${item.id_caso}_${reuId}` : reuId;
+    await setDoc(doc(db, 'reuniones', docId), { ...item, id: reuId });
     return { success: true, id: docId };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -400,14 +430,14 @@ export async function verificarDuplicado(pacienteDUI: string, nombrePaciente: st
       // Only check active cases
       if (data.estado_flujo === 'CERRADO' || data.estado_flujo === 'CERRADO_DICTAMINADO') return false;
       
-      const matchDUI = pacienteDUI && data.identificador_paciente === pacienteDUI;
+      const matchDUI = pacienteDUI ? data.identificador_paciente === pacienteDUI : true; // Si no tiene DUI, no rompe la cadena pero exige que los otros 4 coincidan.
       const matchPaciente = nombrePaciente && data.nombre_paciente?.toLowerCase() === nombrePaciente.toLowerCase();
       const matchVacuna = nombreVacuna && data.nombre_vacuna?.toLowerCase() === nombreVacuna.toLowerCase();
       const matchFecha = fechaAplicacion && data.fecha_vacunacion === fechaAplicacion;
       const matchNotificador = nombreNotificador && data.nombre_notificador?.toLowerCase() === nombreNotificador.toLowerCase();
 
-      // Criterio de duplicidad: Si coinciden al menos Paciente (o DUI) + Vacuna + Fecha Aplicacion
-      const isDuplicado = (matchDUI || matchPaciente) && matchVacuna && matchFecha;
+      // Criterio de duplicidad estricto (5 variables)
+      const isDuplicado = matchDUI && matchPaciente && matchVacuna && matchFecha && matchNotificador;
       return isDuplicado;
     });
 

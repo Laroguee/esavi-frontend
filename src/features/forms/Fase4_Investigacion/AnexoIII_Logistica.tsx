@@ -13,7 +13,7 @@ import { useRef, useState, useEffect } from 'react';
 
 const checklistOficial = [
   { id: 'chk_1', text: 'Identifique la zona geográfica y conozca las condiciones ambientales, de acceso o comunicación y los riesgos de seguridad.' },
-  { id: 'chk_2', text: 'Establezca un cronograma de actividades.' },
+  { id: 'chk_2', text: 'Establezca una planificación de actividades.' },
   { id: 'chk_3', text: 'Asegurarse de que el equipo está adecuadamente identificado.' },
   { id: 'chk_4', text: 'Establezca los mecanismos de comunicación durante o después.' },
   { id: 'chk_5', text: 'Coordine medios de transporte para el equipo.' },
@@ -30,7 +30,7 @@ export default function AnexoIII_Logistica() {
   const marcarAnexoCompletado = useCasesStore(state => state.marcarAnexoCompletado);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!id);
-  
+
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
@@ -53,10 +53,10 @@ export default function AnexoIII_Logistica() {
           const anexoSnap = await getDoc(doc(db, 'ANEXO_III', id));
           if (anexoSnap.exists()) {
             const anexo = anexoSnap.data();
-            const parsed = anexo.datos_formulario_json 
+            const parsed = anexo.datos_formulario_json
               ? (typeof anexo.datos_formulario_json === 'string' ? JSON.parse(anexo.datos_formulario_json) : anexo.datos_formulario_json)
               : anexo; // Fallback for old schema where columns matched keys
-            
+
             // Verify it actually has useful keys before keeping view mode
             if (parsed.chk_1 !== undefined || parsed.chk_2 !== undefined || parsed.observaciones !== undefined) {
               reset({
@@ -105,7 +105,7 @@ export default function AnexoIII_Logistica() {
 
         await marcarAnexoCompletado(id, 'III');
         setLogisticaCompletada(true);
-        
+
         const store = useCasesStore.getState();
         const casoActual = store.casos.find((c: any) => c.id === id);
         if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
@@ -116,7 +116,7 @@ export default function AnexoIII_Logistica() {
         marcarAnexoCompletado(id, 'III');
         setLogisticaCompletada(true);
       }
-      
+
       alert("Checklist Logístico (Anexo III) guardado exitosamente.");
       navigate('/caso/' + id);
     } catch (error) {
@@ -138,7 +138,7 @@ export default function AnexoIII_Logistica() {
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 800, margin: 'auto', pb: 8, pt: 2 }}>
-      
+
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, mb: 3, gap: 2 }}>
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo III: Checklist Logístico <Typography component="span" variant="h6" color="text.secondary">(Llenado por: Epidemiólogo / ESAVI Institucional)</Typography>
@@ -155,46 +155,46 @@ export default function AnexoIII_Logistica() {
 
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
         <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
-        <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
-        <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
-          <ChecklistRtlIcon /> Preparación para el Trabajo de Campo
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Previo al despliegue del Equipo de Respuesta Rápida (ERR), confirme que se han cumplido los siguientes preparativos de logística y seguridad.
-        </Typography>
+          <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
+            <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
+              <ChecklistRtlIcon /> Preparación para el Trabajo de Campo
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+              Previo al despliegue del Equipo de Respuesta Rápida (ERR), confirme que se han cumplido los siguientes preparativos de logística y seguridad.
+            </Typography>
 
-        <FormGroup sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 4 }}>
-          {checklistOficial.map((item) => (
-            <Controller
-              key={item.id}
-              name={item.id as any}
-              control={control}
-              render={({ field }) => {
-                const isChecked = field.value === true || field.value === "true" || field.value === "TRUE";
-                return (
-                  <FormControlLabel
-                    control={<Checkbox name={field.name} checked={isChecked} onChange={(e) => field.onChange(e.target.checked)} color="primary" />}
-                    label={<Typography variant="body2">{item.text}</Typography>}
-                    sx={{ alignItems: 'flex-start', m: 0, p: 1, bgcolor: isChecked ? '#e8f5e9' : 'transparent', borderRadius: 1, transition: '0.2s' }}
-                  />
-                );
-              }}
-            />
-          ))}
-        </FormGroup>
+            <FormGroup sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 4 }}>
+              {checklistOficial.map((item) => (
+                <Controller
+                  key={item.id}
+                  name={item.id as any}
+                  control={control}
+                  render={({ field }) => {
+                    const isChecked = field.value === true || field.value === "true" || field.value === "TRUE";
+                    return (
+                      <FormControlLabel
+                        control={<Checkbox name={field.name} checked={isChecked} onChange={(e) => field.onChange(e.target.checked)} color="primary" />}
+                        label={<Typography variant="body2">{item.text}</Typography>}
+                        sx={{ alignItems: 'flex-start', m: 0, p: 1, bgcolor: isChecked ? '#e8f5e9' : 'transparent', borderRadius: 1, transition: '0.2s' }}
+                      />
+                    );
+                  }}
+                />
+              ))}
+            </FormGroup>
 
-        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Observaciones de seguridad y transporte</Typography>
-        <Controller name="observaciones" control={control} render={({ field }) => (
-          <TextField 
-            {...field} 
-            fullWidth 
-            multiline 
-            rows={3} 
-            size="small" 
-            placeholder="Ej. Vehículo asignado placa Nacional-123. Zonas con señal celular intermitente..." 
-          />
-        )}/>
-        </Paper>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>Observaciones de seguridad y transporte</Typography>
+            <Controller name="observaciones" control={control} render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                multiline
+                rows={3}
+                size="small"
+                placeholder="Ej. Vehículo asignado placa Nacional-123. Zonas con señal celular intermitente..."
+              />
+            )} />
+          </Paper>
         </fieldset>
       </Box>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Grid, Card, CardContent, FormControlLabel, RadioGroup, Radio, TextField, Button, Alert, Checkbox } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, FormControlLabel, RadioGroup, Radio, TextField, Button, Alert, Checkbox, Chip } from '@mui/material';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
@@ -25,13 +25,16 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
   const caso = casos.find(c => c.id === casoId);
 
   const [evaluaciones, setEvaluaciones] = useState<Record<string, EvaluacionAnexo>>(() => {
-    return caso?.evaluaciones_fase5 || {
+    const defaults: Record<string, EvaluacionAnexo> = {
       'Anexo III (Logística)': { estado: '', observacion: '' },
       'Anexo V (Puesto de Vacunación)': { estado: '', observacion: '' },
       'Anexo VI (Domiciliaria)': { estado: '', observacion: '' },
       'Anexo VII (Clínico)': { estado: '', observacion: '' },
     };
+    return { ...defaults, ...(caso?.evaluaciones_fase5 || {}) };
   });
+
+  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
 
   // --- CANDADOS NORMATIVOS POE FASE 5 ---
   const [chkMinuta, setChkMinuta] = useState(false);
@@ -72,17 +75,26 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
     }
 
     await guardarAuditoriaParcialStore(casoId, anexo, evalData.estado, evalData.observacion);
-    
-    if (evalData.estado === 'observado') {
-      const nuevoEstado = currentRole === 'SECRETARIADO' ? 'DEVUELTO_A_INSTITUCIONAL' : 'DEVUELTO_A_ERR';
-      const msg = `Expediente devuelto por ${currentRole} para corrección en ${anexo}.`;
-      guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
-      await devolverCaso(casoId, nuevoEstado, evalData.observacion, anexo, msg);
-      alert(`Anexo observado. Expediente devuelto exitosamente a estado ${nuevoEstado}.`);
-      if (onClose) onClose(); else navigate(`/caso/${casoId}`);
-    } else {
-      alert(`Evaluación de ${anexo} guardada exitosamente.`);
+    alert(`Evaluación de ${anexo} guardada exitosamente en el sistema.`);
+  };
+
+  const handleDevolverExpediente = async () => {
+    const anexosObservados = Object.entries(evaluaciones).filter(([_, data]) => data.estado === 'observado');
+    if (anexosObservados.length === 0) {
+      alert("No hay anexos observados para devolver.");
+      return;
     }
+
+    const nuevoEstado = currentRole === 'SECRETARIADO' ? 'DEVUELTO_A_INSTITUCIONAL' : 'DEVUELTO_A_ERR';
+    const nombresAnexos = anexosObservados.map(([nombre]) => nombre).join(', ');
+    const observacionesConcat = anexosObservados.map(([nombre, data]) => `${nombre}: ${data.observacion}`).join(' | ');
+    const msg = `Expediente devuelto por ${currentRole} para corrección en: ${nombresAnexos}.`;
+    
+    guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
+    await devolverCaso(casoId, nuevoEstado, observacionesConcat, nombresAnexos, msg);
+    
+    alert(`Expediente devuelto exitosamente a estado ${nuevoEstado} con múltiples observaciones.`);
+    if (onClose) onClose(); else navigate(`/caso/${casoId}`);
   };
 
   const handleAprobarFinal = () => {
@@ -101,8 +113,8 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
       }
     }
 
-    const nuevoEstado = currentRole === 'ESAVI_INSTITUCIONAL' ? 'EN_REVISION_SECRETARIADO' : 'APROBADO_PARA_COMITE';
-    const nuevaFase = currentRole === 'ESAVI_INSTITUCIONAL' ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
+    const nuevoEstado = isJefe ? 'EN_REVISION_SECRETARIADO' : 'APROBADO_PARA_COMITE';
+    const nuevaFase = isJefe ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
     const msg = `Expediente aprobado por ${currentRole}. Avanza a ${nuevoEstado}.`;
 
     guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
@@ -113,7 +125,7 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
 
   if (!caso) return <Alert severity="error">Caso no encontrado</Alert>;
 
-  const isPaseDeMando = currentRole === 'ESAVI_INSTITUCIONAL' && caso.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL';
+  const isPaseDeMando = isJefe && caso.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL';
 
   const handleRemitirERR = () => {
     const msg = 'La Jefatura solicita correcciones en los anexos de campo.';
@@ -149,8 +161,12 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
                 <Card elevation={2} sx={{ borderLeft: evalData.estado === 'observado' ? '4px solid #d32f2f' : evalData.estado === 'aprobado' ? '4px solid #2e7d32' : '4px solid #1976d2', opacity: editable ? 1 : 0.7 }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{anexoNombre}</Typography>
-                      {!editable && <Typography variant="caption" color="text.secondary">(Solo lectura)</Typography>}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{anexoNombre}</Typography>
+                        {evalData.estado === 'aprobado' && <Chip label="Aprobado" color="success" size="small" />}
+                        {evalData.estado === 'observado' && <Chip label="Con Observaciones" color="error" size="small" />}
+                      </Box>
+                      {!editable && <Typography variant="caption" color="text.secondary">(Solo lectura para su rol)</Typography>}
                     </Box>
                     
                     <RadioGroup 
@@ -195,9 +211,9 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
         )}
       </Grid>
 
-      {(!isPaseDeMando && (currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SECRETARIADO')) && (
+      {(!isPaseDeMando && (isJefe || currentRole === 'SECRETARIADO')) && (
         <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e0e0e0' }}>
-          {currentRole === 'ESAVI_INSTITUCIONAL' && (
+          {isJefe && (
             <Box sx={{ mb: 3, p: 2, bgcolor: '#f4f6f8', borderRadius: 1, border: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
                 Requisitos de Cierre Institucional (Paso 16 del POE)
@@ -212,14 +228,24 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
           )}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            {Object.values(evaluaciones).some(e => e.estado === 'observado') && (
+              <Button 
+                variant="contained" 
+                color="error" 
+                onClick={handleDevolverExpediente}
+                sx={{ fontWeight: 'bold', px: 4 }}
+              >
+                Devolver con Observaciones
+              </Button>
+            )}
             <Button 
               variant="contained" 
               color="success" 
               onClick={handleAprobarFinal}
-              disabled={currentRole === 'ESAVI_INSTITUCIONAL' ? (!chkMinuta || !chkLineaTiempo || !chkInformeFinal || !Object.values(evaluaciones).every(e => e.estado === 'aprobado')) : false}
+              disabled={isJefe ? (!chkMinuta || !chkLineaTiempo || !chkInformeFinal || !Object.values(evaluaciones).every(e => e.estado === 'aprobado')) : false}
               sx={{ fontWeight: 'bold', px: 4 }}
             >
-              {currentRole === 'ESAVI_INSTITUCIONAL' ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comité'}
+              {isJefe ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comité'}
             </Button>
           </Box>
         </Box>
