@@ -653,7 +653,7 @@ export default function CaseDetail() {
                 />
                 <ActionRow
                   title="Sala de Espera (Fase 5)"
-                  chipStatus={['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
+                  chipStatus={['EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
                   btnText="Agendar para Comité"
                   color="secondary"
                   onClick={() => setOpenEnvioComiteModal(true)}
