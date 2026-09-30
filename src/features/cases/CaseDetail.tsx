@@ -78,22 +78,7 @@ export default function CaseDetail() {
     enlaceOLugar: ''
   });
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setNuevaReunion(prev => ({
-          ...prev,
-          archivoBase64: result.includes('base64,') ? result.split('base64,')[1] : result,
-          nombreArchivo: file.name,
-          mimeType: file.type
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+
 
   const handleGuardarReunion = () => {
     if (!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora) return;
@@ -892,18 +877,7 @@ export default function CaseDetail() {
             </Grid>
           </Grid>
 
-          {/* Subida de Archivo Base64 para Google Drive / Presentación */}
-          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Button variant="outlined" component="label">
-              Adjuntar Presentación (Opcional)
-              <input type="file" hidden accept=".pdf,.ppt,.pptx" onChange={handleFileUpload} />
-            </Button>
-            {nuevaReunion.nombreArchivo && (
-              <Typography variant="body2" color="text.secondary">
-                {nuevaReunion.nombreArchivo}
-              </Typography>
-            )}
-          </Box>
+
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
           <Button onClick={() => setOpenAgendaModal(false)} variant="outlined" color="inherit">Cancelar</Button>

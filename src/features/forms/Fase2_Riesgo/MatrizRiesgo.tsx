@@ -374,7 +374,7 @@ export default function MatrizRiesgo() {
 
       {/* DIMENSIÓN 1: EVENTO (40%) */}
       <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: '#4db6ac' }}>
               <TableCell colSpan={3}>
@@ -430,7 +430,7 @@ export default function MatrizRiesgo() {
 
       {/* DIMENSIÓN 2: PERSONA (15%) */}
       <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: '#9575cd' }}>
               <TableCell colSpan={3}>
@@ -451,7 +451,7 @@ export default function MatrizRiesgo() {
 
       {/* DIMENSIÓN 3: VACUNA/PROGRAMA */}
       <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: '#dce775' }}>
               <TableCell colSpan={3}>
@@ -478,7 +478,7 @@ export default function MatrizRiesgo() {
 
       {/* DIMENSIÓN 4: CONTEXTO (20%) */}
       <TableContainer component={Paper} elevation={3} sx={{ mb: 4, overflowX: 'auto' }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: '#ffb74d' }}>
               <TableCell colSpan={3}>

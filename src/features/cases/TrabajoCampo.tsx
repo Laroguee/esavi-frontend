@@ -138,7 +138,7 @@ export default function TrabajoCampo() {
             </Typography>
             
             <TableContainer component={Paper} elevation={3} sx={{ borderRadius: 2 }}>
-              <Table>
+              <Table sx={{ minWidth: 700 }}>
                 <TableHead sx={{ bgcolor: '#f4f6f8' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>ID Caso</TableCell>

@@ -244,7 +244,7 @@ export default function CierreYDictamen() {
           {/* 4. INMUNIZACIONES */}
           <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>5. ANTECEDENTES DE INMUNIZACIONES</Typography>
           <TableContainer sx={{ mb: 4, border: '1px solid #e0e0e0' }}>
-            <Table size="small">
+            <Table size="small" sx={{ minWidth: 650 }}>
               <TableHead sx={{ bgcolor: '#eeeeee' }}>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Área a evaluar</TableCell>

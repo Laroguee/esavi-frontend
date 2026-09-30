@@ -486,7 +486,7 @@ export default function AnexoVII_Clinico() {
             
             <Typography variant="subtitle2" color="primary" gutterBottom sx={{ fontWeight: 'bold' }}>Datos del equipo de investigación</Typography>
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-              <Table size="small">
+              <Table size="small" sx={{ minWidth: 650 }}>
                 <TableHead sx={{ bgcolor: '#eeeeee' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Área</TableCell>

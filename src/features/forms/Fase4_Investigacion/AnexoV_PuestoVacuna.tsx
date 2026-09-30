@@ -289,7 +289,7 @@ export default function AnexoV_PuestoVacuna() {
             Durante la visita al puesto de vacunación, el equipo deberá realizar una revisión visual, documental y técnica de los siguientes aspectos:
           </Typography>
         </Box>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow sx={{ bgcolor: '#eeeeee' }}>
               <TableCell sx={{ fontWeight: 'bold', width: '5%' }}>Nº</TableCell>

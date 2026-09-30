@@ -92,6 +92,7 @@ interface CasesState {
   guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasCierre', texto: string) => Promise<void>;
   eliminarCasoStore: (idCaso: string) => Promise<void>;
   guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
+  agregarLogStore: (idCaso: string, textoNotificacion: string) => Promise<void>;
 }
 
 // 2. Creación del Store
@@ -423,6 +424,35 @@ export const useCasesStore = create<CasesState>()(
         }));
       },
         
+      agregarLogStore: async (idCaso, textoNotificacion) => {
+        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+        const userRole = useAuthStore.getState().currentRole || 'Sistema';
+
+        if (import.meta.env.VITE_USE_API === 'true') {
+           await registrarLog(idCaso, userEmail, textoNotificacion);
+        }
+
+        set((state) => ({
+          casos: state.casos.map(caso => 
+            caso.id === idCaso 
+              ? { 
+                  ...caso, 
+                  historial_cambios: [
+                    {
+                      id: Date.now().toString(),
+                      fecha: dayjs().format("DD/MM/YYYY HH:mm A"),
+                      usuario: userEmail,
+                      rol: userRole,
+                      accion: textoNotificacion
+                    },
+                    ...(caso.historial_cambios || [])
+                  ]
+                }
+              : caso
+          )
+        }));
+      },
+
       guardarAuditoriaParcialStore: async (idCaso, anexo, estado, observacion) => {
         try {
           const state = get();

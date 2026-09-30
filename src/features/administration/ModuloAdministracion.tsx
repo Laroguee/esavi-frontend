@@ -219,7 +219,7 @@ export default function ModuloAdministracion() {
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
             ) : (
               <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
+                <Table size="small" sx={{ minWidth: 650 }}>
                   <TableHead sx={{ bgcolor: '#eeeeee' }}>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>Nombre Completo</TableCell>
@@ -286,7 +286,7 @@ export default function ModuloAdministracion() {
             </Box>
 
             <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
+              <Table size="small" sx={{ minWidth: 650 }}>
                 <TableHead sx={{ bgcolor: '#eeeeee' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 'bold' }}>Nombre del Establecimiento</TableCell>

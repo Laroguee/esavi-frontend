@@ -158,7 +158,7 @@ export default function Dashboard() {
       {/* TABLA 1: PENDIENTES */}
       <Typography variant="h6" color="warning.dark" sx={{ mb: 2, fontWeight: 'bold' }}>⏳ Notificaciones Pendientes de Oficializar</Typography>
       <TableContainer component={Paper} elevation={2} sx={{ mb: 5, borderLeft: '5px solid', borderColor: 'warning.main', overflowX: 'auto' }}>
-        <Table>
+        <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ backgroundColor: '#fff8e1' }}>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>ID Local</TableCell>
@@ -267,7 +267,7 @@ export default function Dashboard() {
 
       {/* TABLA 2: OFICIALES (Aplica el filtro: casosFiltrados) */}
       <TableContainer component={Paper} elevation={2} sx={{ overflowX: 'auto' }}>
-        <Table>
+        <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ backgroundColor: '#e0e0e0' }}>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>ID Caso</TableCell>

@@ -71,7 +71,7 @@ export default function InformeTecnico() {
       </Typography>
       
       <TableContainer component={Paper} variant="outlined" sx={{ mb: 4, borderRadius: 0 }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableBody>
             <TableRow><TableCell sx={{ fontWeight: 'bold', width: '40%' }}>ID de Caso</TableCell><TableCell>{expediente.id}</TableCell></TableRow>
             <TableRow><TableCell sx={{ fontWeight: 'bold' }}>Fecha del informe</TableCell><TableCell>{new Date().toLocaleDateString()}</TableCell></TableRow>
@@ -140,7 +140,7 @@ export default function InformeTecnico() {
       </Typography>
       <Typography variant="body2" sx={{ mb: 1 }}><strong>Fuente de información:</strong> Registro Nacional de Inmunizaciones (RNI) / Carné de vacunación</Typography>
       <TableContainer component={Paper} variant="outlined" sx={{ mb: 4, borderRadius: 0 }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: 650 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Variable / Parámetro</TableCell>

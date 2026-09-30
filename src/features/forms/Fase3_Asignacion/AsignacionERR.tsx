@@ -8,7 +8,7 @@ import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore, type MockUser } from '../../../store/useAuthStore';
 import { useCatalogStore } from '../../../store/useCatalogStore';
 import { listarUsuarios } from '../../../services/adminService';
-import { guardarEnSheets, registrarLog, crearNotificacion } from '../../../services/firebaseService';
+import { guardarEnSheets, registrarLog, crearNotificacion, obtenerExpediente } from '../../../services/firebaseService';
 
 export default function AsignacionERR() {
   const { id } = useParams(); // Rescatamos el ID del caso de la URL
@@ -68,6 +68,32 @@ export default function AsignacionERR() {
     if (id) {
       setIsSubmitting(true);
       
+      let historicoInactivos: string[] = [];
+      if (import.meta.env.VITE_USE_API === 'true') {
+        const resExp = await obtenerExpediente(id);
+        if (resExp.success && resExp.data?.asignaciones) {
+          try {
+             const oldData = typeof resExp.data.asignaciones.datos_formulario_json === 'string' 
+                ? JSON.parse(resExp.data.asignaciones.datos_formulario_json) 
+                : resExp.data.asignaciones.datos_formulario_json;
+             if (oldData?.personal_inactivo) {
+               historicoInactivos = Array.isArray(oldData.personal_inactivo) 
+                 ? oldData.personal_inactivo 
+                 : oldData.personal_inactivo.split(',').map((s: string) => s.trim());
+             }
+          } catch (e) {}
+        }
+      }
+
+      const nuevosMiembros = [data.farmacovigilancia, data.inmunizaciones, data.epidemiologia].filter(Boolean);
+      const inactivosNuevos = casoActual?.miembrosERR?.filter(m => !nuevosMiembros.includes(m)) || [];
+      const todosInactivos = Array.from(new Set([...historicoInactivos, ...inactivosNuevos])).filter(Boolean);
+
+      const dataToSave = { ...data };
+      if (todosInactivos.length > 0) {
+        (dataToSave as any).personal_inactivo = todosInactivos.join(', ');
+      }
+
       const payloadAsignacion = {
         tabla: 'ASIGNACIONES_ERR',
         datos: {
@@ -77,7 +103,7 @@ export default function AsignacionERR() {
           id_inmuno: data.inmunizaciones || '',
           id_epidemio: data.epidemiologia || '',
           instrucciones_especiales: data.instrucciones || '',
-          datos_formulario_json: JSON.stringify(data)
+          datos_formulario_json: JSON.stringify(dataToSave)
         }
       };
 
@@ -113,10 +139,11 @@ export default function AsignacionERR() {
       }
 
       if (casoActual?.estadoFlujo === 'ASIGNADO_A_ERR' || casoActual?.estadoFlujo === 'EN_EVALUACION') {
-        const msg = 'Equipo de Respuesta Rápida asignado. Comienza la investigación de campo.';
+        const msg = `Equipo de Respuesta Rápida asignado. Comienza la investigación de campo con: Clínico (${data.farmacovigilancia || 'N/A'}), Inmuno (${data.inmunizaciones || 'N/A'}), Epidemio (${data.epidemiologia || 'N/A'}).`;
         avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', msg);
       } else {
-        await registrarLog(id, userEmail || 'Sistema', 'Se ha actualizado la asignación del Equipo de Respuesta Rápida (ERR).');
+        const msg = `Se ha actualizado la asignación del ERR. Nuevo equipo activo: Clínico (${data.farmacovigilancia || 'N/A'}), Inmuno (${data.inmunizaciones || 'N/A'}), Epidemio (${data.epidemiologia || 'N/A'}).`;
+        await useCasesStore.getState().agregarLogStore(id, msg);
       }
       alert("Asignación de equipo completada exitosamente.");
       navigate('/caso/' + id);

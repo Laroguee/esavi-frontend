@@ -447,7 +447,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
   };
 
   const handleDescargarPlantilla = () => {
-    alert("Descargando plantilla PDF del Anexo II para llenado manual...");
+    window.open("https://res.cloudinary.com/dowejnpvd/image/upload/v1790783979/ESAVI-2026-002/clinica/Anexo_II__1790783979219.pdf", "_blank");
   };
 
   const getDateTimeSx = (hasValue: boolean) => ({

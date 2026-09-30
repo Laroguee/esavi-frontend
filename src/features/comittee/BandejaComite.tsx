@@ -26,7 +26,7 @@ export default function BandejaComite() {
       </Box>
 
       <TableContainer component={Paper} elevation={3} sx={{ borderTop: '4px solid', borderColor: 'primary.main' }}>
-        <Table>
+        <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>ID Expediente</TableCell>

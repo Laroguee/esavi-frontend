@@ -391,7 +391,7 @@ export default function AnexoVI_Domicilio() {
         <AccordionDetails sx={{ p: 0 }}>
           <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small">
+            <Table size="small" sx={{ minWidth: 650 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#eeeeee' }}>
                   <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Categoría</TableCell>
@@ -495,7 +495,7 @@ export default function AnexoVI_Domicilio() {
         <AccordionDetails sx={{ p: 0 }}>
           <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <TableContainer>
-            <Table size="small">
+            <Table size="small" sx={{ minWidth: 650 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#eeeeee' }}>
                   <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Elemento a observar</TableCell>
