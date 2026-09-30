@@ -897,12 +897,12 @@ export default function CaseDetail() {
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>Notificación Inicial - ESAVI (Fase 1)</DialogTitle>
         <DialogContent>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1, fontWeight: 'bold' }}>Datos del Paciente</Typography>
               <ReadOnlyField label="Nombre Completo" value={casoActual.paciente} />
               <ReadOnlyField label="DUI" value="04567892-1" />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle2" color="primary" sx={{ borderBottom: '1px solid #ccc', mb: 1, fontWeight: 'bold' }}>Datos Evento</Typography>
               <ReadOnlyField label="Vacuna" value={casoActual.vacuna} />
               <ReadOnlyField label="Inicio Síntomas" value="01/07/2026 10:15 AM" />

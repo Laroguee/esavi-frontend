@@ -89,7 +89,7 @@ interface CasesState {
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
   asignarMiembrosERR: (idCaso: string, miembros: string[]) => Promise<void>;
-  guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasCierre', texto: string) => Promise<void>;
+  guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasFase4' | 'notasCierre', texto: string) => Promise<void>;
   eliminarCasoStore: (idCaso: string) => Promise<void>;
   guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
   agregarLogStore: (idCaso: string, textoNotificacion: string) => Promise<void>;
@@ -561,7 +561,7 @@ export const useCasesStore = create<CasesState>()(
 
       guardarNotasCaso: async (idCaso, tipoNota, texto) => {
         const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
-        const colMap = tipoNota === 'notasOficializacion' ? 'notas_oficializacion' : (tipoNota === 'notasPreFase4' ? 'notas_pre_fase4' : 'notas_cierre');
+        const colMap = tipoNota === 'notasOficializacion' ? 'notas_oficializacion' : (tipoNota === 'notasPreFase4' ? 'notas_pre_fase4' : (tipoNota === 'notasFase4' ? 'notas_fase4' : 'notas_cierre'));
         
         if (import.meta.env.VITE_USE_API === 'true') {
            await actualizarCaso(idCaso, { [colMap]: texto });

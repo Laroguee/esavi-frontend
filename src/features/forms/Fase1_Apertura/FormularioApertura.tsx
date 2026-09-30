@@ -57,7 +57,7 @@ export default function FormularioApertura() {
       
       const resCasos = await listarCasos();
       if (resCasos.success && resCasos.data) {
-        casosActuales = resCasos.data;
+        casosActuales = resCasos.data as any;
       }
       
       let correlativo = 1;

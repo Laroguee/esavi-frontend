@@ -269,7 +269,7 @@ export default function MatrizRiesgo() {
     );
   }
 
-  if (currentRole !== 'ESAVI_INSTITUCIONAL' && currentRole !== 'SUPERADMIN') {
+  if (currentRole !== 'ESAVI_INSTITUCIONAL' && (currentRole as any) !== 'SUPERADMIN') {
     return (
       <Box sx={{ p: 4, maxWidth: 600, margin: 'auto', mt: 4 }}>
         <Alert severity="error" sx={{ mb: 3 }}>

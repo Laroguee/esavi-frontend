@@ -385,7 +385,7 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
                          }
                          return carpetaData.archivos.map((fileObj: any, idx: number) => {
                            const isPdf = fileObj.mimeType === 'application/pdf';
-                           const canDelete = currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SUPERADMIN' || fileObj.uploadedBy === userEmail;
+                           const canDelete = currentRole === 'ESAVI_INSTITUCIONAL' || (currentRole as any) === 'SUPERADMIN' || fileObj.uploadedBy === userEmail;
                            return (
                              <React.Fragment key={`exist-${idx}`}>
                                <ListItem
