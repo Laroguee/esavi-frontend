@@ -20,6 +20,24 @@ import { useCatalogStore } from './useCatalogStore';
 // 1. Tipos de Datos
 export type EstadoFlujo = 'NUEVO' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NOTIFICADO' | 'PENDIENTE_OFICIALIZAR' | 'EN_EVALUACION' | 'EN_ASIGNACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_INSTITUCIONAL' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'DICTAMINADO' | 'CERRADO_DICTAMINADO' | 'CERRADO';
 
+export interface ApoyoManual {
+  nombre: string;
+  cargo: string;
+}
+
+export interface ApoyoSistema {
+  email: string;
+  permiso: 'VER' | 'LLENAR';
+  areaApoyo?: string;
+}
+
+export interface EquipoRespuestaRapida {
+  idLocal?: string;
+  idsInstitucionales?: string[];
+  apoyosSistema?: ApoyoSistema[];
+  apoyosManuales?: ApoyoManual[];
+}
+
 export interface AgendaReunion {
   id?: string;
   faseRelacionada: string;
@@ -53,6 +71,7 @@ export interface CasoESAVI {
   observacionActual?: string;
   reuniones: AgendaReunion[];
   miembrosERR: string[];
+  equipoERR?: EquipoRespuestaRapida;
   anexoIII_completado?: boolean;
   anexoV_completado?: boolean;
   anexoVI_completado?: boolean;
@@ -88,7 +107,7 @@ interface CasesState {
   marcarNotificacionLeidaStore: (idNotif: number) => Promise<void>;
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
-  asignarMiembrosERR: (idCaso: string, miembros: string[]) => Promise<void>;
+  asignarMiembrosERR: (idCaso: string, miembros: string[], equipoERR?: EquipoRespuestaRapida) => Promise<void>;
   guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasFase4' | 'notasCierre', texto: string) => Promise<void>;
   eliminarCasoStore: (idCaso: string) => Promise<void>;
   guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
@@ -153,6 +172,7 @@ export const useCasesStore = create<CasesState>()(
               edad: row.edad ? Number(row.edad) : undefined,
               sexo: row.sexo || undefined,
               miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
+              equipoERR: usarLocal ? existingCaso?.equipoERR : (row.equipo_err_json ? JSON.parse(row.equipo_err_json) : undefined),
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
               historial_cambios: [], // Will populate below from the separate collection
               anexoIII_completado: usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII).toLowerCase() === 'true'),
@@ -243,6 +263,10 @@ export const useCasesStore = create<CasesState>()(
                 }
                 return caseMacro === myMacro;
               });
+            } else if (role.includes('OBSERVADOR')) {
+              // Observadores solo ven casos en Auditoría de Secretariado o superior
+              const fasesVisibles = ['EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'];
+              casosFiltrados = mappedCasos.filter(c => fasesVisibles.includes(c.estadoFlujo));
             }
             
             set({ casos: casosFiltrados });
@@ -547,14 +571,16 @@ export const useCasesStore = create<CasesState>()(
         }
       },
         
-      asignarMiembrosERR: async (idCaso, miembros) => {
+      asignarMiembrosERR: async (idCaso, miembros, equipoERR) => {
         if (import.meta.env.VITE_USE_API === 'true') {
-           await actualizarCaso(idCaso, { miembros_err: JSON.stringify(miembros) });
+           const updates: any = { miembros_err: JSON.stringify(miembros) };
+           if (equipoERR) updates.equipo_err_json = JSON.stringify(equipoERR);
+           await actualizarCaso(idCaso, updates);
         }
 
         set((state) => ({
           casos: state.casos.map(caso =>
-            caso.id === idCaso ? { ...caso, miembrosERR: miembros } : caso
+            caso.id === idCaso ? { ...caso, miembrosERR: miembros, equipoERR } : caso
           )
         }));
       },

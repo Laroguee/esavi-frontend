@@ -144,6 +144,7 @@ export default function CaseDetail() {
   const isEsaviInstitucional = currentRole === 'ESAVI_INSTITUCIONAL';
   const isSecretariado = currentRole === 'SECRETARIADO';
   const isComite = currentRole === 'COMITE_EXTERNO';
+  const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
   const tieneReunionFase2 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 2');
   const tieneReunionFase3 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 3' || r.tema?.toLowerCase().includes('pre-fase 4'));
   const tieneReunionFase4 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 4' || r.tema?.toLowerCase().includes('campo'));
@@ -201,6 +202,12 @@ export default function CaseDetail() {
       </Button>
 
       {/* ================= BANNERS INTELIGENTES DE ESTADO DE FLUJO ================= */}
+      {isObserver && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Modo Observador:</strong> Tiene acceso de solo lectura a este expediente debido a que se encuentra en fase de Auditoría de Secretariado o superior. Las acciones de edición están deshabilitadas.
+        </Alert>
+      )}
+
       {casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' && isJefe && (
         <Alert
           severity="error"
@@ -710,7 +717,7 @@ export default function CaseDetail() {
           <Alert severity="info" sx={{ mb: 2, fontWeight: 'medium' }}>
             Recuerde subir la presentación del caso y la documentación pertinente en el Gestor de Evidencias antes de oficializar el expediente.
           </Alert>
-          <GestorEvidencias caseId={id || 'ESAVI-000'} />
+          <GestorEvidencias caseId={id || 'ESAVI-000'} readOnly={isObserver} />
         </Box>
       )}
 

@@ -37,6 +37,7 @@ interface FileWithPreview {
 
 interface GestorEvidenciasProps {
   caseId: string;
+  readOnly?: boolean;
 }
 
 // Componente Auxiliar para Pestañas
@@ -64,7 +65,7 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
 
-export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
+export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvidenciasProps) {
   const [tabIndex, setTabIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -281,46 +282,49 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
             <Grid container spacing={4}>
               
               {/* ÁREA DE DRAG & DROP */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Box
-                  onDragEnter={(e) => handleDrag(e, cat.id)}
-                  onDragLeave={(e) => handleDrag(e, cat.id)}
-                  onDragOver={(e) => handleDrag(e, cat.id)}
-                  onDrop={(e) => handleDrop(e, cat.id)}
-                  component="label"
-                  sx={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    border: '2px dashed',
-                    borderColor: dragActive === cat.id ? 'secondary.main' : 'primary.main',
-                    bgcolor: dragActive === cat.id ? '#fff8e1' : '#f9fafd',
-                    borderRadius: 2, p: 4, cursor: 'pointer', transition: 'all 0.2s ease',
-                    minHeight: 200,
-                    '&:hover': { bgcolor: '#e3f2fd', borderColor: 'primary.dark' }
-                  }}
-                >
-                  <CloudUploadIcon color={dragActive === cat.id ? 'secondary' : 'primary'} sx={{ fontSize: 60, mb: 2 }} />
-                  <Typography variant="h6" color="text.primary" align="center" gutterBottom>
-                    Arrastre sus archivos aquí
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" align="center">
-                    o haga clic para explorar en su equipo.
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" align="center" sx={{ mt: 1 }}>
-                    Permitido: .pdf, .jpg, .png
-                  </Typography>
-                  <input 
-                    type="file" 
-                    multiple 
-                    hidden 
-                    accept="image/*,application/pdf" 
-                    onChange={(e) => handleChange(e, cat.id)} 
-                  />
-                </Box>
-              </Grid>
+              {!readOnly && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box
+                    onDragEnter={(e) => handleDrag(e, cat.id)}
+                    onDragLeave={(e) => handleDrag(e, cat.id)}
+                    onDragOver={(e) => handleDrag(e, cat.id)}
+                    onDrop={(e) => handleDrop(e, cat.id)}
+                    component="label"
+                    sx={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      border: '2px dashed',
+                      borderColor: dragActive === cat.id ? 'secondary.main' : 'primary.main',
+                      bgcolor: dragActive === cat.id ? '#fff8e1' : '#f9fafd',
+                      borderRadius: 2, p: 4, cursor: 'pointer', transition: 'all 0.2s ease',
+                      minHeight: 200,
+                      '&:hover': { bgcolor: '#e3f2fd', borderColor: 'primary.dark' }
+                    }}
+                  >
+                    <CloudUploadIcon color={dragActive === cat.id ? 'secondary' : 'primary'} sx={{ fontSize: 60, mb: 2 }} />
+                    <Typography variant="h6" color="text.primary" align="center" gutterBottom>
+                      Arrastre sus archivos aquí
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" align="center">
+                      o haga clic para explorar en su equipo.
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" align="center" sx={{ mt: 1 }}>
+                      Permitido: .pdf, .jpg, .png
+                    </Typography>
+                    <input 
+                      type="file" 
+                      multiple 
+                      hidden 
+                      accept="image/*,application/pdf" 
+                      onChange={(e) => handleChange(e, cat.id)} 
+                    />
+                  </Box>
+                </Grid>
+              )}
 
-              {/* LISTA DE PREVISUALIZACIÓN */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff' }}>
+              {/* LISTA DE PREVISUALIZACIÓN Y ARCHIVOS EXISTENTES */}
+              <Grid size={{ xs: 12, md: readOnly ? 12 : 6 }}>
+                {!readOnly && (
+                  <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff' }}>
                   <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos a subir ({archivos[cat.id].length})</Typography>
                   </Box>
@@ -364,9 +368,10 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
                     </List>
                   )}
                 </Paper>
+                )}
                 
                 {/* LISTA DE ARCHIVOS EXISTENTES */}
-                <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff', mt: 3 }}>
+                <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff', mt: readOnly ? 0 : 3 }}>
                   <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderBottom: '1px solid #ddd' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos Existentes en Repositorio</Typography>
                   </Box>
@@ -385,7 +390,7 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
                          }
                          return carpetaData.archivos.map((fileObj: any, idx: number) => {
                            const isPdf = fileObj.mimeType === 'application/pdf';
-                           const canDelete = currentRole === 'ESAVI_INSTITUCIONAL' || (currentRole as any) === 'SUPERADMIN' || fileObj.uploadedBy === userEmail;
+                           const canDelete = !readOnly && (currentRole === 'ESAVI_INSTITUCIONAL' || (currentRole as any) === 'SUPERADMIN' || fileObj.uploadedBy === userEmail);
                            return (
                              <React.Fragment key={`exist-${idx}`}>
                                <ListItem
@@ -441,20 +446,22 @@ export default function GestorEvidencias({ caseId }: GestorEvidenciasProps) {
       </Box>
 
       {/* BOTÓN FINAL DE GUARDADO */}
-      <Box sx={{ p: 3, bgcolor: '#f4f6f8', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
-        {isUploading && <Typography variant="body2" color="text.secondary">{uploadProgress}</Typography>}
-        <Button 
-          variant="contained" 
-          color="primary" 
-          size="large" 
-          startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} 
-          onClick={handleSaveAll} 
-          disabled={isUploading}
-          sx={{ px: 4, fontWeight: 'bold' }}
-        >
-          {isUploading ? 'Subiendo Archivos...' : 'Guardar Evidencias en Repositorio'}
-        </Button>
-      </Box>
+      {!readOnly && (
+        <Box sx={{ p: 3, bgcolor: '#f4f6f8', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
+          {isUploading && <Typography variant="body2" color="text.secondary">{uploadProgress}</Typography>}
+          <Button 
+            variant="contained" 
+            color="primary" 
+            size="large" 
+            startIcon={isUploading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} 
+            onClick={handleSaveAll} 
+            disabled={isUploading}
+            sx={{ px: 4, fontWeight: 'bold' }}
+          >
+            {isUploading ? 'Subiendo Archivos...' : 'Guardar Evidencias en Repositorio'}
+          </Button>
+        </Box>
+      )}
 
     </Paper>
   );

@@ -4,7 +4,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 export type Role = 
   | 'ESAVI_LOCAL' | 'INMUNO_LOCAL' | 'EPIDEMIO_LOCAL' 
   | 'INMUNO_INSTITUCIONAL' | 'EPIDEMIO_INSTITUCIONAL' | 'ESAVI_INSTITUCIONAL' 
-  | 'SECRETARIADO' | 'COMITE_EXTERNO' | 'ERR';
+  | 'SECRETARIADO' | 'COMITE_EXTERNO' | 'ERR'
+  | 'OBSERVADOR_EPIDEMIO' | 'OBSERVADOR_INMUNO';
 
 export interface MockUser {
   id?: number;

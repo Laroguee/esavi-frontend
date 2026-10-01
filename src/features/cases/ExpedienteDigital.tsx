@@ -5,6 +5,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { obtenerExpediente } from '../../services/firebaseService';
 import ExploradorNativo from './ExploradorNativo';
 import VisorAnexoLectura from './VisorAnexoLectura';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useCasesStore } from '../../store/useCasesStore';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -38,6 +41,11 @@ export default function ExpedienteDigital() {
   const [error, setError] = useState<string | null>(null);
   const [expedienteData, setExpedienteData] = useState<any>(null);
   const [tabIndex, setTabIndex] = useState(0);
+
+  const currentRole = useAuthStore(state => state.currentRole);
+  const casoActual = useCasesStore(state => state.casos.find(c => c.id === id));
+  const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico' || casoActual?.riesgo?.includes('NACIONAL');
+  const isSRS = currentRole === 'SECRETARIADO';
 
   useEffect(() => {
     async function loadData() {
@@ -114,6 +122,26 @@ export default function ExpedienteDigital() {
         <Box sx={{ p: { xs: 2, md: 4 } }}>
           {/* Tab 1: Archivos */}
           <TabPanel value={tabIndex} index={0}>
+            {isSRS && esRiesgoAlto && (
+              <Paper variant="outlined" sx={{ p: 3, mb: 4, bgcolor: '#f0f7ff', borderColor: 'primary.light', borderStyle: 'dashed' }}>
+                <Typography variant="subtitle1" color="primary.main" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CloudUploadIcon /> Espacio Regulatorio Exclusivo (SRS)
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Este es un caso crítico a nivel nacional. Suba aquí la documentación regulatoria, oficios o resoluciones correspondientes. 
+                  Los archivos se etiquetarán automáticamente como <strong>[REGULATORIO]</strong>.
+                </Typography>
+                <Button variant="contained" component="label" startIcon={<CloudUploadIcon />}>
+                  Subir Documento Regulatorio
+                  <input type="file" hidden onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      alert(`[Simulación] Se ha subido el documento regulatorio: [REGULATORIO]_${e.target.files[0].name}`);
+                    }
+                  }} />
+                </Button>
+              </Paper>
+            )}
+
             <Typography variant="body1" sx={{ mb: 2 }}>
               Visualizando estructura del repositorio digital.
             </Typography>

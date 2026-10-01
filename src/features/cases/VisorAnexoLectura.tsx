@@ -42,6 +42,19 @@ export default function VisorAnexoLectura({ dataString, titulo }: VisorAnexoLect
       return <Typography variant="body2" color="text.secondary"><em>N/A</em></Typography>;
     }
     if (Array.isArray(value)) {
+      if (value.length > 0 && typeof value[0] === 'object') {
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+            {value.map((item, i) => (
+              <Box key={i} sx={{ bgcolor: 'white', p: 1, borderRadius: 1, border: '1px solid #ddd' }}>
+                {Object.entries(item).map(([k, v]) => (
+                  <Typography key={k} variant="body2"><strong>{formatearLlave(k)}:</strong> {String(v)}</Typography>
+                ))}
+              </Box>
+            ))}
+          </Box>
+        );
+      }
       return <Typography variant="body2">{value.join(', ')}</Typography>;
     }
     if (typeof value === 'object') {
