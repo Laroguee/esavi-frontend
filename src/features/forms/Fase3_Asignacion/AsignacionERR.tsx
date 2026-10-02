@@ -28,15 +28,31 @@ export default function AsignacionERR() {
   const [apoyosManuales, setApoyosManuales] = useState<{nombre: string, cargo: string}[]>([]);
   const [apoyosSistema, setApoyosSistema] = useState<{email: string, permiso: 'VER' | 'LLENAR', areaApoyo: string}[]>([]);
 
+  const normalizeEstablecimiento = (est: string | undefined) => {
+    if (!est) return '';
+    const upper = est.toUpperCase().trim();
+    if (upper === 'OFICINA CENTRAL MINSAL') return 'Nivel Central MINSAL';
+    if (upper === 'OFICINA CENTRAL ISSS') return 'Nivel Central ISSS';
+    if (upper === 'UCSF SAN JACINTO') return 'Unidad de Salud San Jacinto';
+    return est;
+  };
+
   useEffect(() => {
     listarUsuarios().then(res => {
-      if(res.success) setUsuariosBD(res.data as any);
+      if(res.success) {
+        const normalized = (res.data as any[]).map(u => ({
+          ...u,
+          establecimiento: normalizeEstablecimiento(u.establecimiento)
+        }));
+        setUsuariosBD(normalized);
+      }
     });
   }, []);
 
   const [chkReporte, setChkReporte] = useState(false);
   // Detección de nivel de riesgo
-  const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico' || casoActual?.riesgo?.includes('NACIONAL');
+  const riesgoStr = casoActual?.riesgo?.toUpperCase() || '';
+  const esRiesgoAlto = riesgoStr.includes('ALTO') || riesgoStr.includes('CRÍTICO') || riesgoStr.includes('CRITICO') || riesgoStr.includes('NACIONAL');
 
   const { control, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
@@ -49,7 +65,9 @@ export default function AsignacionERR() {
       inst_esavi_inst: '', esavi_inst: '',
       inst_epidemio_inst: '', epidemio_inst: '',
       inst_inmuno_inst: '', inmuno_inst: '',
-      inst_err_local: '', err_local: ''
+      inst_secretariado_inst: '', secretariado_inst: '',
+      inst_err_local: '', err_local: '',
+      inst_err_local_2: '', err_local_2: ''
     }
   });
 
@@ -63,6 +81,7 @@ export default function AsignacionERR() {
         const uEsaviInst = usuariosBD.find(u => u.email === eq.idsInstitucionales?.[0]);
         const uEpidemioInst = usuariosBD.find(u => u.email === eq.idsInstitucionales?.[1]);
         const uInmunoInst = usuariosBD.find(u => u.email === eq.idsInstitucionales?.[2]);
+        const uSecretariado = usuariosBD.find(u => u.email === eq.idsInstitucionales?.[3]);
 
         reset({
           inst_farmacovigilancia: '', farmacovigilancia: '',
@@ -70,9 +89,11 @@ export default function AsignacionERR() {
           inst_epidemiologia: '', epidemiologia: '',
           instrucciones: '',
           inst_err_local: uLocal?.establecimiento || '', err_local: uLocal?.email || '',
+          inst_err_local_2: eq.idLocal2 ? usuariosBD.find(u => u.email === eq.idLocal2)?.establecimiento || '' : '', err_local_2: eq.idLocal2 || '',
           inst_esavi_inst: uEsaviInst?.establecimiento || '', esavi_inst: uEsaviInst?.email || '',
           inst_epidemio_inst: uEpidemioInst?.establecimiento || '', epidemio_inst: uEpidemioInst?.email || '',
-          inst_inmuno_inst: uInmunoInst?.establecimiento || '', inmuno_inst: uInmunoInst?.email || ''
+          inst_inmuno_inst: uInmunoInst?.establecimiento || '', inmuno_inst: uInmunoInst?.email || '',
+          inst_secretariado_inst: uSecretariado?.establecimiento || '', secretariado_inst: uSecretariado?.email || ''
         });
         setApoyosSistema(eq.apoyosSistema || []);
         setApoyosManuales(eq.apoyosManuales || []);
@@ -87,7 +108,7 @@ export default function AsignacionERR() {
           inst_inmunizaciones: inmuno?.establecimiento || '', inmunizaciones: inmuno?.email || '',
           inst_epidemiologia: epidemio?.establecimiento || '', epidemiologia: epidemio?.email || '',
           instrucciones: '',
-          inst_esavi_inst: '', esavi_inst: '', inst_epidemio_inst: '', epidemio_inst: '', inst_inmuno_inst: '', inmuno_inst: '', inst_err_local: '', err_local: ''
+          inst_esavi_inst: '', esavi_inst: '', inst_epidemio_inst: '', epidemio_inst: '', inst_inmuno_inst: '', inmuno_inst: '', inst_secretariado_inst: '', secretariado_inst: '', inst_err_local: '', err_local: '', inst_err_local_2: '', err_local_2: ''
         });
         if (casoActual.equipoERR) {
           setApoyosSistema(casoActual.equipoERR.apoyosSistema || []);
@@ -135,9 +156,10 @@ export default function AsignacionERR() {
       };
 
       if (esRiesgoAlto) {
-        nuevosMiembros = [data.err_local, data.esavi_inst, data.epidemio_inst, data.inmuno_inst, ...apoyosSistema.map(a => a.email)].filter(Boolean);
+        nuevosMiembros = [data.err_local, data.err_local_2, data.esavi_inst, data.epidemio_inst, data.inmuno_inst, data.secretariado_inst, ...apoyosSistema.map(a => a.email)].filter(Boolean);
         equipoERR.idLocal = data.err_local;
-        equipoERR.idsInstitucionales = [data.esavi_inst, data.epidemio_inst, data.inmuno_inst].filter(Boolean);
+        equipoERR.idLocal2 = data.err_local_2;
+        equipoERR.idsInstitucionales = [data.esavi_inst, data.epidemio_inst, data.inmuno_inst, data.secretariado_inst].filter(Boolean);
       } else {
         nuevosMiembros = [data.farmacovigilancia, data.inmunizaciones, data.epidemiologia, ...apoyosSistema.map(a => a.email)].filter(Boolean);
       }
@@ -208,12 +230,16 @@ export default function AsignacionERR() {
   const establecimientosMap = new Map();
   establecimientos.forEach(e => establecimientosMap.set(e.nombre, e));
 
+  // Se ha restaurado la lógica de establecimientos "fantasma" PERO después de aplicar
+  // un normalizador a los usuarios. Así evitamos duplicados conocidos ("Oficina" vs "Nivel"),
+  // pero seguimos permitiendo que usuarios sin establecimiento en el catálogo (ej. SRS) sigan apareciendo.
   usuariosBD.forEach(u => {
     if (u.establecimiento && !establecimientosMap.has(u.establecimiento)) {
       let macro = u.institucionMacro || 'MINSAL';
       if (!u.institucionMacro) {
           const nameUpper = u.establecimiento.toUpperCase();
           if (nameUpper.includes('ISSS')) macro = 'ISSS';
+          if (nameUpper.includes('SRS')) macro = 'SRS';
       }
       establecimientosMap.set(u.establecimiento, {
         id: `usr-est-${Math.random()}`,
@@ -227,6 +253,8 @@ export default function AsignacionERR() {
   });
 
   const establecimientosCombinados = Array.from(establecimientosMap.values());
+  const establecimientosActivos = establecimientosCombinados.filter((e: any) => e.activo === true || String(e.activo).toLowerCase() === 'true');
+  
   let macroDelCaso = establecimientosCombinados.find((e: any) => e.nombre === casoActual?.establecimiento)?.institucionMacro;
   if (!macroDelCaso && casoActual) {
     const searchString = (casoActual.establecimiento + " " + casoActual.id).toUpperCase();
@@ -234,8 +262,7 @@ export default function AsignacionERR() {
     else if (searchString.includes("MINSAL")) macroDelCaso = "MINSAL";
   }
 
-  const establecimientosFiltrados = establecimientosCombinados.filter((e: any) => 
-    (e.activo === true || String(e.activo).toLowerCase() === 'true') && 
+  const establecimientosFiltrados = establecimientosActivos.filter((e: any) => 
     (!macroDelCaso || e.institucionMacro === macroDelCaso || e.institucionMacro === 'MINSAL' || macroDelCaso === 'MINSAL')
   );
 
@@ -258,7 +285,7 @@ export default function AsignacionERR() {
           </Typography>
           <Typography variant="body2" sx={{ mb: 1 }}>
             De acuerdo a la matriz de riesgo, se requiere una respuesta NACIONAL inmediata involucrando al Nivel Central. 
-            Debe designar a los 3 perfiles de Auditoría Institucional y al responsable Local del trabajo de campo.
+            Debe designar a los 4 perfiles de Auditoría Institucional y a los 2 responsables Locales del trabajo de campo.
           </Typography>
         </Alert>
       )}
@@ -279,14 +306,15 @@ export default function AsignacionERR() {
               {/* 1. ERR Institucional */}
               <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', borderBottom: '1px solid #ccc', pb: 1 }}>
-                  1. Auditoría Institucional (Obligatorio)
+                  1. Auditoría Institucional y Regulatoria (Obligatorio)
                 </Typography>
+                
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   {/* ESAVI Institucional */}
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="inst_esavi_inst" control={control} render={({ field }) => (
                       <TextField {...field} select fullWidth size="small" label="Institución (ESAVI)" onChange={(e) => { field.onChange(e); setValue('esavi_inst', ''); }}>
-                        {establecimientosCombinados.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
+                        {establecimientosActivos.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
                       </TextField>
                     )}/>
                   </Grid>
@@ -294,7 +322,7 @@ export default function AsignacionERR() {
                     <Controller name="esavi_inst" control={control} render={({ field }) => {
                       const options = usuariosBD.filter(u => String(u.role).includes('ESAVI_INSTITUCIONAL') && (!valores.inst_esavi_inst || u.establecimiento === valores.inst_esavi_inst));
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Referente ESAVI Institucional" required>
+                        <TextField {...field} select fullWidth size="small" label="Referente ESAVI Institucional" required helperText="Auditoría y aprobación técnica del Anexo VII (Evaluación Clínica).">
                           {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name}</MenuItem>))}
                         </TextField>
                       );
@@ -305,7 +333,7 @@ export default function AsignacionERR() {
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="inst_epidemio_inst" control={control} render={({ field }) => (
                       <TextField {...field} select fullWidth size="small" label="Institución (Epidemiología)" onChange={(e) => { field.onChange(e); setValue('epidemio_inst', ''); }}>
-                        {establecimientosCombinados.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
+                        {establecimientosActivos.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
                       </TextField>
                     )}/>
                   </Grid>
@@ -313,7 +341,7 @@ export default function AsignacionERR() {
                     <Controller name="epidemio_inst" control={control} render={({ field }) => {
                       const options = usuariosBD.filter(u => String(u.role).includes('EPIDEMIO_INSTITUCIONAL') && (!valores.inst_epidemio_inst || u.establecimiento === valores.inst_epidemio_inst));
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Referente Epidemio Institucional" required>
+                        <TextField {...field} select fullWidth size="small" label="Referente Epidemio Institucional" required helperText="Auditoría y aprobación técnica del Anexo VI (Domicilio y Comunidad).">
                           {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name}</MenuItem>))}
                         </TextField>
                       );
@@ -324,7 +352,7 @@ export default function AsignacionERR() {
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="inst_inmuno_inst" control={control} render={({ field }) => (
                       <TextField {...field} select fullWidth size="small" label="Institución (Inmunizaciones)" onChange={(e) => { field.onChange(e); setValue('inmuno_inst', ''); }}>
-                        {establecimientosCombinados.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
+                        {establecimientosActivos.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
                       </TextField>
                     )}/>
                   </Grid>
@@ -332,7 +360,26 @@ export default function AsignacionERR() {
                     <Controller name="inmuno_inst" control={control} render={({ field }) => {
                       const options = usuariosBD.filter(u => String(u.role).includes('INMUNO_INSTITUCIONAL') && (!valores.inst_inmuno_inst || u.establecimiento === valores.inst_inmuno_inst));
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Referente Inmuno Institucional" required>
+                        <TextField {...field} select fullWidth size="small" label="Referente Inmuno Institucional" required helperText="Auditoría y aprobación técnica del Anexo V (Puesto de Vacunación).">
+                          {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name}</MenuItem>))}
+                        </TextField>
+                      );
+                    }}/>
+                  </Grid>
+
+                  {/* SECRETARIADO SRS */}
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller name="inst_secretariado_inst" control={control} render={({ field }) => (
+                      <TextField {...field} select fullWidth size="small" label="Institución (Regulación)" onChange={(e) => { field.onChange(e); setValue('secretariado_inst', ''); }}>
+                        {establecimientosActivos.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
+                      </TextField>
+                    )}/>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller name="secretariado_inst" control={control} render={({ field }) => {
+                      const options = usuariosBD.filter(u => String(u.role) === 'SECRETARIADO' && (!valores.inst_secretariado_inst || u.establecimiento === valores.inst_secretariado_inst));
+                      return (
+                        <TextField {...field} select fullWidth size="small" label="Referente Secretariado SRS" required helperText="Auditoría del expediente completo (Fase 5.2) y carga de documentación en el Espacio Regulatorio.">
                           {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name}</MenuItem>))}
                         </TextField>
                       );
@@ -342,14 +389,16 @@ export default function AsignacionERR() {
               </Grid>
 
               {/* 2. ERR Local */}
-              <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
+              <Grid size={{ xs: 12 }} sx={{ mt: 4 }}>
                 <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main', borderBottom: '1px solid #ccc', pb: 1 }}>
-                  2. Responsable de Trabajo de Campo Local (Obligatorio)
+                  2. Responsables de Trabajo de Campo Local (Obligatorio)
                 </Typography>
+                
+                {/* LÍDER LOCAL */}
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="inst_err_local" control={control} render={({ field }) => (
-                      <TextField {...field} select fullWidth size="small" label="Institución Local" onChange={(e) => { field.onChange(e); setValue('err_local', ''); }}>
+                      <TextField {...field} select fullWidth size="small" label="Institución Local (Líder)" onChange={(e) => { field.onChange(e); setValue('err_local', ''); }}>
                         {establecimientosFiltrados.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
                       </TextField>
                     )}/>
@@ -358,7 +407,28 @@ export default function AsignacionERR() {
                     <Controller name="err_local" control={control} render={({ field }) => {
                       const options = usuariosBD.filter(u => String(u.role).includes('LOCAL') && (!valores.inst_err_local || u.establecimiento === valores.inst_err_local));
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Referente Local (Encargado de Anexos)" required>
+                        <TextField {...field} select fullWidth size="small" label="Responsable Local (Líder)" required helperText="Coordinador de campo y máximo responsable de garantizar el llenado de los Anexos V, VI y VII.">
+                          {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
+                        </TextField>
+                      );
+                    }}/>
+                  </Grid>
+                </Grid>
+
+                {/* APOYO LOCAL */}
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller name="inst_err_local_2" control={control} render={({ field }) => (
+                      <TextField {...field} select fullWidth size="small" label="Institución Local (Apoyo)" onChange={(e) => { field.onChange(e); setValue('err_local_2', ''); }}>
+                        {establecimientosFiltrados.map((inst: any) => (<MenuItem key={inst.id} value={inst.nombre}>{inst.nombre}</MenuItem>))}
+                      </TextField>
+                    )}/>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Controller name="err_local_2" control={control} render={({ field }) => {
+                      const options = usuariosBD.filter(u => String(u.role).includes('LOCAL') && (!valores.inst_err_local_2 || u.establecimiento === valores.inst_err_local_2) && u.email !== valores.err_local);
+                      return (
+                        <TextField {...field} select fullWidth size="small" label="Responsable Local (Apoyo)" required helperText="Acompaña al líder y se le delega el levantamiento y llenado de anexos específicos en territorio.">
                           {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
                         </TextField>
                       );
@@ -465,7 +535,15 @@ export default function AsignacionERR() {
                   }
                 }}
               >
-                {usuariosBD.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
+                {usuariosBD.filter(u => {
+                  const yaElegidos = [
+                    valores.esavi_inst, valores.epidemio_inst, valores.inmuno_inst, valores.secretariado_inst,
+                    valores.err_local, valores.err_local_2,
+                    valores.farmacovigilancia, valores.inmunizaciones, valores.epidemiologia,
+                    ...apoyosSistema.map(a => a.email)
+                  ];
+                  return !yaElegidos.includes(u.email);
+                }).map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
               </TextField>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
                 {apoyosSistema.map(apoyo => {
@@ -551,20 +629,7 @@ export default function AsignacionERR() {
         </Grid>
       </Paper>
 
-      {esRiesgoAlto && (
-        <Alert severity="warning" sx={{ mt: 3, p: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'warning.dark' }}>
-            ATENCIÓN: Nivel de Riesgo {casoActual?.riesgo.toUpperCase()} (Paso 4 del POE)
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            Para niveles Alto o Crítico es obligatorio elaborar y notificar un Reporte de Situación antes de movilizar al equipo. Por favor súbalo al Gestor de Evidencias.
-          </Typography>
-          <FormControlLabel 
-            control={<Checkbox checked={chkReporte} onChange={(e) => setChkReporte(e.target.checked)} color="warning" />} 
-            label={<Typography variant="body2" sx={{ fontWeight: 'bold' }}>Reporte de Situación elaborado e informado a la SRS</Typography>} 
-          />
-        </Alert>
-      )}
+      {/* Se eliminó la alerta estática y checkbox del "Reporte de Situación" a solicitud del usuario */}
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
         <Button 
@@ -572,8 +637,7 @@ export default function AsignacionERR() {
           color="secondary" 
           type="submit" 
           size="large" 
-          startIcon={<SaveIcon />} 
-          disabled={(esRiesgoAlto && !chkReporte) || isSubmitting}
+          disabled={isSubmitting}
         >
           {isSubmitting ? 'Guardando...' : 'Confirmar Asignación'}
         </Button>

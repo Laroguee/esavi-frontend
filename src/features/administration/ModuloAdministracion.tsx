@@ -373,7 +373,7 @@ export default function ModuloAdministracion() {
                 <MenuItem value="ESAVI_INSTITUCIONAL">ESAVI Nivel Central</MenuItem>
                 <MenuItem value="INMUNO_INSTITUCIONAL">Inmunizaciones Central</MenuItem>
                 <MenuItem value="EPIDEMIO_INSTITUCIONAL">Epidemiología Central</MenuItem>
-                <MenuItem value="SECRETARIADO">Secretariado Técnico</MenuItem>
+                <MenuItem value="SECRETARIADO">Secretariado (Coordinador, Analista, Apoyo)</MenuItem>
                 <MenuItem value="COMITE_EXTERNO">Comité Externo</MenuItem>
                 <MenuItem value="OBSERVADOR_EPIDEMIO">Observador Permanente (Epidemiología)</MenuItem>
                 <MenuItem value="OBSERVADOR_INMUNO">Observador Permanente (Inmunizaciones)</MenuItem>

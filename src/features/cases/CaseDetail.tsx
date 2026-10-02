@@ -15,6 +15,7 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import GestorEvidencias from '../cases/GestorEvidencias';
 import ControlCalidad from '../forms/Fase5_ControlCalidad/ControlCalidad';
 import EdicionFase1Modal from './EdicionFase1Modal';
+import ModalEquipoRegulatorio from './ModalEquipoRegulatorio';
 
 const fases = [
   'Fase 1: Notificación',
@@ -42,6 +43,7 @@ export default function CaseDetail() {
   const [isFase1ReadOnly, setIsFase1ReadOnly] = useState(false);
   const [openApertura, setOpenApertura] = useState(false);
   const [openDictamenModal, setOpenDictamenModal] = useState(false);
+  const [openEquipoRegulatorio, setOpenEquipoRegulatorio] = useState(false);
 
   // --- ESTADOS PARA CHECKLISTS NORMATIVOS ---
   const [chkAnexoI, setChkAnexoI] = useState(false);
@@ -141,9 +143,9 @@ export default function CaseDetail() {
   const isEsaviLocal = currentRole === 'ESAVI_LOCAL';
   const isInmunoLocal = currentRole === 'INMUNO_LOCAL';
   const isEpidemioLocal = currentRole === 'EPIDEMIO_LOCAL';
-  const isEsaviInstitucional = currentRole === 'ESAVI_INSTITUCIONAL';
-  const isSecretariado = currentRole === 'SECRETARIADO';
-  const isComite = currentRole === 'COMITE_EXTERNO';
+  const isEsaviInstitucional = String(currentRole).toUpperCase() === 'ESAVI_INSTITUCIONAL';
+  const isSecretariado = String(currentRole).toUpperCase() === 'SECRETARIADO';
+  const isComite = String(currentRole).toUpperCase() === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
   const tieneReunionFase2 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 2');
   const tieneReunionFase3 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 3' || r.tema?.toLowerCase().includes('pre-fase 4'));
@@ -228,6 +230,40 @@ export default function CaseDetail() {
         <Alert severity="error" variant="filled" sx={{ mb: 3 }}>
           <strong>ACCIÓN REQUERIDA:</strong> El ESAVI Institucional ha devuelto este expediente para corrección.
           <br /><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
+        </Alert>
+      )}
+
+      {(() => {
+        const strRiesgo = String(casoActual.riesgo || '').toUpperCase();
+        const esCritico = strRiesgo.includes('CRITIC') || strRiesgo.includes('CRÍTICO') || strRiesgo.includes('NACIONAL');
+        
+        return isSecretariado && esCritico && !casoActual.equipoRegulatorio && (
+          <Alert
+            severity="warning"
+            variant="filled"
+            sx={{ mb: 3, alignItems: 'center' }}
+            action={
+              <Button color="inherit" size="small" variant="outlined" onClick={() => setOpenEquipoRegulatorio(true)}>
+                Conformar Equipo Regulatorio
+              </Button>
+            }
+          >
+            <strong>ATENCIÓN CASO CRÍTICO:</strong> Debe conformar su Sub-Equipo Regulatorio Interno para habilitar el espacio documental.
+          </Alert>
+        );
+      })()}
+      
+      {isSecretariado && casoActual.equipoRegulatorio && (
+        <Alert
+          severity="success"
+          sx={{ mb: 3, alignItems: 'center' }}
+          action={
+            <Button color="inherit" size="small" variant="outlined" onClick={() => setOpenEquipoRegulatorio(true)}>
+              Ver / Editar Equipo Regulatorio
+            </Button>
+          }
+        >
+          <strong>Equipo Regulatorio Interno conformado.</strong> Coordinador: {casoActual.equipoRegulatorio.coordinador}
         </Alert>
       )}
 
@@ -368,11 +404,11 @@ export default function CaseDetail() {
                       placeholder="Escriba una nueva observación o acuerdo..."
                       value={nuevaNotaOficializacion}
                       onChange={(e) => setNuevaNotaOficializacion(e.target.value)}
-                      disabled={!isEsaviInstitucional || !tieneReunionFase2 || !f2Completado}
+                      disabled={(isObserver || isComite) || !tieneReunionFase2 || !f2Completado}
                     />
                     {!tieneReunionFase2 && <Typography variant="caption" color="error">Debe programar la reunión de Fase 2 en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>}
                     {tieneReunionFase2 && !f2Completado && <Typography variant="caption" color="error">Debe llenar la Matriz de Riesgo antes de redactar los acuerdos.</Typography>}
-                    {isEsaviInstitucional && tieneReunionFase2 && (
+                    {(!isObserver && !isComite) && tieneReunionFase2 && (
                       <Button
                         variant="contained"
                         size="small"
@@ -458,11 +494,11 @@ export default function CaseDetail() {
                           placeholder="Escriba una nueva observación, indicación o acuerdo..."
                           value={nuevaNotaPreFase4}
                           onChange={(e) => setNuevaNotaPreFase4(e.target.value)}
-                          disabled={!isEsaviInstitucional || !tieneReunionFase3 || !f2Completado}
+                          disabled={(isObserver || isComite) || !tieneReunionFase3 || !f2Completado}
                         />
                         {!tieneReunionFase3 && <Typography variant="caption" color="error">Debe programar la reunión Pre-Fase 4 (Fase 3) en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>}
                         {tieneReunionFase3 && !f2Completado && <Typography variant="caption" color="error">Debe llenar la Matriz de Riesgo antes de redactar los acuerdos.</Typography>}
-                        {isEsaviInstitucional && tieneReunionFase3 && (
+                        {(!isObserver && !isComite) && tieneReunionFase3 && (
                           <Button
                             variant="contained"
                             size="small"
@@ -569,10 +605,10 @@ export default function CaseDetail() {
                           placeholder="Escriba observaciones tras la investigación del ERR..."
                           value={nuevaNotaFase4}
                           onChange={(e) => setNuevaNotaFase4(e.target.value)}
-                          disabled={!isEsaviInstitucional || !tieneReunionFase4}
+                          disabled={(isObserver || isComite) || !tieneReunionFase4}
                         />
                         {!tieneReunionFase4 && <Typography variant="caption" color="error">Debe programar la reunión de Cierre de Campo (Fase 4) en la pestaña "Agenda" para ingresar las notas.</Typography>}
-                        {isEsaviInstitucional && tieneReunionFase4 && (
+                        {(!isObserver && !isComite) && tieneReunionFase4 && (
                           <Button
                             variant="contained"
                             size="small"
@@ -772,7 +808,7 @@ export default function CaseDetail() {
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" color="primary">Agenda de Reuniones</Typography>
-            {(isJefe || isSecretariado) && (
+            {(!isObserver && !isComite) && (
               <Button variant="contained" color="primary" onClick={() => setOpenAgendaModal(true)}>
                 + Agendar Reunión
               </Button>
@@ -1054,6 +1090,7 @@ export default function CaseDetail() {
         </DialogActions>
       </Dialog>
 
+      <ModalEquipoRegulatorio open={openEquipoRegulatorio} onClose={() => setOpenEquipoRegulatorio(false)} casoActual={casoActual} />
     </Box>
   );
 }

@@ -44,7 +44,8 @@ export default function ExpedienteDigital() {
 
   const currentRole = useAuthStore(state => state.currentRole);
   const casoActual = useCasesStore(state => state.casos.find(c => c.id === id));
-  const esRiesgoAlto = casoActual?.riesgo === 'Alto' || casoActual?.riesgo === 'Crítico' || casoActual?.riesgo?.includes('NACIONAL');
+  const riesgoEvaluado = casoActual?.riesgo || expedienteData?.expediente?.riesgo;
+  const esRiesgoAlto = riesgoEvaluado === 'Alto' || riesgoEvaluado === 'Crítico' || riesgoEvaluado?.includes('NACIONAL');
   const isSRS = currentRole === 'SECRETARIADO';
 
   useEffect(() => {

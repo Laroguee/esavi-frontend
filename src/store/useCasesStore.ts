@@ -72,6 +72,7 @@ export interface CasoESAVI {
   reuniones: AgendaReunion[];
   miembrosERR: string[];
   equipoERR?: EquipoRespuestaRapida;
+  equipoRegulatorio?: { coordinador: string, analista: string, apoyo: string };
   anexoIII_completado?: boolean;
   anexoV_completado?: boolean;
   anexoVI_completado?: boolean;
@@ -108,6 +109,7 @@ interface CasesState {
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
   asignarMiembrosERR: (idCaso: string, miembros: string[], equipoERR?: EquipoRespuestaRapida) => Promise<void>;
+  asignarEquipoRegulatorio: (idCaso: string, datosEquipo: { coordinador: string, analista: string, apoyo: string }) => Promise<void>;
   guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasFase4' | 'notasCierre', texto: string) => Promise<void>;
   eliminarCasoStore: (idCaso: string) => Promise<void>;
   guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
@@ -583,6 +585,18 @@ export const useCasesStore = create<CasesState>()(
             caso.id === idCaso ? { ...caso, miembrosERR: miembros, equipoERR } : caso
           )
         }));
+      },
+
+      asignarEquipoRegulatorio: async (idCaso, datosEquipo) => {
+        set((state) => ({
+          casos: state.casos.map((c) => 
+            c.id === idCaso ? { ...c, equipoRegulatorio: datosEquipo } : c
+          )
+        }));
+        
+        if (import.meta.env.VITE_USE_API === 'true') {
+          await registrarLog(idCaso, useAuthStore.getState().userEmail || 'sistema', 'Se ha conformado el Equipo Regulatorio interno del Secretariado SRS.');
+        }
       },
 
       guardarNotasCaso: async (idCaso, tipoNota, texto) => {

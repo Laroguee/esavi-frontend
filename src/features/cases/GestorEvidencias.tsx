@@ -11,10 +11,11 @@ import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import { subirArchivoEvidencia, listarArchivosCaso, borrarArchivoEvidencia } from '../../services/firebaseService';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useCasesStore } from '../../store/useCasesStore';
 import { useEffect } from 'react';
 
 // Tipos de las categorías obligatorias del repositorio (Anexo I)
-type CategoriaEvidencia = 'clinica' | 'pni' | 'epidemiologica' | 'general';
+type CategoriaEvidencia = 'clinica' | 'pni' | 'epidemiologica' | 'general' | 'regulatorio';
 
 interface CategoriaConfig {
   id: CategoriaEvidencia;
@@ -22,7 +23,7 @@ interface CategoriaConfig {
   description: string;
 }
 
-const CATEGORIAS: CategoriaConfig[] = [
+const BASE_CATEGORIAS: CategoriaConfig[] = [
   { id: 'clinica', label: 'Información Clínica', description: 'Historia clínica, epicrisis, resultados de laboratorio, autopsias.' },
   { id: 'pni', label: 'Información de PNI', description: 'Carnet de vacunación, registros del puesto, control de cadena de frío.' },
   { id: 'epidemiologica', label: 'Información Epidemiológica', description: 'Fichas de investigación comunitaria, mapas, entrevistas de campo.' },
@@ -73,6 +74,27 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
   const [archivosExistentes, setArchivosExistentes] = useState<any[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
 
+  // Obtener el caso actual para verificar el riesgo
+  const { casos } = useCasesStore();
+  const casoActual = casos.find(c => c.id === caseId);
+  
+  const riesgoStr = casoActual?.riesgo?.toUpperCase() || '';
+  const esRiesgoAlto = riesgoStr.includes('ALTO') || riesgoStr.includes('CRÍTICO') || riesgoStr.includes('CRITICO') || riesgoStr.includes('NACIONAL');
+  
+  const isSRS = currentRole?.toUpperCase() === 'SECRETARIADO';
+
+  const CATEGORIAS = React.useMemo(() => {
+    const cats: CategoriaConfig[] = [...BASE_CATEGORIAS];
+    if (isSRS && esRiesgoAlto) {
+      cats.push({
+        id: 'regulatorio',
+        label: 'Espacio Regulatorio',
+        description: 'Buzón exclusivo del Secretariado para carga de documentación que se etiqueta como [REGULATORIO].'
+      });
+    }
+    return cats;
+  }, [isSRS, esRiesgoAlto]);
+
   const cargarArchivosExistentes = useCallback(async () => {
     setLoadingFiles(true);
     const res = await listarArchivosCaso(caseId);
@@ -92,6 +114,7 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
     pni: [],
     epidemiologica: [],
     general: [],
+    regulatorio: [],
   });
 
   // Estado para estilos visuales de Drag & Drop
@@ -282,8 +305,13 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
             <Grid container spacing={4}>
               
               {/* ÁREA DE DRAG & DROP */}
-              {!readOnly && (
-                <Grid size={{ xs: 12, md: 6 }}>
+              {(() => {
+                const isUploadAllowed = !readOnly && (
+                  cat.id !== 'regulatorio' || 
+                  (casoActual?.equipoRegulatorio && (userEmail === casoActual.equipoRegulatorio.analista || userEmail === casoActual.equipoRegulatorio.coordinador))
+                );
+                return isUploadAllowed && (
+                  <Grid size={{ xs: 12, md: 6 }}>
                   <Box
                     onDragEnter={(e) => handleDrag(e, cat.id)}
                     onDragLeave={(e) => handleDrag(e, cat.id)}
@@ -319,11 +347,18 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                     />
                   </Box>
                 </Grid>
-              )}
+                );
+              })()}
 
               {/* LISTA DE PREVISUALIZACIÓN Y ARCHIVOS EXISTENTES */}
-              <Grid size={{ xs: 12, md: readOnly ? 12 : 6 }}>
-                {!readOnly && (
+              {(() => {
+                const isUploadAllowed = !readOnly && (
+                  cat.id !== 'regulatorio' || 
+                  (casoActual?.equipoRegulatorio && (userEmail === casoActual.equipoRegulatorio.analista || userEmail === casoActual.equipoRegulatorio.coordinador))
+                );
+                return (
+              <Grid size={{ xs: 12, md: isUploadAllowed ? 6 : 12 }}>
+                {isUploadAllowed && (
                   <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff' }}>
                   <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos a subir ({archivos[cat.id].length})</Typography>
@@ -439,6 +474,8 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                   )}
                 </Paper>
               </Grid>
+              );
+              })()}
             </Grid>
 
           </TabPanel>
