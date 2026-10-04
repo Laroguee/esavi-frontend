@@ -136,6 +136,11 @@ export default function CaseDetail() {
 
   // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
   const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
+  const isLiderOApoyo = casoActual.equipoERR?.idLocal === userEmail || casoActual.equipoERR?.idLocal2 === userEmail;
+  const isAssignedToV = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('INMUNO')) || casoActual.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR');
+  const isAssignedToVI = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO')) || casoActual.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR');
+  const isAssignedToVII = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('ESAVI')) || casoActual.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR');
+  const isAssignedToIII = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('ESAVI'));
 
   // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
@@ -538,8 +543,8 @@ export default function CaseDetail() {
                           if (a3Status === 'Completado') navigate(`/anexo-logistica/${id}?mode=view`);
                           else navigate('/anexo-logistica/' + id);
                         }}
-                        disabled={a3Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
-                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 (Notas) primero." : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) ? "Acceso exclusivo para Coordinador Local." : "Habilitado para completar."))}
+                        disabled={a3Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToIII) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
+                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 (Notas) primero." : (!(isEsaviLocal || isAssignedToIII) ? "Acceso exclusivo para Coordinador Local o Clínico." : "Habilitado para completar."))}
                         color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow
@@ -551,8 +556,8 @@ export default function CaseDetail() {
                           if (a7Status === 'Completado') navigate(`/anexo-clinico/${id}?mode=view`);
                           else navigate(`/anexo-clinico/${id}`);
                         }}
-                        disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))}
-                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a7Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEsaviLocal || (isUserAssignedToERR && currentRole?.includes('ESAVI'))) ? "Acceso exclusivo para Referente Clínico." : "Habilitado para completar.")))}
+                        disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToVII) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))}
+                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a7Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEsaviLocal || isAssignedToVII) ? "Acceso exclusivo para Referente Clínico o ERR." : "Habilitado para completar.")))}
                         color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow
@@ -564,8 +569,8 @@ export default function CaseDetail() {
                           if (a5Status === 'Completado') navigate(`/anexo-puesto/${id}?mode=view`);
                           else navigate(`/anexo-puesto/${id}`);
                         }}
-                        disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))}
-                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a5Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isInmunoLocal || (isUserAssignedToERR && currentRole?.includes('INMUNO'))) ? "Acceso exclusivo para Inmunizaciones." : "Habilitado para completar.")))}
+                        disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || isAssignedToV) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))}
+                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a5Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isInmunoLocal || isAssignedToV) ? "Acceso exclusivo para Inmunizaciones o ERR." : "Habilitado para completar.")))}
                         color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow
@@ -577,8 +582,8 @@ export default function CaseDetail() {
                           if (a6Status === 'Completado') navigate(`/anexo-domicilio/${id}?mode=view`);
                           else navigate(`/anexo-domicilio/${id}`);
                         }}
-                        disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}
-                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a6Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEpidemioLocal || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO'))) ? "Acceso exclusivo para Epidemiólogo." : "Habilitado para completar.")))}
+                        disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || isAssignedToVI) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}
+                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a6Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEpidemioLocal || isAssignedToVI) ? "Acceso exclusivo para Epidemiólogo o ERR." : "Habilitado para completar.")))}
                         color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                     </>

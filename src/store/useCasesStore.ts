@@ -33,6 +33,7 @@ export interface ApoyoSistema {
 
 export interface EquipoRespuestaRapida {
   idLocal?: string;
+  idLocal2?: string;
   idsInstitucionales?: string[];
   apoyosSistema?: ApoyoSistema[];
   apoyosManuales?: ApoyoManual[];
@@ -175,6 +176,7 @@ export const useCasesStore = create<CasesState>()(
               sexo: row.sexo || undefined,
               miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
               equipoERR: usarLocal ? existingCaso?.equipoERR : (row.equipo_err_json ? JSON.parse(row.equipo_err_json) : undefined),
+              equipoRegulatorio: usarLocal ? existingCaso?.equipoRegulatorio : (row.equipo_regulatorio_json ? JSON.parse(row.equipo_regulatorio_json) : undefined),
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
               historial_cambios: [], // Will populate below from the separate collection
               anexoIII_completado: usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII).toLowerCase() === 'true'),
@@ -588,15 +590,16 @@ export const useCasesStore = create<CasesState>()(
       },
 
       asignarEquipoRegulatorio: async (idCaso, datosEquipo) => {
+        if (import.meta.env.VITE_USE_API === 'true') {
+          await actualizarCaso(idCaso, { equipo_regulatorio_json: JSON.stringify(datosEquipo) });
+          await registrarLog(idCaso, useAuthStore.getState().userEmail || 'sistema', 'Se ha conformado el Equipo Regulatorio interno del Secretariado SRS.');
+        }
+
         set((state) => ({
           casos: state.casos.map((c) => 
             c.id === idCaso ? { ...c, equipoRegulatorio: datosEquipo } : c
           )
         }));
-        
-        if (import.meta.env.VITE_USE_API === 'true') {
-          await registrarLog(idCaso, useAuthStore.getState().userEmail || 'sistema', 'Se ha conformado el Equipo Regulatorio interno del Secretariado SRS.');
-        }
       },
 
       guardarNotasCaso: async (idCaso, tipoNota, texto) => {

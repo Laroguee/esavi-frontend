@@ -26,7 +26,7 @@ export default function AsignacionERR() {
   const [apoyoManualNombre, setApoyoManualNombre] = useState('');
   const [apoyoManualCargo, setApoyoManualCargo] = useState('');
   const [apoyosManuales, setApoyosManuales] = useState<{nombre: string, cargo: string}[]>([]);
-  const [apoyosSistema, setApoyosSistema] = useState<{email: string, permiso: 'VER' | 'LLENAR', areaApoyo: string}[]>([]);
+  const [apoyosSistema, setApoyosSistema] = useState<{email: string, permiso: 'VER' | 'LLENAR', areaApoyo?: string}[]>([]);
 
   const normalizeEstablecimiento = (est: string | undefined) => {
     if (!est) return '';
@@ -598,7 +598,7 @@ export default function AsignacionERR() {
             {/* Apoyo Manual */}
             <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Apoyos Externos (Nominación manual sin sistema):</Typography>
-              <Grid container spacing={2} alignItems="center">
+              <Grid container spacing={2} sx={{ alignItems: 'center' }}>
                 <Grid size={{ xs: 12, md: 5 }}>
                   <TextField size="small" fullWidth label="Nombre Completo" value={apoyoManualNombre} onChange={e => setApoyoManualNombre(e.target.value)} />
                 </Grid>
