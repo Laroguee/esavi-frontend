@@ -426,15 +426,35 @@ export async function verificarDuplicado(pacienteDUI: string, nombrePaciente: st
     // we fetch all active cases (not closed) and filter in memory, since this is a relatively small dataset per year.
     const querySnapshot = await getDocs(casosRef);
     const duplicados = querySnapshot.docs.filter(doc => {
-      const data = doc.data();
+      let data = doc.data();
       // Only check active cases
       if (data.estado_flujo === 'CERRADO' || data.estado_flujo === 'CERRADO_DICTAMINADO') return false;
       
-      const matchDUI = pacienteDUI ? data.identificador_paciente === pacienteDUI : true; // Si no tiene DUI, no rompe la cadena pero exige que los otros 4 coincidan.
-      const matchPaciente = nombrePaciente && data.nombre_paciente?.toLowerCase() === nombrePaciente.toLowerCase();
-      const matchVacuna = nombreVacuna && data.nombre_vacuna?.toLowerCase() === nombreVacuna.toLowerCase();
-      const matchFecha = fechaAplicacion && data.fecha_vacunacion === fechaAplicacion;
-      const matchNotificador = nombreNotificador && data.nombre_notificador?.toLowerCase() === nombreNotificador.toLowerCase();
+      // Retrocompatibilidad: Extraer de datos_fase1_json si las columnas nativas no existen en un caso antiguo
+      if (!data.nombre_paciente && data.datos_fase1_json) {
+        try {
+          const jsonParsed = JSON.parse(data.datos_fase1_json);
+          data = {
+            ...data,
+            nombre_paciente: jsonParsed.nombrePaciente || '',
+            nombre_vacuna: jsonParsed.nombreVacuna || '',
+            fecha_vacunacion: jsonParsed.fechaAdministracion || '',
+            nombre_notificador: jsonParsed.nombreNotificador || '',
+            paciente_dui: jsonParsed.pacienteDUI || ''
+          };
+        } catch (e) {
+          // Silencioso en caso de error de parseo
+        }
+      }
+
+      // El DUI se evalúa contra la columna correcta (paciente_dui). Si no se ingresó, no rompe la cadena pero exige que los otros 4 coincidan.
+      const matchDUI = pacienteDUI ? data.paciente_dui?.trim() === pacienteDUI.trim() : true; 
+      
+      // Se utiliza trim() y toLowerCase() para evitar que espacios invisibles pasen la validación
+      const matchPaciente = nombrePaciente && data.nombre_paciente?.trim().toLowerCase() === nombrePaciente.trim().toLowerCase();
+      const matchVacuna = nombreVacuna && data.nombre_vacuna?.trim().toLowerCase() === nombreVacuna.trim().toLowerCase();
+      const matchFecha = fechaAplicacion && data.fecha_vacunacion?.trim() === fechaAplicacion.trim();
+      const matchNotificador = nombreNotificador && data.nombre_notificador?.trim().toLowerCase() === nombreNotificador.trim().toLowerCase();
 
       // Criterio de duplicidad estricto (5 variables)
       const isDuplicado = matchDUI && matchPaciente && matchVacuna && matchFecha && matchNotificador;
