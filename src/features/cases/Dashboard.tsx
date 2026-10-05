@@ -88,12 +88,12 @@ export default function Dashboard() {
     
     const matchesEstado = filtroEstado === 'Todos' || (
       (filtroEstado === 'Fase 1: Notificación' && ['NUEVO', 'NORMAL', 'NOTIFICADO'].includes(caso.estadoFlujo)) ||
-      (filtroEstado === 'Fase 2: Evaluación' && caso.estadoFlujo === 'EN_EVALUACION') ||
-      (filtroEstado === 'Fase 3: Asignación ERR' && caso.estadoFlujo === 'ASIGNADO_A_ERR') ||
+      (filtroEstado === 'Fase 2: Evaluación' && ['EN_EVALUACION', 'PENDIENTE_OFICIALIZAR'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Fase 3: Asignación ERR' && ['EN_ASIGNACION', 'ASIGNADO_A_ERR'].includes(caso.estadoFlujo)) ||
       (filtroEstado === 'Fase 4: Investigación' && caso.estadoFlujo === 'EN_INVESTIGACION') ||
-      (filtroEstado === 'Fase 5: Revisión Primaria' && ['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(caso.estadoFlujo)) ||
-      (filtroEstado === 'Fase 6: Evaluación de Comité' && caso.estadoFlujo === 'EN_EVALUACION_COMITE') ||
-      (filtroEstado === 'Cerrado' && caso.estadoFlujo === 'CERRADO_DICTAMINADO')
+      (filtroEstado === 'Fase 5: Revisión Primaria' && ['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Fase 6: Evaluación de Comité' && ['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Cerrado' && ['CERRADO_DICTAMINADO', 'CERRADO'].includes(caso.estadoFlujo))
     );
     const matchesRiesgo = filtroRiesgo === 'Todos' || caso.riesgo === filtroRiesgo;
 
@@ -107,7 +107,9 @@ export default function Dashboard() {
       case 'NOTIFICADO':
         return { label: (estadoFlujo === 'NUEVO' || estadoFlujo === 'NORMAL') ? 'Nuevo' : 'Notificado', color: 'default' as const };
       case 'EN_EVALUACION':
+      case 'PENDIENTE_OFICIALIZAR':
         return { label: 'En Evaluación', color: 'info' as const };
+      case 'EN_ASIGNACION':
       case 'ASIGNADO_A_ERR':
         return { label: 'Asignado a ERR', color: 'secondary' as const };
       case 'EN_INVESTIGACION':
@@ -116,13 +118,17 @@ export default function Dashboard() {
         return { label: 'Revisión Primaria', sx: { bgcolor: '#9c27b0', color: 'white' } };
       case 'EN_REVISION_SECRETARIADO':
         return { label: 'Revisión Secretariado', sx: { bgcolor: '#00bcd4', color: 'white' } };
+      case 'APROBADO_PARA_COMITE':
+        return { label: 'Aprobado para Comité', sx: { bgcolor: '#4caf50', color: 'white' } };
       case 'DEVUELTO_A_INSTITUCIONAL':
       case 'DEVUELTO_A_ERR':
       case 'CORREGIDO_POR_ERR':
         return { label: 'Devuelto por Observaciones', color: 'error' as const, icon: <WarningAmberIcon fontSize="small" /> };
       case 'EN_EVALUACION_COMITE':
         return { label: 'En Comité', sx: { bgcolor: '#3f51b5', color: 'white' } };
+      case 'DICTAMINADO':
       case 'CERRADO_DICTAMINADO':
+      case 'CERRADO':
         return { label: 'Cerrado', color: 'success' as const };
       default:
         return { label: 'Normal', color: 'default' as const };
@@ -131,12 +137,12 @@ export default function Dashboard() {
 
   const getFaseName = (estadoFlujo: string) => {
     if (['NUEVO', 'NORMAL', 'NOTIFICADO'].includes(estadoFlujo)) return 'Fase 1: Notificación';
-    if (estadoFlujo === 'EN_EVALUACION') return 'Fase 2: Evaluación';
-    if (estadoFlujo === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación ERR';
+    if (['EN_EVALUACION', 'PENDIENTE_OFICIALIZAR'].includes(estadoFlujo)) return 'Fase 2: Evaluación';
+    if (['EN_ASIGNACION', 'ASIGNADO_A_ERR'].includes(estadoFlujo)) return 'Fase 3: Asignación ERR';
     if (estadoFlujo === 'EN_INVESTIGACION') return 'Fase 4: Trabajo de Campo';
-    if (['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(estadoFlujo)) return 'Fase 5: Revisión Institucional';
-    if (estadoFlujo === 'EN_EVALUACION_COMITE') return 'Fase 6: Comité Causalidad';
-    if (estadoFlujo === 'CERRADO_DICTAMINADO') return 'Cerrado';
+    if (['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(estadoFlujo)) return 'Fase 5: Revisión Institucional';
+    if (['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(estadoFlujo)) return 'Fase 6: Comité Causalidad';
+    if (['CERRADO_DICTAMINADO', 'CERRADO'].includes(estadoFlujo)) return 'Cerrado';
     return 'Fase Activa';
   };
 
