@@ -159,18 +159,27 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       console.log("Texto extraído del PDF:", text);
 
       // Regex parsing según reglas FACEDRA mejorado
-      const pacienteMatch = text.match(/Nombre y Apellidos:\s*(.+?)(?=Nº de Expediente|Sexo|Edad)/is);
+      const pacienteMatch = text.match(/Nombre y Apellidos:\s*(.+?)(?=N[º°] de [Ee]xpediente|Sexo|Edad)/is);
       if (pacienteMatch) {
         setValue('nombrePaciente', pacienteMatch[1].replace(/\n/g, ' ').trim());
       }
 
-      const expedienteMatch = text.match(/Nº de Expediente:\s*(.+?)(?=Sexo|Edad|Peso)/is);
-      if (expedienteMatch) {
+      const expedienteMatch = text.match(/N[º°] de [Ee]xpediente[^\n:]*:\s*(.*?)(?=Sexo|Edad|Peso)/is);
+      if (expedienteMatch && expedienteMatch[1].trim()) {
         setValue('expedienteClinico', expedienteMatch[1].replace(/\n/g, ' ').trim());
       }
 
-      const edadMatch = text.match(/Edad:\s*(\d+)/i);
-      if (edadMatch) setValue('edad', parseInt(edadMatch[1]));
+      const edadMatch = text.match(/Edad:\s*(\d+)\s*(Años?|Mes(?:es)?|Días?)/i);
+      if (edadMatch) {
+        setValue('edad', parseInt(edadMatch[1]));
+        const unit = edadMatch[2].toLowerCase();
+        if (unit.startsWith('mes')) setValue('unidadEdad', 'Meses');
+        else if (unit.startsWith('día') || unit.startsWith('dia')) setValue('unidadEdad', 'Días');
+        else setValue('unidadEdad', 'Años');
+      } else {
+        const edadNumMatch = text.match(/Edad:\s*(\d+)/i);
+        if (edadNumMatch) setValue('edad', parseInt(edadNumMatch[1]));
+      }
 
       const sexoMatch = text.match(/Sexo:\s*(Femenino|Masculino)/i);
       if (sexoMatch) setValue('genero', sexoMatch[1]);
@@ -194,7 +203,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         else if (vacStr.includes('HEPATITIS')) mappedVac = 'Hepatitis B';
         else if (vacStr.includes('DPT')) mappedVac = 'DPT';
         else if (vacStr.includes('SRP')) mappedVac = 'SRP';
-        else if (vacStr.includes('INFLUENZA')) mappedVac = 'Influenza';
+        else if (vacStr.includes('INFLUENZA') || vacStr.includes('ANTIGRIPAL')) mappedVac = 'Influenza';
         else if (vacStr.includes('BCG')) mappedVac = 'BCG';
         else if (vacStr.includes('VPH')) mappedVac = 'VPH';
         else mappedVac = vacStr.trim();
@@ -217,22 +226,32 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       if (dosisPosMatch) setValue('dosisYPosologia', dosisPosMatch[1].replace(/\n/g, ' ').trim());
 
       // Fechas (Hay dos en el documento: Vacuna y Evento)
-      const fechasMatch = [...text.matchAll(/Fecha [I|i]nicio:\s*(\d{2})\/(\d{2})\/(\d{4})/g)];
-      if (fechasMatch.length > 0) {
-        // Primera es de Vacunación (Sección Medicamento)
-        setValue('fechaAdministracion', `${fechasMatch[0][3]}-${fechasMatch[0][2]}-${fechasMatch[0][1]}`);
-        
-        if (fechasMatch.length > 1) {
-          // Segunda es del Evento (Sección Reacciones)
-          setValue('fechaInicioReaccion', `${fechasMatch[1][3]}-${fechasMatch[1][2]}-${fechasMatch[1][1]}`);
+      // Buscamos explícitamente "Fecha de administración de dosis" para mayor precisión
+      const fechaAdminMatch = text.match(/Fecha de administración de dosis:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+      if (fechaAdminMatch) {
+        setValue('fechaAdministracion', `${fechaAdminMatch[3]}-${fechaAdminMatch[2]}-${fechaAdminMatch[1]}`);
+      } else {
+        // Fallback a "Fecha inicio" bajo sección medicamento
+        const fechaMedMatch = text.match(/MEDICAMENTO[\s\S]*?Fecha inicio:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+        if (fechaMedMatch) {
+          setValue('fechaAdministracion', `${fechaMedMatch[3]}-${fechaMedMatch[2]}-${fechaMedMatch[1]}`);
         }
       }
 
       const eventoMatch = text.match(/Reacción adversa:\s*(.+?)(?=Fecha|Desenlace)/is);
       if (eventoMatch) setValue('sintomasReaccion', eventoMatch[1].replace(/\n/g, ' ').trim());
 
-      const observacionesMatch = text.match(/Observaciones adicionales:\s*(.+?)(?=\nNOTIFICADOR|NOTIFICADOR|$)/is);
+      // Fecha del evento adverso (Reacciones)
+      const fechaReaccionMatch = text.match(/Reacción adversa[\s\S]*?Fecha inicio:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+      if (fechaReaccionMatch) {
+        setValue('fechaInicioReaccion', `${fechaReaccionMatch[3]}-${fechaReaccionMatch[2]}-${fechaReaccionMatch[1]}`);
+      }
+
+      const observacionesMatch = text.match(/Observaciones\s+adicionales:\s*(.+?)(?=\nNOTIFICADOR|NOTIFICADOR|$)/is);
       if (observacionesMatch) setValue('observacionesAdicionales', observacionesMatch[1].replace(/\n/g, ' ').trim());
+
+      const tratamientoMatch = text.match(/Tratamiento:\s*(.+?)(?=\n|$)/i);
+      if (tratamientoMatch) setValue('tratamientoRecibido', tratamientoMatch[1].trim());
 
       // Detectar gravedad automáticamente
       if (text.toLowerCase().includes('han sido la causa de su hospitalización')) {
@@ -276,10 +295,10 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       const telefonoMatch = text.match(/Teléfono de contacto:\s*([\d\-\s]+)/i);
       if (telefonoMatch) setValue('telefonoNotificador', telefonoMatch[1].trim());
 
-      const correoMatch = text.match(/Correo electrónico:\s*(.+?)(?=Tipo de centro|Centro de trabajo)/is);
-      if (correoMatch) setValue('correoNotificador', correoMatch[1].replace(/\n/g, ' ').trim());
+      const correoMatch = text.match(/Correo electrónico:\s*([^\s]+)/i);
+      if (correoMatch) setValue('correoNotificador', correoMatch[1].trim());
 
-      const fechaNotifMatch = text.match(/Fecha Notificación:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+      const fechaNotifMatch = text.match(/Fecha (?:de )?Notificación:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
       if (fechaNotifMatch) {
         setValue('fechaNotificacion', `${fechaNotifMatch[3]}-${fechaNotifMatch[2]}-${fechaNotifMatch[1]}`);
       }
