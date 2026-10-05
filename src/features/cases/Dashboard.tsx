@@ -78,8 +78,8 @@ export default function Dashboard() {
   // =========================================================================
   // LÓGICA DE FILTRADO (FRONTEND)
   // =========================================================================
-  const casosPendientes = casosGlobales.filter((c) => c.estadoFlujo === 'NUEVO');
-  const casosActivos = casosGlobales.filter((c) => c.estadoFlujo !== 'NUEVO');
+  const casosPendientes = casosGlobales.filter((c) => c.estadoFlujo === 'NUEVO' || c.estadoFlujo === 'NORMAL');
+  const casosActivos = casosGlobales.filter((c) => c.estadoFlujo !== 'NUEVO' && c.estadoFlujo !== 'NORMAL');
 
   const casosFiltrados = casosActivos.filter((caso) => {
     const matchesSearch = 
@@ -87,7 +87,7 @@ export default function Dashboard() {
       caso.paciente.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesEstado = filtroEstado === 'Todos' || (
-      (filtroEstado === 'Fase 1: Notificación' && ['NUEVO', 'NOTIFICADO'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Fase 1: Notificación' && ['NUEVO', 'NORMAL', 'NOTIFICADO'].includes(caso.estadoFlujo)) ||
       (filtroEstado === 'Fase 2: Evaluación' && caso.estadoFlujo === 'EN_EVALUACION') ||
       (filtroEstado === 'Fase 3: Asignación ERR' && caso.estadoFlujo === 'ASIGNADO_A_ERR') ||
       (filtroEstado === 'Fase 4: Investigación' && caso.estadoFlujo === 'EN_INVESTIGACION') ||
@@ -103,8 +103,9 @@ export default function Dashboard() {
   const getEstadoChipProps = (estadoFlujo: string) => {
     switch (estadoFlujo) {
       case 'NUEVO':
+      case 'NORMAL':
       case 'NOTIFICADO':
-        return { label: estadoFlujo === 'NUEVO' ? 'Nuevo' : 'Notificado', color: 'default' as const };
+        return { label: (estadoFlujo === 'NUEVO' || estadoFlujo === 'NORMAL') ? 'Nuevo' : 'Notificado', color: 'default' as const };
       case 'EN_EVALUACION':
         return { label: 'En Evaluación', color: 'info' as const };
       case 'ASIGNADO_A_ERR':
@@ -129,7 +130,7 @@ export default function Dashboard() {
   };
 
   const getFaseName = (estadoFlujo: string) => {
-    if (['NUEVO', 'NOTIFICADO'].includes(estadoFlujo)) return 'Fase 1: Notificación';
+    if (['NUEVO', 'NORMAL', 'NOTIFICADO'].includes(estadoFlujo)) return 'Fase 1: Notificación';
     if (estadoFlujo === 'EN_EVALUACION') return 'Fase 2: Evaluación';
     if (estadoFlujo === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación ERR';
     if (estadoFlujo === 'EN_INVESTIGACION') return 'Fase 4: Trabajo de Campo';

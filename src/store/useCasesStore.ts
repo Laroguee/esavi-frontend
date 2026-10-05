@@ -150,7 +150,7 @@ export const useCasesStore = create<CasesState>()(
               const usarLocal = !!existingCaso && !isDbRechazo && (localEstadoIndex > dbEstadoIndex);
 
               const mapEstadoToFase = (estado: string) => {
-                if (estado === 'NUEVO' || estado === 'NOTIFICADO') return 'Fase 1: Notificación';
+                if (estado === 'NUEVO' || estado === 'NOTIFICADO' || estado === 'NORMAL') return 'Fase 1: Notificación';
                 if (estado === 'EN_EVALUACION' || estado === 'PENDIENTE_OFICIALIZAR') return 'Fase 2: Evaluación';
                 if (estado === 'EN_ASIGNACION' || estado === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación';
                 if (estado === 'EN_INVESTIGACION' || estado === 'DEVUELTO_A_ERR' || estado === 'CORREGIDO_POR_ERR') return 'Fase 4: Investigación';
