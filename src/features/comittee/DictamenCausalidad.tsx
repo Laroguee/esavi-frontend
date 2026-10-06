@@ -118,16 +118,19 @@ export default function DictamenCausalidad() {
         </Typography>
 
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/anexo-clinico/${id}?mode=view`)}>Ver Anexo VII (Clínico)</Button>
           </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/anexo-puesto/${id}?mode=view`)}>Ver Anexo V (Puesto)</Button>
           </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Button fullWidth variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/anexo-domicilio/${id}?mode=view`)}>Ver Anexo VI (Domiciliario)</Button>
           </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Button fullWidth variant="outlined" color="primary" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/matriz-riesgo/${id}?mode=view`)}>Ver Matriz de Riesgo</Button>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Button fullWidth variant="contained" color="info" startIcon={<FileDownloadIcon />} onClick={() => navigate(`/informe-tecnico/${id}`)}>Ver Informe Técnico</Button>
           </Grid>
           <Grid size={{ xs: 12 }} sx={{ mt: 1 }}>

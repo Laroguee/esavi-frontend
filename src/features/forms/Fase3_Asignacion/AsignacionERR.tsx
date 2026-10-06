@@ -536,6 +536,9 @@ export default function AsignacionERR() {
                 }}
               >
                 {usuariosBD.filter(u => {
+                  const rolesExcluidos = ['SECRETARIADO', 'COMITE_EXTERNO', 'OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'];
+                  if (rolesExcluidos.includes(u.role)) return false;
+
                   const yaElegidos = [
                     valores.esavi_inst, valores.epidemio_inst, valores.inmuno_inst, valores.secretariado_inst,
                     valores.err_local, valores.err_local_2,

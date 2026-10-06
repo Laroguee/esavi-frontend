@@ -5,6 +5,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import DeleteIcon from '@mui/icons-material/Delete';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+dayjs.extend(customParseFormat);
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
@@ -59,20 +61,44 @@ export default function Dashboard() {
     }
   }, [currentRole, navigate]);
 
+  const parseDate = (dateStr: string) => {
+    // Intentar parsear el formato DD/MM/YYYY HH:mm A primero
+    let parsed = dayjs(dateStr, "DD/MM/YYYY hh:mm A", true);
+    if (!parsed.isValid()) parsed = dayjs(dateStr, "DD/MM/YYYY HH:mm A", true);
+    if (!parsed.isValid()) parsed = dayjs(dateStr);
+    return parsed;
+  };
+
   const getSLAStatus = (caso: any) => {
     if (['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(caso.estadoFlujo)) {
       const cierreLog = caso.historial_cambios?.find((h: any) => ['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(h.accion));
       if (cierreLog) {
-        const horas = dayjs(cierreLog.fecha).diff(dayjs(caso.fecha), 'hour');
+        const horas = parseDate(cierreLog.fecha).diff(parseDate(caso.fecha), 'hour');
         return { label: `Cerrado en ${horas}h`, color: 'success', rowColor: 'inherit' };
       }
       return { label: `Cerrado`, color: 'success', rowColor: 'inherit' };
     }
     
-    const horas = dayjs().diff(dayjs(caso.fecha), 'hour');
-    if (horas > 24) return { label: `Vencido (${horas}h)`, color: 'error', rowColor: '#ffebee' };
-    if (horas > 20) return { label: `Por vencer (${horas}h)`, color: 'warning', rowColor: '#fff8e1' };
-    return { label: `A tiempo (${horas}h)`, color: 'success', rowColor: 'inherit' };
+    // Determinar desde cuándo empezar a contar el SLA
+    let fechaInicioSLA = caso.fecha;
+    let titulo = '';
+    
+    // Si el caso ya está en manos del ERR, contar desde el momento de asignación
+    if (['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'ASIGNADO_A_ERR'].includes(caso.estadoFlujo)) {
+      // Buscar el log que indica asignación al ERR o devolución
+      const asignacionLog = caso.historial_cambios?.slice().reverse().find((h: any) => 
+        h.accion.includes('asignado') || h.accion.includes('devuelto al ERR') || h.accion.includes('investigación') || h.accion.includes('ERR')
+      );
+      if (asignacionLog) {
+        fechaInicioSLA = asignacionLog.fecha;
+        titulo = ' (ERR)';
+      }
+    }
+
+    const horas = dayjs().diff(parseDate(fechaInicioSLA), 'hour');
+    if (horas > 24) return { label: `Vencido${titulo} (${horas}h)`, color: 'error', rowColor: '#ffebee' };
+    if (horas > 20) return { label: `Por vencer${titulo} (${horas}h)`, color: 'warning', rowColor: '#fff8e1' };
+    return { label: `A tiempo${titulo} (${horas}h)`, color: 'success', rowColor: 'inherit' };
   };
 
   // =========================================================================

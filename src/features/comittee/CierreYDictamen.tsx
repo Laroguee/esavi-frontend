@@ -11,6 +11,7 @@ import { useReactToPrint } from 'react-to-print';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import { obtenerExpediente, actualizarCaso } from '../../services/firebaseService';
+import VisorAnexoLectura from '../cases/VisorAnexoLectura';
 
 // Interface para el formulario del Comité
 interface FormDataCausalidad {
@@ -90,7 +91,11 @@ export default function CierreYDictamen() {
     const m = expedienteCompleto?.matriz;
     if (!m) return {};
     try {
-       return typeof m === 'string' ? JSON.parse(m) : m;
+       const parsed = typeof m === 'string' ? JSON.parse(m) : m;
+       return {
+         nivel_de_riesgo_del_evento: casoActual.riesgo || 'Pendiente',
+         ...parsed
+       };
     } catch(e) { return {}; }
   };
   const matrizData = parseMatriz();
@@ -281,6 +286,11 @@ export default function CierreYDictamen() {
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* EVALUACIÓN DE RIESGO */}
+          <Box sx={{ mb: 4 }}>
+             <VisorAnexoLectura dataString={matrizData} titulo="Evaluación de Riesgo (Matriz)" />
+          </Box>
 
           {/* 5. HALLAZGOS */}
           <Typography variant="h6" color="primary.dark" sx={{ fontWeight: 'bold', bgcolor: '#f5f5f5', p: 1, mb: 2 }}>6. RESUMEN DEL CASO Y HALLAZGOS</Typography>

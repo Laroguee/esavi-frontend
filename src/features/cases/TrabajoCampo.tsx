@@ -4,6 +4,10 @@ import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import MapIcon from '@mui/icons-material/Map';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+dayjs.extend(customParseFormat);
 import { useAuthStore } from '../../store/useAuthStore';
 
 import { useCasesStore } from '../../store/useCasesStore';
@@ -62,6 +66,27 @@ export default function TrabajoCampo() {
         </Button>
       );
     }
+  };
+
+  const parseDate = (dateStr: string) => {
+    let parsed = dayjs(dateStr, "DD/MM/YYYY hh:mm A", true);
+    if (!parsed.isValid()) parsed = dayjs(dateStr, "DD/MM/YYYY HH:mm A", true);
+    if (!parsed.isValid()) parsed = dayjs(dateStr);
+    return parsed;
+  };
+
+  const getSLAStatus = (caso: any) => {
+    let fechaInicioSLA = caso.fecha;
+    const asignacionLog = caso.historial_cambios?.slice().reverse().find((h: any) => 
+      h.accion.includes('asignado') || h.accion.includes('devuelto al ERR') || h.accion.includes('investigación') || h.accion.includes('ERR')
+    );
+    if (asignacionLog) {
+      fechaInicioSLA = asignacionLog.fecha;
+    }
+    const horas = dayjs().diff(parseDate(fechaInicioSLA), 'hour');
+    if (horas > 24) return { label: `Vencido (${horas}h)`, color: 'error' };
+    if (horas > 20) return { label: `Por vencer (${horas}h)`, color: 'warning' };
+    return { label: `A tiempo (${horas}h)`, color: 'success' };
   };
 
   function MetricCard({ title, value, icon, color }: any) {
@@ -145,6 +170,7 @@ export default function TrabajoCampo() {
                     <TableCell sx={{ fontWeight: 'bold' }}>Paciente</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Territorio / Municipio</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Estado del Flujo</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Tiempo SLA</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>Acción Requerida</TableCell>
                   </TableRow>
                 </TableHead>
@@ -170,6 +196,9 @@ export default function TrabajoCampo() {
                               color={caso.estadoFlujo === 'DEVUELTO_A_ERR' ? 'error' : 'warning'} 
                               variant={isCompletado ? 'filled' : 'outlined'} 
                             />
+                          </TableCell>
+                          <TableCell>
+                            <Chip icon={<AccessTimeIcon />} label={getSLAStatus(caso).label} color={getSLAStatus(caso).color as any} size="small" />
                           </TableCell>
                           <TableCell align="center">
                             {getActionBtn(caso.id, isCompletado)}
