@@ -138,14 +138,31 @@ export async function obtenerExpediente(id_caso: string) {
     return { 
       success: true, 
       data: {
-        expediente: casoData,
+        expediente: casoData as any,
         matriz: matriz,
         asignaciones: asignaciones,
         anexos: anexos
       } 
     };
   } catch (error: any) {
-    console.error('Error fetching expediente:', error);
+    console.warn('Conexión remota no disponible para obtener expediente. Consultando memoria local:', error?.message);
+    try {
+      const { useCasesStore } = await import('../store/useCasesStore');
+      const casoLocal = useCasesStore.getState().casos.find((c: any) => c.id === id_caso);
+      if (casoLocal) {
+        return {
+          success: true,
+          data: {
+            expediente: casoLocal as any,
+            matriz: casoLocal.dictamenData || null,
+            asignaciones: casoLocal.equipoERR || null,
+            anexos: []
+          }
+        };
+      }
+    } catch (e) {
+      // Fallback
+    }
     return { success: false, error: error.message };
   }
 }

@@ -47,6 +47,17 @@ export default function InformeTecnico() {
   const anexoV = anexos?.find((a: any) => a.tipo_anexo?.includes('Puesto'));
   const anexoIII = anexos?.find((a: any) => a.tipo_anexo?.includes('Logística'));
 
+  const handlePrint = () => {
+    document.body.classList.add('allow-print');
+    window.print();
+    window.addEventListener('afterprint', () => {
+      document.body.classList.remove('allow-print');
+    }, { once: true });
+    setTimeout(() => {
+      document.body.classList.remove('allow-print');
+    }, 3000);
+  };
+
   return (
     <Box sx={{ p: 4, maxWidth: 1000, margin: '0 auto', bgcolor: '#fff', color: '#000' }}>
       {/* Botón de impresión oculto en pantalla impresa */}
@@ -54,7 +65,7 @@ export default function InformeTecnico() {
         <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
           Volver al Expediente
         </Button>
-        <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()}>
+        <Button variant="contained" startIcon={<PrintIcon />} onClick={handlePrint}>
           Imprimir Informe
         </Button>
       </Box>

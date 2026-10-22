@@ -35,7 +35,9 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
             setApoyo(casoActual.equipoRegulatorio.apoyo);
           } else {
             // El coordinador por defecto es el asignado en la Fase 3, o el usuario actual si no se encuentra
-            const refSecretariado = casoActual.equipoERR?.idsInstitucionales?.[3];
+            const refSecretariado = casoActual.equipoERR?.idSecretariado ||
+              casoActual.equipoERR?.idsInstitucionales?.find(email => secretariados.some(s => s.email === email)) ||
+              casoActual.equipoERR?.idsInstitucionales?.[3];
             setCoordinador(refSecretariado || userEmail || '');
           }
         }

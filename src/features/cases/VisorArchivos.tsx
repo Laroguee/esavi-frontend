@@ -28,7 +28,7 @@ export default function VisorArchivos({ url }: VisorArchivosProps) {
   }
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box className="protected-content visor-pdf-container" sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button 
           variant="outlined" 

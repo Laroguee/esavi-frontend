@@ -93,7 +93,7 @@ export default function ExpedienteDigital() {
   const { matriz, asignaciones, anexos } = expedienteData || {};
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+    <Box className="protected-content expediente-container" sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, gap: 2 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} color="inherit">

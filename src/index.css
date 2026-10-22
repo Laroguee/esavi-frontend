@@ -109,3 +109,50 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ============================================================
+   MEDIDAS DE PROTECCIÓN DE INFORMACIÓN Y PREVENCIÓN DE FUGAS
+   ============================================================ */
+
+/* 1. Deshabilitar selección de texto en vistas de lectura, tablas y expedientes */
+.protected-content,
+.MuiTable-root,
+.MuiTableCell-root,
+.MuiPaper-root:not(.allow-select),
+.visor-pdf-container {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 2. PRESERVAR USABILIDAD: Permitir selección y edición normal en inputs de formularios */
+input,
+textarea,
+select,
+[contenteditable="true"],
+.MuiInputBase-input,
+.allow-select {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* 3. Bloqueo de impresión directa del navegador (Ctrl+P) */
+@media print {
+  body:not(.allow-print) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body:not(.allow-print)::after {
+    content: "ACCESO DENEGADO: La impresión directa del expediente está restringida por políticas de confidencialidad del MINSAL.";
+    display: block !important;
+    font-size: 20pt;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 30%;
+    color: #b71c1c;
+  }
+}

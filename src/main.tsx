@@ -4,6 +4,10 @@ import App from './App.tsx';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './config/theme';
+import { registerSW } from 'virtual:pwa-register';
+
+// Registrar Service Worker para funcionamiento Offline / PWA
+registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

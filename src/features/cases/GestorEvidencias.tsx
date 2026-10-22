@@ -10,6 +10,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import { subirArchivoEvidencia, listarArchivosCaso, borrarArchivoEvidencia } from '../../services/firebaseService';
+import { guardarEvidenciaHibrida } from '../../services/offline/syncEngine';
+import { obtenerEvidenciasCasoOffline } from '../../services/offline/offlineDB';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import { useEffect } from 'react';
@@ -97,10 +99,30 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
 
   const cargarArchivosExistentes = useCallback(async () => {
     setLoadingFiles(true);
-    const res = await listarArchivosCaso(caseId);
-    if (res.success && res.data) {
-      setArchivosExistentes(res.data);
+    let remotos: any[] = [];
+    if (navigator.onLine) {
+      const res = await listarArchivosCaso(caseId);
+      if (res.success && res.data) {
+        remotos = res.data;
+      }
     }
+
+    try {
+      const locales = await obtenerEvidenciasCasoOffline(caseId);
+      const localesMapeados = locales
+        .filter(l => l.estado !== 'SINCRONIZADO')
+        .map(l => ({
+          name: `${l.nombreArchivo} [Local - Pendiente de subir]`,
+          url: URL.createObjectURL(l.archivoBlob),
+          categoria: l.categoria,
+          size: l.tamanoBytes,
+          isOffline: true
+        }));
+      setArchivosExistentes([...localesMapeados, ...remotos]);
+    } catch (e) {
+      setArchivosExistentes(remotos);
+    }
+
     setLoadingFiles(false);
   }, [caseId]);
 
@@ -206,16 +228,12 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
         const filesToUpload = [...filesArray];
         
         for (const fileObj of filesToUpload) {
-          setUploadProgress(`Subiendo: ${fileObj.file.name}...`);
+          setUploadProgress(`Procesando: ${fileObj.file.name}...`);
           
-          const base64Str = await readFileAsBase64(fileObj.file);
-          
-          const result = await subirArchivoEvidencia(
+          const result = await guardarEvidenciaHibrida(
             caseId, 
-            categoria, 
-            base64Str, 
-            fileObj.file.type, 
-            fileObj.file.name,
+            categoria as CategoriaEvidencia, 
+            fileObj.file,
             userEmail || 'Desconocido'
           );
           
@@ -227,16 +245,20 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                return { ...prev, [categoria as CategoriaEvidencia]: newArr };
             });
           } else {
-            console.error(`Fallo subida de ${fileObj.file.name}:`, result.error);
-            alert(`Hubo un error subiendo ${fileObj.file.name}`);
+            console.error(`Fallo procesamiento de ${fileObj.file.name}`);
+            alert(`Hubo un problema procesando ${fileObj.file.name}`);
           }
         }
       }
-      alert(`Se subieron ${successCount} de ${totalArchivos} archivos correctamente al Repositorio Digital de Drive.`);
+      if (!navigator.onLine) {
+        alert(`Modo Offline: Se resguardaron ${successCount} de ${totalArchivos} archivos en este dispositivo. Se sincronizarán automáticamente al detectar internet.`);
+      } else {
+        alert(`Se procesaron ${successCount} de ${totalArchivos} archivos correctamente.`);
+      }
       cargarArchivosExistentes();
     } catch (error) {
-      console.error("Error general subiendo archivos:", error);
-      alert("Ocurrió un error inesperado al subir los archivos.");
+      console.error("Error general procesando archivos:", error);
+      alert("Ocurrió un error inesperado al procesar los archivos.");
     } finally {
       setIsUploading(false);
       setUploadProgress('');

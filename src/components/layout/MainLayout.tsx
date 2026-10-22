@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, 
   ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, 
-  Badge, IconButton, Menu, Divider, Button, useTheme, useMediaQuery
+  Badge, IconButton, Menu, Divider, Button, useTheme, useMediaQuery,
+  Snackbar, Alert
 } from '@mui/material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
@@ -19,6 +20,10 @@ import { useAuthStore, type Role } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import { useCatalogStore } from '../../store/useCatalogStore';
 import { listarEstablecimientos } from '../../services/adminService';
+import { useContentProtection } from '../../hooks/useContentProtection';
+import WatermarkOverlay from '../security/WatermarkOverlay';
+import SecurityShield from '../security/SecurityShield';
+import NetworkStatusBadge from '../offline/NetworkStatusBadge';
 
 const drawerWidth = 260;
 
@@ -27,6 +32,30 @@ export default function MainLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [securityAlert, setSecurityAlert] = useState<string | null>(null);
+
+  // Manejador de intentos de violación de seguridad (DLP)
+  const handleSecurityViolation = useCallback((type: string) => {
+    if (type === 'copy' || type === 'cut') {
+      setSecurityAlert('Acción protegida: La copia directa de datos del expediente está restringida por confidencialidad médica.');
+    } else if (type === 'print') {
+      setSecurityAlert('La impresión directa del navegador (Ctrl+P) está deshabilitada por seguridad. Utilice los botones de exportación oficial.');
+    } else if (type === 'devtools' || type === 'source') {
+      setSecurityAlert('Las herramientas de inspección están inhabilitadas en este entorno clínico seguro.');
+    } else if (type === 'contextmenu') {
+      setSecurityAlert('El menú contextual está restringido en áreas de lectura clínica.');
+    }
+  }, []);
+
+  // Hook central de protección contra capturas/copia
+  const { isShieldActive, dismissShield } = useContentProtection({
+    enabled: true,
+    enableKeyboardBlock: true,
+    enableContextMenuBlock: true,
+    enableBlurOnFocusLoss: true,
+    blurDebounceMs: 250,
+    onViolation: handleSecurityViolation
+  });
 
   // Se extrae la función logout del store global
   const { currentRole, userName, logout, setRole } = useAuthStore();
@@ -98,11 +127,12 @@ export default function MainLayout() {
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 3 } }}>
-            
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+            {/* INDICADOR DE CONECTIVIDAD Y GESTOR OFFLINE */}
+            <NetworkStatusBadge />
 
             {/* IDENTIFICACIÓN DE USUARIO (Reemplazo del simulador) */}
-            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1, mr: 2 }}>
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1, mr: 1, ml: 1 }}>
               <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>
                 Hola, {userName || 'Usuario'}
               </Typography>
@@ -326,6 +356,30 @@ export default function MainLayout() {
         </Typography>
         <Box sx={{ mt: 2 }}><Outlet /></Box>
       </Box>
+
+      {/* ================= CAPA DE PROTECCIÓN Y SEGURIDAD FORENSE ================= */}
+      {/* 1. Marca de agua dinámica con identidad del usuario en tiempo real */}
+      <WatermarkOverlay />
+
+      {/* 2. Escudo de desenfoque al perder foco o activar herramienta de recortes */}
+      <SecurityShield active={isShieldActive} onDismiss={dismissShield} />
+
+      {/* 3. Notificación de advertencia al intentar realizar acciones restringidas */}
+      <Snackbar
+        open={Boolean(securityAlert)}
+        autoHideDuration={4000}
+        onClose={() => setSecurityAlert(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSecurityAlert(null)} 
+          severity="warning" 
+          variant="filled" 
+          sx={{ width: '100%', boxShadow: 4, fontWeight: 500 }}
+        >
+          {securityAlert}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -13,6 +13,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/firebaseService';
+import { guardarAnexoHibrido } from '../../../services/offline/syncEngine';
 import { getDoc, doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 import { listarUsuarios } from '../../../services/adminService';
@@ -300,7 +301,7 @@ export default function AnexoVII_Clinico() {
           diagnostico_final: data.diagnosticoFinal || 'Pendiente',
           datos_formulario_json: JSON.stringify(data)
         };
-        await guardarEnSheets('ANEXO_CLINICO', payloadDatos);
+        const saveRes = await guardarAnexoHibrido(id, 'ANEXO_CLINICO', payloadDatos);
 
         const store = useCasesStore.getState();
         await store.marcarAnexoCompletado(id, 'VII');
@@ -309,13 +310,13 @@ export default function AnexoVII_Clinico() {
         if (casoActual?.estadoFlujo === 'DEVUELTO_A_ERR') {
           store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
         }
+
+        alert(saveRes.message);
+        navigate(-1);
       }
-      
-      alert("Anexo VII Guardado Exitosamente.");
-      navigate(-1);
     } catch (error) {
       console.error("Error al guardar Anexo VII:", error);
-      alert("Hubo un error de conexión.");
+      alert("Ocurrió un error inesperado al procesar el formulario.");
     } finally {
       setIsSubmitting(false);
     }

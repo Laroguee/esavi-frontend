@@ -136,11 +136,34 @@ export default function CaseDetail() {
 
   // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
   const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
-  const isLiderOApoyo = casoActual.equipoERR?.idLocal === userEmail || casoActual.equipoERR?.idLocal2 === userEmail;
-  const isAssignedToV = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('INMUNO')) || casoActual.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR');
-  const isAssignedToVI = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('EPIDEMIO')) || casoActual.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR');
-  const isAssignedToVII = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('ESAVI')) || casoActual.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR');
-  const isAssignedToIII = isLiderOApoyo || (isUserAssignedToERR && currentRole?.includes('ESAVI'));
+  const eq = casoActual.equipoERR;
+  
+  // Soporte retrocompatible para casos asignados con el modelo anterior de 2 miembros genéricos
+  const isLegacyLiderOApoyo = !eq?.idLocalClinico && (eq?.idLocal === userEmail || eq?.idLocal2 === userEmail);
+
+  // Asignaciones especializadas por anexo:
+  // Anexo V (Puesto de Vacunación): Exclusivo Referente de Inmunizaciones Local
+  const isAssignedToV = isLegacyLiderOApoyo || 
+    eq?.idLocalInmuno === userEmail || 
+    (isUserAssignedToERR && currentRole?.includes('INMUNO')) || 
+    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR');
+
+  // Anexo VI (Investigación Domiciliaria): Exclusivo Referente de Epidemiología Local
+  const isAssignedToVI = isLegacyLiderOApoyo || 
+    eq?.idLocalEpidemio === userEmail || 
+    (isUserAssignedToERR && currentRole?.includes('EPIDEMIO')) || 
+    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR');
+
+  // Anexo VII (Evaluación Clínica): Exclusivo Referente Clínico / Farmacovigilancia Local
+  const isAssignedToVII = isLegacyLiderOApoyo || 
+    eq?.idLocalClinico === userEmail || 
+    (isUserAssignedToERR && currentRole?.includes('ESAVI')) || 
+    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR');
+
+  // Anexo III (Logística): Referente Clínico Local
+  const isAssignedToIII = isLegacyLiderOApoyo || 
+    eq?.idLocalClinico === userEmail || 
+    (isUserAssignedToERR && currentRole?.includes('ESAVI'));
 
   // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);

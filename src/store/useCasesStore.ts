@@ -16,6 +16,7 @@ import {
 } from '../services/firebaseService';
 import { useAuthStore } from './useAuthStore';
 import { useCatalogStore } from './useCatalogStore';
+import { guardarCasosEnCache, obtenerCasosCache } from '../services/offline/offlineDB';
 
 // 1. Tipos de Datos
 export type EstadoFlujo = 'NUEVO' | 'NORMAL' | 'DEVUELTO_A_INSTITUCIONAL' | 'DEVUELTO_A_ERR' | 'CORREGIDO_POR_ERR' | 'NOTIFICADO' | 'PENDIENTE_OFICIALIZAR' | 'EN_EVALUACION' | 'EN_ASIGNACION' | 'ASIGNADO_A_ERR' | 'EN_INVESTIGACION' | 'EN_REVISION_INSTITUCIONAL' | 'EN_REVISION_SECRETARIADO' | 'APROBADO_PARA_COMITE' | 'EN_EVALUACION_COMITE' | 'DICTAMINADO' | 'CERRADO_DICTAMINADO' | 'CERRADO';
@@ -32,8 +33,12 @@ export interface ApoyoSistema {
 }
 
 export interface EquipoRespuestaRapida {
-  idLocal?: string;
-  idLocal2?: string;
+  idLocal?: string;           // Retrocompatibilidad
+  idLocal2?: string;          // Retrocompatibilidad
+  idLocalClinico?: string;    // Responsable Clínico Local (Anexo VII)
+  idLocalInmuno?: string;     // Responsable Inmunizaciones Local (Anexo V)
+  idLocalEpidemio?: string;   // Responsable Epidemiología Local (Anexo VI)
+  idSecretariado?: string;    // Referente Secretariado SRS (Regulación)
   idsInstitucionales?: string[];
   apoyosSistema?: ApoyoSistema[];
   apoyosManuales?: ApoyoManual[];
@@ -341,8 +346,22 @@ export const useCasesStore = create<CasesState>()(
               return { casos: casosConHistorial };
             });
           }
+
+          // 5. Guardar copia en caché local IndexedDB para trabajo de campo offline
+          const casosActuales = get().casos;
+          if (casosActuales.length > 0) {
+            guardarCasosEnCache(casosActuales).catch(e => console.warn("Error persistiendo caché local:", e));
+          }
         } catch (error) {
-          console.error("Error cargando backend:", error);
+          console.warn("Conexión fallida o modo offline. Recuperando casos de caché local:", error);
+          try {
+            const casosOffline = await obtenerCasosCache();
+            if (casosOffline && casosOffline.length > 0) {
+              set({ casos: casosOffline });
+            }
+          } catch (cacheErr) {
+            console.error("Error recuperando casos locales:", cacheErr);
+          }
         } finally {
           set({ isCargandoDatos: false });
         }
