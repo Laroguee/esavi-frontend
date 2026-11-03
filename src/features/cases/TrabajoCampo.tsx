@@ -11,6 +11,7 @@ dayjs.extend(customParseFormat);
 import { useAuthStore } from '../../store/useAuthStore';
 
 import { useCasesStore } from '../../store/useCasesStore';
+import { calcularSLA_ERR } from '../../utils/slaCalculator';
 
 export default function TrabajoCampo() {
   const navigate = useNavigate();
@@ -126,12 +127,35 @@ export default function TrabajoCampo() {
 
       {/* DASHBOARD DE MÉTRICAS */}
       {(() => {
-        const casosParaMostrar = casos.filter(caso => 
-          (caso.estadoFlujo === 'EN_INVESTIGACION' || 
-           caso.estadoFlujo === 'ASIGNADO_A_ERR' || 
-           caso.estadoFlujo === 'DEVUELTO_A_ERR') &&
-          caso.miembrosERR?.includes(userEmail || '')
-        );
+        const userEmailClean = (userEmail || '').trim().toLowerCase();
+        const userEstabClean = (useAuthStore.getState().userEstablecimiento || '').trim().toLowerCase();
+
+        const casosParaMostrar = casos.filter(caso => {
+          const estadoValido = (
+            caso.estadoFlujo === 'EN_INVESTIGACION' || 
+            caso.estadoFlujo === 'ASIGNADO_A_ERR' || 
+            caso.estadoFlujo === 'DEVUELTO_A_ERR'
+          );
+          if (!estadoValido) return false;
+
+          // 1. Es miembro asignado del ERR (normalizando minÃºsculas y espacios)
+          const esMiembro = (caso.miembrosERR || []).some(
+            (m: string) => m.trim().toLowerCase() === userEmailClean
+          );
+          if (esMiembro) return true;
+
+          // 2. O pertenece al establecimiento notificador del caso
+          const casoEstab = (caso.establecimiento || '').trim().toLowerCase();
+          if (userEstabClean && casoEstab && (
+            casoEstab === userEstabClean || 
+            casoEstab.includes(userEstabClean) || 
+            userEstabClean.includes(casoEstab)
+          )) {
+            return true;
+          }
+
+          return false;
+        });
 
         const fichasPendientes = casosParaMostrar.filter(c => {
           if (currentRole === 'INMUNO_LOCAL') return !c.anexoV_completado;
@@ -198,7 +222,7 @@ export default function TrabajoCampo() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Chip icon={<AccessTimeIcon />} label={getSLAStatus(caso).label} color={getSLAStatus(caso).color as any} size="small" />
+                            <Chip icon={<AccessTimeIcon />} label={calcularSLA_ERR(caso, currentRole).etiqueta} color={calcularSLA_ERR(caso, currentRole).color as any} size="small" />
                           </TableCell>
                           <TableCell align="center">
                             {getActionBtn(caso.id, isCompletado)}

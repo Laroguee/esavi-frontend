@@ -204,11 +204,15 @@ export default function AsignacionERR() {
         (dataToSave as any).personal_inactivo = todosInactivos.join(', ');
       }
 
+      // Registrar o preservar la fecha de asignaciÃ³n del ERR para SLA acumulado
+      const fechaAsignacion = casoActual?.fechaAsignacionERR || new Date().toISOString();
+
       const payloadAsignacion = {
         tabla: 'ASIGNACIONES_ERR',
         datos: {
           id_asignacion: `ERR-${Date.now()}`,
           id_caso: id,
+          fecha_registro: fechaAsignacion,
           id_clinico: esRiesgoAlto ? data.err_local_clinico : data.farmacovigilancia || '',
           id_inmuno: esRiesgoAlto ? data.err_local_inmuno : data.inmunizaciones || '',
           id_epidemio: esRiesgoAlto ? data.err_local_epidemio : data.epidemiologia || '',
@@ -230,7 +234,7 @@ export default function AsignacionERR() {
       }
 
       // Guardar en Store con la nueva firma
-      asignarMiembrosERR(id, nuevosMiembros, equipoERR);
+      asignarMiembrosERR(id, nuevosMiembros, equipoERR, fechaAsignacion);
 
       // Notificar
       if (import.meta.env.VITE_USE_API === 'true') {

@@ -10,6 +10,7 @@ dayjs.extend(customParseFormat);
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
+import { calcularSLA_ERR } from '../../utils/slaCalculator';
 
 // Se eliminan los mocks. Ahora todo viene del Store (casosGlobales)
 

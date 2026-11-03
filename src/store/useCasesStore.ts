@@ -83,6 +83,11 @@ export interface CasoESAVI {
   anexoV_completado?: boolean;
   anexoVI_completado?: boolean;
   anexoVII_completado?: boolean;
+  fechaAsignacionERR?: string;
+  fechaDevolucionERR?: string;
+  anexoV_fecha_completado?: string;
+  anexoVI_fecha_completado?: string;
+  anexoVII_fecha_completado?: string;
   evaluaciones_fase5?: Record<string, { estado: 'aprobado' | 'observado' | ''; observacion: string; }>;
   dictamenData?: { clasificacionFinal: string; justificacionCausalidad: string; recomendaciones: string; };
   historial_cambios?: { id: string; fecha: string; usuario: string; accion: string; rol?: string }[];
@@ -114,7 +119,7 @@ interface CasesState {
   marcarNotificacionLeidaStore: (idNotif: number) => Promise<void>;
   agendarReunionStore: (casoId: string, nuevaReunion: AgendaReunion) => Promise<void>;
   marcarAnexoCompletado: (idCaso: string, anexo: 'III' | 'V' | 'VI' | 'VII') => Promise<void>;
-  asignarMiembrosERR: (idCaso: string, miembros: string[], equipoERR?: EquipoRespuestaRapida) => Promise<void>;
+  asignarMiembrosERR: (idCaso: string, miembros: string[], equipoERR?: EquipoRespuestaRapida, fechaAsignacion?: string) => Promise<void>;
   asignarEquipoRegulatorio: (idCaso: string, datosEquipo: { coordinador: string, analista: string, apoyo: string }) => Promise<void>;
   guardarNotasCaso: (idCaso: string, tipoNota: 'notasOficializacion' | 'notasPreFase4' | 'notasFase4' | 'notasCierre', texto: string) => Promise<void>;
   eliminarCasoStore: (idCaso: string) => Promise<void>;
@@ -167,6 +172,31 @@ export const useCasesStore = create<CasesState>()(
               };
 
               const estadoFinal = usarLocal ? existingCaso!.estadoFlujo : row.estado_flujo;
+
+              // NormalizaciÃ³n robusta de miembrosERR
+              let parsedMiembros: string[] = [];
+              if (Array.isArray(row.miembros_err)) {
+                parsedMiembros = row.miembros_err;
+              } else if (typeof row.miembros_err === 'string' && row.miembros_err.trim()) {
+                try {
+                  const p = JSON.parse(row.miembros_err);
+                  parsedMiembros = Array.isArray(p) ? p : [];
+                } catch {
+                  parsedMiembros = row.miembros_err.split(',').map((s: string) => s.trim());
+                }
+              }
+
+              let parsedEquipoERR = row.equipo_err_json ? (typeof row.equipo_err_json === 'string' ? JSON.parse(row.equipo_err_json) : row.equipo_err_json) : undefined;
+              if (parsedMiembros.length === 0 && parsedEquipoERR) {
+                if (parsedEquipoERR.idLocalClinico) parsedMiembros.push(parsedEquipoERR.idLocalClinico);
+                if (parsedEquipoERR.idLocalInmuno) parsedMiembros.push(parsedEquipoERR.idLocalInmuno);
+                if (parsedEquipoERR.idLocalEpidemio) parsedMiembros.push(parsedEquipoERR.idLocalEpidemio);
+                if (parsedEquipoERR.idLocal) parsedMiembros.push(parsedEquipoERR.idLocal);
+                if (Array.isArray(parsedEquipoERR.apoyosSistema)) {
+                  parsedEquipoERR.apoyosSistema.forEach((a: any) => { if (a?.email) parsedMiembros.push(a.email); });
+                }
+              }
+
               return {
               id: row.id_caso,
               id_creador: row.id_creador,
@@ -180,8 +210,8 @@ export const useCasesStore = create<CasesState>()(
               fecha: row.fecha_creacion_sistema || row.fecha_notificacion || new Date().toISOString(),
               edad: row.edad ? Number(row.edad) : undefined,
               sexo: row.sexo || undefined,
-              miembrosERR: usarLocal ? (existingCaso?.miembrosERR || []) : (row.miembros_err ? JSON.parse(row.miembros_err) : []),
-              equipoERR: usarLocal ? existingCaso?.equipoERR : (row.equipo_err_json ? JSON.parse(row.equipo_err_json) : undefined),
+              miembrosERR: usarLocal ? (existingCaso?.miembrosERR || parsedMiembros) : parsedMiembros,
+              equipoERR: usarLocal ? (existingCaso?.equipoERR || parsedEquipoERR) : parsedEquipoERR,
               equipoRegulatorio: usarLocal ? existingCaso?.equipoRegulatorio : (row.equipo_regulatorio_json ? JSON.parse(row.equipo_regulatorio_json) : undefined),
               reuniones: row.reuniones ? JSON.parse(row.reuniones) : [],
               historial_cambios: [], // Will populate below from the separate collection
@@ -189,6 +219,11 @@ export const useCasesStore = create<CasesState>()(
               anexoV_completado: usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV).toLowerCase() === 'true'),
               anexoVI_completado: usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI).toLowerCase() === 'true'),
               anexoVII_completado: usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII).toLowerCase() === 'true'),
+              fechaAsignacionERR: usarLocal ? (existingCaso?.fechaAsignacionERR || row.fecha_asignacion_err) : row.fecha_asignacion_err,
+              fechaDevolucionERR: usarLocal ? (existingCaso?.fechaDevolucionERR || row.fecha_devolucion_err) : row.fecha_devolucion_err,
+              anexoV_fecha_completado: row.anexoV_fecha_completado,
+              anexoVI_fecha_completado: row.anexoVI_fecha_completado,
+              anexoVII_fecha_completado: row.anexoVII_fecha_completado,
               dictamenData: usarLocal ? existingCaso?.dictamenData : (row.dictamen_data ? JSON.parse(row.dictamen_data) : undefined),
               anexoRechazado: row.anexo_rechazado || undefined,
               observacionRechazo: row.observacion_rechazo || undefined,
@@ -247,13 +282,25 @@ export const useCasesStore = create<CasesState>()(
             // Filtro institucional: Locales solo ven los casos de su establecimiento o si fueron asignados al ERR
             let casosFiltrados = mappedCasos;
             if (role.includes('LOCAL')) {
-              const myEstablecimiento = useAuthStore.getState().userEstablecimiento || '';
-              casosFiltrados = mappedCasos.filter(c => 
-                c.id_creador === email ||
-                c.miembrosERR.includes(email) || 
-                c.establecimiento === myEstablecimiento ||
-                c.estadoFlujo === 'NUEVO' // Fase 1 que ellos crearon
-              ); 
+              const myEstablecimiento = (useAuthStore.getState().userEstablecimiento || '').trim().toLowerCase();
+              const myEmailClean = (email || '').trim().toLowerCase();
+              casosFiltrados = mappedCasos.filter(c => {
+                const casoEstab = (c.establecimiento || '').trim().toLowerCase();
+                const estabCoincide = !!(myEstablecimiento && casoEstab && (
+                  casoEstab === myEstablecimiento || 
+                  casoEstab.includes(myEstablecimiento) || 
+                  myEstablecimiento.includes(casoEstab)
+                ));
+                const esMiembro = (c.miembrosERR || []).some(
+                  (m: string) => m.trim().toLowerCase() === myEmailClean
+                );
+                return (
+                  c.id_creador === email ||
+                  esMiembro || 
+                  estabCoincide ||
+                  c.estadoFlujo === 'NUEVO' // Fase 1 que ellos crearon
+                );
+              }); 
             } else if (role.includes('INSTITUCIONAL')) {
               const myMacro = useAuthStore.getState().userInstitucionMacro || '';
               const catalog = useCatalogStore.getState().establecimientos;
@@ -595,16 +642,26 @@ export const useCasesStore = create<CasesState>()(
         }
       },
         
-      asignarMiembrosERR: async (idCaso, miembros, equipoERR) => {
+      asignarMiembrosERR: async (idCaso, miembros, equipoERR, fechaAsignacion) => {
+        const nowIso = fechaAsignacion || new Date().toISOString();
         if (import.meta.env.VITE_USE_API === 'true') {
-           const updates: any = { miembros_err: JSON.stringify(miembros) };
+           const updates: any = { 
+             miembros_err: JSON.stringify(miembros),
+             miembros_err_array: miembros,
+             fecha_asignacion_err: nowIso
+           };
            if (equipoERR) updates.equipo_err_json = JSON.stringify(equipoERR);
            await actualizarCaso(idCaso, updates);
         }
 
         set((state) => ({
           casos: state.casos.map(caso =>
-            caso.id === idCaso ? { ...caso, miembrosERR: miembros, equipoERR } : caso
+            caso.id === idCaso ? { 
+              ...caso, 
+              miembrosERR: miembros, 
+              equipoERR,
+              fechaAsignacionERR: caso.fechaAsignacionERR || nowIso
+            } : caso
           )
         }));
       },

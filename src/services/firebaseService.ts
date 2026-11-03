@@ -66,9 +66,15 @@ export async function crearCarpetaCaso(id_caso: string) {
 
 export async function obtenerExpediente(id_caso: string) {
   try {
-    const docSnap = await getDoc(doc(db, 'casos', id_caso));
+    let docSnap = await getDoc(doc(db, 'casos', id_caso));
     if (!docSnap.exists()) {
-      return { success: false, error: 'Caso no encontrado' };
+      const altId = id_caso.startsWith('ESAVI-') ? id_caso.replace('ESAVI-', '') : 'ESAVI-' + id_caso;
+      const altSnap = await getDoc(doc(db, 'casos', altId));
+      if (altSnap.exists()) {
+        docSnap = altSnap;
+      } else {
+        return { success: false, error: 'Caso no encontrado' };
+      }
     }
 
     const casoData = docSnap.data();
@@ -323,16 +329,18 @@ export async function listarCasos(rol?: string, establecimiento?: string, userEm
 
     // 1. Roles Locales (ESAVI_LOCAL, INMUNO_LOCAL, EPIDEMIO_LOCAL):
     // Se consulta a Firestore de forma filtrada para no exponer expedientes de otros hospitales
-    if (rol && rol.includes('LOCAL') && estabClean) {
+    if (rol && rol.includes('LOCAL')) {
       const docsMap = new Map<string, any>();
 
       // Consulta A: Casos notificados en su establecimiento
-      try {
-        const qEstab = query(casosRef, where('establecimiento_notificador', '==', estabClean));
-        const snapEstab = await getDocs(qEstab);
-        snapEstab.docs.forEach(docSnap => docsMap.set(docSnap.id, docSnap.data()));
-      } catch (errEstab: any) {
-        console.warn("[Seguridad IDOR] Advertencia al consultar casos por establecimiento:", errEstab?.message);
+      if (estabClean) {
+        try {
+          const qEstab = query(casosRef, where('establecimiento_notificador', '==', estabClean));
+          const snapEstab = await getDocs(qEstab);
+          snapEstab.docs.forEach(docSnap => docsMap.set(docSnap.id, docSnap.data()));
+        } catch (errEstab: any) {
+          console.warn("[Seguridad IDOR] Advertencia al consultar casos por establecimiento:", errEstab?.message);
+        }
       }
 
       // Consulta B: Casos donde el usuario es el creador directo (si tiene email registrado)
@@ -343,6 +351,43 @@ export async function listarCasos(rol?: string, establecimiento?: string, userEm
           snapCreador.docs.forEach(docSnap => docsMap.set(docSnap.id, docSnap.data()));
         } catch (errCreador: any) {
           console.warn("[Seguridad IDOR] Advertencia al consultar casos por creador:", errCreador?.message);
+        }
+      }
+
+      // Consulta C: Casos donde el usuario estÃ¡ asignado al ERR (ASIGNACIONES_ERR)
+      if (emailClean) {
+        try {
+          const asigRef = collection(db, 'ASIGNACIONES_ERR');
+          const asigSnap = await getDocs(asigRef);
+          const asigCaseIds = new Set<string>();
+
+          asigSnap.docs.forEach(d => {
+            const data = d.data();
+            const caseId = data.id_caso || d.id;
+            const clinico = String(data.id_clinico || '').trim().toLowerCase();
+            const inmuno = String(data.id_inmuno || '').trim().toLowerCase();
+            const epidemio = String(data.id_epidemio || '').trim().toLowerCase();
+            const rawJson = String(data.datos_formulario_json || '').toLowerCase();
+
+            if (clinico === emailClean || inmuno === emailClean || epidemio === emailClean || rawJson.includes(emailClean)) {
+              if (caseId) asigCaseIds.add(caseId);
+            }
+          });
+
+          for (const cId of asigCaseIds) {
+            if (!docsMap.has(cId)) {
+              let cSnap = await getDoc(doc(db, 'casos', cId));
+              if (!cSnap.exists()) {
+                const altId = cId.startsWith('ESAVI-') ? cId.replace('ESAVI-', '') : 'ESAVI-' + cId;
+                cSnap = await getDoc(doc(db, 'casos', altId));
+              }
+              if (cSnap.exists()) {
+                docsMap.set(cSnap.id, cSnap.data());
+              }
+            }
+          }
+        } catch (errAsig: any) {
+          console.warn("[Seguridad IDOR] Advertencia al consultar asignaciones ERR:", errAsig?.message);
         }
       }
 
@@ -372,10 +417,20 @@ export async function listarReuniones() {
 
 export async function actualizarCaso(id_caso: string, updates: any) {
   try {
-    const docRef = doc(db, 'casos', id_caso);
-    await updateDoc(docRef, updates);
+    let docRef = doc(db, 'casos', id_caso);
+    let snap = await getDoc(docRef);
+    if (!snap.exists()) {
+      const altId = id_caso.startsWith('ESAVI-') ? id_caso.replace('ESAVI-', '') : 'ESAVI-' + id_caso;
+      const altRef = doc(db, 'casos', altId);
+      const altSnap = await getDoc(altRef);
+      if (altSnap.exists()) {
+        docRef = altRef;
+      }
+    }
+    await setDoc(docRef, updates, { merge: true });
     return { success: true };
   } catch (error: any) {
+    console.error("Error al actualizar caso en Firestore:", error);
     return { success: false, error: error.message };
   }
 }
