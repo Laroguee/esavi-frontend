@@ -22,6 +22,11 @@ import { useReactToPrint } from 'react-to-print';
 import { useRef, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useFormAutoSave } from '../../../hooks/useFormAutoSave';
+import { useScrollToError } from '../../../hooks/useScrollToError';
+import AutoSaveBadge from '../../../components/common/AutoSaveBadge';
+import DraftRecoveryModal from '../../../components/common/DraftRecoveryModal';
+import ValidationSummaryBanner from '../../../components/common/ValidationSummaryBanner';
 
 // =======================================================
 // ESQUEMA ESTRICTO DE ZOD (Evaluación Clínica)
@@ -124,6 +129,42 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+const TAB_FIELD_MAP_VII: Record<number, string[]> = {
+  0: [
+    'fechaInicioLlenado', 'fuentes_historiaClinica', 'fuentes_entrevistaVacunado', 'fuentes_entrevistaSalud',
+    'fuentes_registrosVac', 'fuentes_autopsia', 'fuentes_autopsiaVerbal', 'fuentes_comunitaria', 'fuentes_otro',
+    'idUnico', 'lugarVacunacion', 'lugarVacunacionOtro', 'direccionVacunacion',
+    'eq_farma_nombre', 'eq_farma_cargo', 'eq_farma_correo', 'eq_farma_tel',
+    'eq_inmuno_nombre', 'eq_inmuno_cargo', 'eq_inmuno_correo', 'eq_inmuno_tel',
+    'eq_epi_nombre', 'eq_epi_cargo', 'eq_epi_correo', 'eq_epi_tel',
+    'fechaHospitalizacion', 'fechaInicioInvestigacion', 'estadoPaciente',
+    'fechaMuerte', 'horaMuerte', 'seRealizoAutopsia', 'fechaPrevistaAutopsia', 'razonNoAutopsia', 'razonNoAutopsiaOtro', 'datosNecropsia'
+  ],
+  1: [
+    'hosp30Dias', 'obs_hosp30Dias', 'antFamiliares', 'obs_antFamiliares',
+    'embarazada', 'semGestacion', 'metGestacion', 'metGestacionOtro', 'factorRiesgoObs', 'exp_factorRiesgoObs',
+    'parto', 'nacimiento', 'pesoNacer', 'desenlaceEmbarazo', 'afeccionRecienNacido', 'amamantando'
+  ],
+  2: [
+    'recibioAtencionMedica', 'fuenteC_examen', 'fuenteC_docs', 'fuenteC_autopsia', 'fuenteC_otro',
+    'institucionDiferente', 'instInicial', 'medicoInicial', 'contactoInicial',
+    'instDefinitiva', 'medicoDefinitivo', 'contactoDefinitivo', 'contactoConoceDetalles',
+    'sospechaMaltrato', 'exp_sospechaMaltrato', 'violenciaIntrafamiliar', 'exp_violenciaIntrafamiliar',
+    'otrosAntSociales', 'familiarContacto', 'signosCronologicos', 'resumenParaclinico', 'diagnosticoFinal'
+  ]
+};
+
+const FIELD_LABELS_VII: Record<string, string> = {
+  fechaMuerte: 'Fecha de Defunción',
+  semGestacion: 'Semanas de Gestación (1 - 42)',
+  pesoNacer: 'Peso al Nacer (máx 6000 g)',
+  lugarVacunacion: 'Lugar de Vacunación',
+  diagnosticoFinal: 'Diagnóstico Final',
+  estadoPaciente: 'Estado del Paciente',
+  hosp30Dias: 'Hospitalización previa',
+  embarazada: 'Condición de Embarazo'
+};
+
 export default function AnexoVII_Clinico() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -153,7 +194,7 @@ export default function AnexoVII_Clinico() {
     }
   }, [id]);
 
-  const { control, handleSubmit, watch, reset, getValues } = useForm<AnexoVIIFormValues>({
+  const { control, handleSubmit, watch, reset, getValues, formState: { errors } } = useForm<AnexoVIIFormValues>({
     resolver: zodResolver(anexoVIISchema),
     defaultValues: {
       fechaInicioLlenado: new Date().toISOString().split('T')[0], 
@@ -169,6 +210,32 @@ export default function AnexoVII_Clinico() {
       recibioAtencionMedica: '', fuenteC_examen: false, fuenteC_docs: false, fuenteC_autopsia: false, fuenteC_otro: '', institucionDiferente: '', instInicial: '', medicoInicial: '', contactoInicial: '', instDefinitiva: '', medicoDefinitivo: '', contactoDefinitivo: '', contactoConoceDetalles: '',
       sospechaMaltrato: '', exp_sospechaMaltrato: '', violenciaIntrafamiliar: '', exp_violenciaIntrafamiliar: '', otrosAntSociales: '', familiarContacto: '', signosCronologicos: '', resumenParaclinico: '', diagnosticoFinal: ''
     }
+  });
+
+  // Hook de Autoguardado en Dexie
+  const {
+    isSaving,
+    lastSavedAt,
+    hasDraftAvailable,
+    draftTimestamp,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+  } = useFormAutoSave<AnexoVIIFormValues>({
+    idCaso: id,
+    tipoAnexo: 'ANEXO_CLINICO',
+    watch,
+    reset,
+    getValues,
+    enabled: !isViewMode && !!id,
+    debounceMs: 2500,
+  });
+
+  // Hook de Scroll to Error con mapeo de tabs
+  const { scrollToFirstError, handleFieldClick } = useScrollToError({
+    tabIndex,
+    setTabIndex,
+    tabFieldMap: TAB_FIELD_MAP_VII,
   });
 
   useEffect(() => {
@@ -311,6 +378,7 @@ export default function AnexoVII_Clinico() {
           store.avanzarCaso(id, 'EN_INVESTIGACION', 'Fase 4: Investigación', 'Corrección aplicada al anexo. Listo para re-evaluación institucional.');
         }
 
+                await clearDraft(); // Limpiar borrador local tras guardado exitoso
         alert(saveRes.message);
         navigate(-1);
       }
@@ -386,19 +454,36 @@ export default function AnexoVII_Clinico() {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit, (errs) => scrollToFirstError(errs))} sx={{ maxWidth: 1200, margin: 'auto', pb: 8 }}>
       
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 2 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo VII: Evaluación Clínica <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: Farmacovigilancia / Clínico)</Typography>
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 1 }}>
+          <AutoSaveBadge isSaving={isSaving} lastSavedAt={lastSavedAt} />
           <Button variant="outlined" color="secondary" size="small" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
           <Button variant="outlined" size="small" onClick={() => navigate(-1)}>Cancelar</Button>
         </Box>
       </Box>
+
+            {/* Banner Resumen de Validaciones Zod */}
+      <ValidationSummaryBanner
+        errors={errors}
+        fieldLabels={FIELD_LABELS_VII}
+        onFieldClick={handleFieldClick}
+      />
+
+      {/* Modal de Recuperación de Borrador Local */}
+      <DraftRecoveryModal
+        open={hasDraftAvailable}
+        draftTimestamp={draftTimestamp}
+        onRestore={restoreDraft}
+        onDiscard={discardDraft}
+        tipoAnexoNombre="Anexo VII (Evaluación Clínica)"
+      />
 
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
         <Paper elevation={3} sx={{ borderRadius: 2 }}>

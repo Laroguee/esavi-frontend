@@ -12,6 +12,11 @@ import { useReactToPrint } from 'react-to-print';
 import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useFormAutoSave } from '../../../hooks/useFormAutoSave';
+import { useScrollToError } from '../../../hooks/useScrollToError';
+import AutoSaveBadge from '../../../components/common/AutoSaveBadge';
+import DraftRecoveryModal from '../../../components/common/DraftRecoveryModal';
+import ValidationSummaryBanner from '../../../components/common/ValidationSummaryBanner';
 
 const anexoVSchema = z.object({
   idUnico: z.string().optional(),
@@ -82,6 +87,26 @@ const anexoVSchema = z.object({
 
 type AnexoVFormValues = z.infer<typeof anexoVSchema>;
 
+const FIELD_LABELS_V: Record<string, string> = {
+  fechaVisita: 'Fecha de Visita',
+  nombrePuesto: 'Nombre del Puesto',
+  responsablePuesto: 'Responsable del Puesto',
+  s1_obs_1: 'Observacion Item 1 (Identificacion del puesto)',
+  s1_obs_2: 'Observacion Item 2 (Documentacion de vacunas)',
+  s1_obs_3: 'Observacion Item 3 (Lote y fechas)',
+  s1_obs_4: 'Observacion Item 4 (Aspecto macroscopico)',
+  s1_obs_5: 'Observacion Item 5 (Dispositivo de administracion)',
+  s1_obs_6: 'Observacion Item 6 (Tecnica de vacunacion)',
+  s1_obs_7: 'Observacion Item 7 (Cadena de frio)',
+  s1_obs_8: 'Observacion Item 8 (Area fisica y ventilacion)',
+  s1_obs_9: 'Observacion Item 9 (Problemas o desviaciones)',
+  s1_obs_10: 'Observacion Item 10 (Vacunaciones simultaneas)',
+  s1_obs_11: 'Observacion Item 11 (Aplicaciones extramuros)',
+  s1_obs_12: 'Observacion Item 12 (Medidas de seguridad)',
+  s1_obs_13: 'Observacion Item 13 (Protocolo de anafilaxia)',
+  s1_obs_14: 'Observacion Item 14 (Inventario general)'
+};
+
 export default function AnexoV_PuestoVacuna() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -98,7 +123,7 @@ export default function AnexoV_PuestoVacuna() {
     documentTitle: `Anexo_V_PuestoVacunacion_${id}`,
   });
 
-  const { control, handleSubmit, reset } = useForm<AnexoVFormValues>({
+  const { control, handleSubmit, watch, reset, getValues, formState: { errors } } = useForm<AnexoVFormValues>({
     resolver: zodResolver(anexoVSchema),
     defaultValues: {
       idUnico: id || '', nombrePuesto: '', fechaVisita: new Date().toISOString().split('T')[0], responsablePuesto: '',
@@ -114,6 +139,28 @@ export default function AnexoV_PuestoVacuna() {
       entrevista_e1: '', entrevista_e2: '', entrevista_e3: ''
     }
   });
+
+  // Hook de Autoguardado en Dexie
+  const {
+    isSaving,
+    lastSavedAt,
+    hasDraftAvailable,
+    draftTimestamp,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+  } = useFormAutoSave<AnexoVFormValues>({
+    idCaso: id,
+    tipoAnexo: 'ANEXO_VACUNACION',
+    watch,
+    reset,
+    getValues,
+    enabled: !isViewMode && !!id,
+    debounceMs: 2500,
+  });
+
+  // Hook de Scroll to Error (formulario plano sin tabs)
+  const { scrollToFirstError, handleFieldClick } = useScrollToError();
 
   useEffect(() => {
     async function loadData() {
@@ -246,19 +293,36 @@ export default function AnexoV_PuestoVacuna() {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
+    <Box component="form" onSubmit={handleSubmit(onSubmit, (errs) => scrollToFirstError(errs))} sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
       
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 2, mb: 3 }}>
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo V: Guía de Puesto de Vacunación <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: Inmunizaciones)</Typography>
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 1 }}>
+          <AutoSaveBadge isSaving={isSaving} lastSavedAt={lastSavedAt} />
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
           <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
         </Box>
       </Box>
+
+            {/* Banner Resumen de Validaciones Zod */}
+      <ValidationSummaryBanner
+        errors={errors}
+        fieldLabels={FIELD_LABELS_V}
+        onFieldClick={handleFieldClick}
+      />
+
+      {/* Modal de Recuperacion de Borrador Local */}
+      <DraftRecoveryModal
+        open={hasDraftAvailable}
+        draftTimestamp={draftTimestamp}
+        onRestore={restoreDraft}
+        onDiscard={discardDraft}
+        tipoAnexoNombre="Anexo V (Puesto de Vacunacion)"
+      />
 
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
         <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>

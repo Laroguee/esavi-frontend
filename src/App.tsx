@@ -14,6 +14,7 @@ import AnexoIII_Logistica from './features/forms/Fase4_Investigacion/AnexoIII_Lo
 import InformeTecnico from './features/cases/InformeTecnico';
 import Login from './features/auth/Login';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import RoleProtectedRoute from './components/layout/RoleProtectedRoute';
 import TrabajoCampo from './features/cases/TrabajoCampo';
 import BandejaComite from './features/comittee/BandejaComite';
 import ModuloAdministracion from './features/administration/ModuloAdministracion';
@@ -43,8 +44,13 @@ export default function App() {
             <Route path="anexo-logistica/:id" element={<AnexoIII_Logistica />} />
             <Route path="dictamen/:id" element={<DictamenCausalidad />} />
             <Route path="trabajo-campo" element={<TrabajoCampo />} />
-            <Route path="bandeja-comite" element={<BandejaComite />} />
-            <Route path="administracion" element={<ModuloAdministracion />} />
+            <Route element={<RoleProtectedRoute allowedRoles={['COMITE_EXTERNO', 'SECRETARIADO']} />}>
+              <Route path="bandeja-comite" element={<BandejaComite />} />
+            </Route>
+            {/* RUTA DE ADMINISTRACIÓN BLINDADA POR ROL */}
+            <Route element={<RoleProtectedRoute allowedRoles={['SECRETARIADO']} />}>
+              <Route path="administracion" element={<ModuloAdministracion />} />
+            </Route>
             <Route path="caso/:id/expediente" element={<ExpedienteDigital />} />
             <Route path="informe-tecnico/:id" element={<InformeTecnico />} />
           </Route>

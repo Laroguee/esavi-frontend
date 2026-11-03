@@ -169,14 +169,16 @@ export async function obtenerExpediente(id_caso: string) {
 
 export async function subirArchivoEvidencia(id_caso: string, categoria: string, base64: string, mimeType: string, filename: string, usuario: string = 'Desconocido') {
   try {
-    const url = `https://api.cloudinary.com/v1_1/dowejnpvd/auto/upload`;
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dowejnpvd';
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'esavi_docs';
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
     
     // Cloudinary expects file as a data URI
     const dataUri = base64.startsWith('data:') ? base64 : `data:${mimeType};base64,${base64}`;
     
     const formData = new FormData();
     formData.append('file', dataUri);
-    formData.append('upload_preset', 'esavi_docs');
+    formData.append('upload_preset', uploadPreset);
     // Generar un ID público limpio (evitando espacios o caracteres raros de filename si es posible)
     const publicIdStr = `${id_caso}/${categoria}/${filename.split('.')[0]}_${Date.now()}`.replace(/\s+/g, '_');
     formData.append('public_id', publicIdStr);
@@ -306,12 +308,54 @@ export async function eliminarCaso(idCaso: string) {
   }
 }
 
-export async function listarCasos() {
+/**
+ * Lista los casos desde Firestore aplicando filtrado a nivel de servidor (Server-Side)
+ * para mitigar fuga masiva de datos (IDOR).
+ * 
+ * - Roles locales: Solo descargan casos de su propio establecimiento o donde son id_creador.
+ * - Roles supervisores (SECRETARIADO, COMITE_EXTERNO, INSTITUCIONAL): Visibilidad para triaje y comités.
+ */
+export async function listarCasos(rol?: string, establecimiento?: string, userEmail?: string) {
   try {
-    const querySnapshot = await getDocs(collection(db, 'casos'));
+    const casosRef = collection(db, 'casos');
+    const emailClean = (userEmail || '').trim().toLowerCase();
+    const estabClean = (establecimiento || '').trim();
+
+    // 1. Roles Locales (ESAVI_LOCAL, INMUNO_LOCAL, EPIDEMIO_LOCAL):
+    // Se consulta a Firestore de forma filtrada para no exponer expedientes de otros hospitales
+    if (rol && rol.includes('LOCAL') && estabClean) {
+      const docsMap = new Map<string, any>();
+
+      // Consulta A: Casos notificados en su establecimiento
+      try {
+        const qEstab = query(casosRef, where('establecimiento_notificador', '==', estabClean));
+        const snapEstab = await getDocs(qEstab);
+        snapEstab.docs.forEach(docSnap => docsMap.set(docSnap.id, docSnap.data()));
+      } catch (errEstab: any) {
+        console.warn("[Seguridad IDOR] Advertencia al consultar casos por establecimiento:", errEstab?.message);
+      }
+
+      // Consulta B: Casos donde el usuario es el creador directo (si tiene email registrado)
+      if (emailClean) {
+        try {
+          const qCreador = query(casosRef, where('id_creador', '==', emailClean));
+          const snapCreador = await getDocs(qCreador);
+          snapCreador.docs.forEach(docSnap => docsMap.set(docSnap.id, docSnap.data()));
+        } catch (errCreador: any) {
+          console.warn("[Seguridad IDOR] Advertencia al consultar casos por creador:", errCreador?.message);
+        }
+      }
+
+      const casosFiltrados = Array.from(docsMap.values());
+      return { success: true, data: casosFiltrados };
+    }
+
+    // 2. Roles Supervisores, Reguladores o Institucionales:
+    const querySnapshot = await getDocs(casosRef);
     const casos = querySnapshot.docs.map(doc => doc.data());
     return { success: true, data: casos };
   } catch (error: any) {
+    console.error("Error al listar casos de Firestore con filtro de seguridad:", error);
     return { success: false, error: error.message };
   }
 }

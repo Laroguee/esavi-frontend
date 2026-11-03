@@ -136,10 +136,11 @@ export const useCasesStore = create<CasesState>()(
 
         const email = useAuthStore.getState().userEmail || '';
         const role = useAuthStore.getState().currentRole || '';
+        const establecimiento = useAuthStore.getState().userEstablecimiento || '';
 
         try {
           // 1. Cargar Casos
-          const resCasos = await listarCasos();
+          const resCasos = await listarCasos(role, establecimiento, email);
           if (resCasos && resCasos.success && resCasos.data) {
             // Mapeo básico de Sheets a CasoESAVI
             const currentCasos = get().casos;

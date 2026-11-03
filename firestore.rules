@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions para validación de roles y contexto de usuario
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return request.auth.token.role;
+    }
+
+    function getUserEstablecimiento() {
+      return request.auth.token.establecimiento;
+    }
+
+    function isSupervisorOrAdmin() {
+      return isAuthenticated() && (
+        getUserRole() == 'SECRETARIADO' || 
+        getUserRole() == 'ADMIN' || 
+        getUserRole() == 'COMITE_EXTERNO' ||
+        getUserRole() == 'ESAVI_INSTITUCIONAL' ||
+        getUserRole() == 'INMUNO_INSTITUCIONAL' ||
+        getUserRole() == 'EPIDEMIO_INSTITUCIONAL'
+      );
+    }
+
+    // Colección Principal de Casos ESAVI
+    match /casos/{casoId} {
+      // LECTURA:
+      // - Supervisores/Admin pueden leer cualquier caso
+      // - Usuarios locales solo leen casos de su establecimiento o donde sean creadores
+      allow read: if isAuthenticated() && (
+        isSupervisorOrAdmin() ||
+        resource.data.establecimiento_notificador == getUserEstablecimiento() ||
+        resource.data.id_creador == request.auth.token.email
+      );
+
+      // CREACIÓN: Cualquier usuario de salud autenticado
+      allow create: if isAuthenticated();
+
+      // ACTUALIZACIÓN:
+      // - Supervisores o miembros del mismo establecimiento / creadores
+      allow update: if isAuthenticated() && (
+        isSupervisorOrAdmin() ||
+        resource.data.establecimiento_notificador == getUserEstablecimiento() ||
+        resource.data.id_creador == request.auth.token.email
+      );
+
+      // ELIMINACIÓN: Restringido estrictamente a Secretariado / Administradores
+      allow delete: if isAuthenticated() && (
+        getUserRole() == 'SECRETARIADO' || 
+        getUserRole() == 'ADMIN'
+      );
+    }
+
+    // Colecciones de Anexos y Formularios de Investigación
+    match /{anexoCol}/{docId} {
+      allow read, write: if isAuthenticated() && (
+        anexoCol.matches('ANEXO_.*') || 
+        anexoCol == 'MATRIZ_RIESGO' || 
+        anexoCol == 'ASIGNACIONES_ERR'
+      );
+    }
+
+    // Colección de Auditoría y Logs
+    match /AUDITORIAS_CALIDAD/{auditoriaId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isSupervisorOrAdmin();
+    }
+
+    match /historial_cambios/{logId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if false; // Logs inmutables
+    }
+
+    // Gestión de Usuarios y Establecimientos
+    match /usuarios/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (getUserRole() == 'SECRETARIADO' || getUserRole() == 'ADMIN');
+    }
+
+    match /establecimientos/{estabId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (getUserRole() == 'SECRETARIADO' || getUserRole() == 'ADMIN');
+    }
+  }
+}
+

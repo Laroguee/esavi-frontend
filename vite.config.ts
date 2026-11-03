@@ -31,5 +31,5 @@ export default defineConfig({
       }
     })
   ],
-  base: '/esavi-frontend/', 
+  base: process.env.VITE_BASE_PATH || '/esavi-frontend/', 
 })

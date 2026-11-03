@@ -7,14 +7,20 @@ import {
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+// Configuración leída dinámicamente desde variables de entorno (DevSecOps)
 export const firebaseConfig = {
-  apiKey: "AIzaSyCwWboZLQogyuUuiYTcJUEsDi2rMPMq-IE",
-  authDomain: "esavi-sv-backend.firebaseapp.com",
-  projectId: "esavi-sv-backend",
-  storageBucket: "esavi-sv-backend.firebasestorage.app",
-  messagingSenderId: "939471115863",
-  appId: "1:939471115863:web:20ead13a564f02b136f512"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
 };
+
+// Validación en desarrollo
+if (!firebaseConfig.apiKey) {
+  console.warn("[Seguridad] Falta configurar VITE_FIREBASE_API_KEY en las variables de entorno (.env).");
+}
 
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);

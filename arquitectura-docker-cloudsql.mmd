@@ -1,0 +1,93 @@
+flowchart TB
+    %% ==========================================
+    %% CAPA 1: CLIENTES Y USUARIOS
+    %% ==========================================
+    subgraph Clientes ["1. Capa de Clientes (Navegadores Web / PWA)"]
+        direction LR
+        U1["Personal Clínico / ESAVI Local"]:::clientNode
+        U2["Epidemiología / Inmunizaciones"]:::clientNode
+        U3["Jefaturas / Comité Externo"]:::clientNode
+    end
+
+    %% ==========================================
+    %% CAPA 2: SERVIDOR HOST CON DOCKER
+    %% ==========================================
+    subgraph ServidorHost ["2. Servidor de Aplicación (Host / VPS / On-Premise)"]
+        direction TB
+
+        subgraph DockerNetwork ["Red Interna Docker (Docker Bridge Network)"]
+            direction TB
+            
+            %% Reverse Proxy
+            Nginx["Contenedor: Reverse Proxy (Nginx / SSL)<br/><b>Puertos: 80 / 443</b>"]:::proxyNode
+            
+            %% Frontend Container
+            AppFront["Contenedor: Frontend (React + Vite)<br/><b>Build producción en Nginx</b><br/><i>Puerto interno: 80/3000</i>"]:::frontNode
+            
+            %% Backend Container
+            AppBack["Contenedor: Backend API<br/><b>Lógica de Negocio + RBAC + Máquina Estados</b><br/><i>Puerto interno: 4000/8000</i>"]:::backNode
+            
+            %% Cloud SQL Proxy Container
+            SQLProxy["Contenedor: Cloud SQL Auth Proxy<br/><b>Túnel seguro IAM a GCP</b><br/><i>Puerto interno: 127.0.0.1:5432</i>"]:::proxySqlNode
+        end
+    end
+
+    %% ==========================================
+    %% CAPA 3: GOOGLE CLOUD PLATFORM
+    %% ==========================================
+    subgraph GCP ["3. Google Cloud Platform (GCP)"]
+        direction TB
+
+        subgraph CloudSQLBox ["Base de Datos Gestionada"]
+            CloudSQL[("Google Cloud SQL<br/><b>PostgreSQL / MySQL</b><br/>Backups automáticos + Alta Disponibilidad")]:::dbNode
+        end
+
+        subgraph StorageBox ["Almacenamiento de Evidencias (Recomendado)"]
+            GCS[("Google Cloud Storage<br/><b>Evidencias, Anexos, PDFs</b>")]:::storageNode
+        end
+
+        IAM["Google IAM & Service Account<br/><b>Credenciales y Permisos</b>"]:::iamNode
+    end
+
+    %% ==========================================
+    %% FLUJO DE CONEXIONES Y PETICIONES
+    %% ==========================================
+    
+    %% Clientes hacia el servidor
+    U1 -->|HTTPS: 443<br/>Túnel Cifrado TLS| Nginx
+    U2 -->|HTTPS: 443<br/>Túnel Cifrado TLS| Nginx
+    U3 -->|HTTPS: 443<br/>Túnel Cifrado TLS| Nginx
+
+    %% Reverse proxy distribuyendo tráfico
+    Nginx -->|Ruta: /*<br/>Entrega HTML/JS/CSS| AppFront
+    Nginx -->|Ruta: /api/*<br/>Proxy reverso REST API| AppBack
+
+    %% Backend hacia base de datos (vía Proxy)
+    AppBack -->|Conexión BD estándar<br/>localhost:5432 / credenciales| SQLProxy
+    
+    %% Proxy hacia Google Cloud
+    SQLProxy -->|Túnel mTLS / Cifrado automático<br/>vía Internet / Red Privada| CloudSQL
+    IAM -.->|Autoriza acceso SA| SQLProxy
+
+    %% Backend hacia almacenamiento de evidencias
+    AppBack -.->|Subida de Anexos/PDFs<br/>(API SDK GCP)| GCS
+
+    %% ==========================================
+    %% ESTILOS VISUALES
+    %% ==========================================
+    classDef clientNode fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000;
+    classDef proxyNode fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000;
+    classDef frontNode fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000;
+    classDef backNode fill:#ede7f6,stroke:#512da8,stroke-width:2px,color:#000;
+    classDef proxySqlNode fill:#fff8e1,stroke:#fbc02d,stroke-width:2px,color:#000;
+    classDef dbNode fill:#e0f2f1,stroke:#00796b,stroke-width:2px,color:#000;
+    classDef storageNode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000;
+    classDef iamNode fill:#fbe9e7,stroke:#d84315,stroke-width:1.5px,stroke-dasharray: 4 4,color:#000;
+
+    style Clientes fill:#fafafa,stroke:#90caf9,stroke-width:2px;
+    style ServidorHost fill:#f5f5f5,stroke:#424242,stroke-width:2px;
+    style DockerNetwork fill:#ffffff,stroke:#78909c,stroke-width:2px,stroke-dasharray: 4 4;
+    style GCP fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px;
+    style CloudSQLBox fill:#ffffff,stroke:#00796b,stroke-width:1.5px;
+    style StorageBox fill:#ffffff,stroke:#7b1fa2,stroke-width:1.5px;
+

@@ -52,7 +52,7 @@ export default function MainLayout() {
     enabled: true,
     enableKeyboardBlock: true,
     enableContextMenuBlock: true,
-    enableBlurOnFocusLoss: true,
+    enableBlurOnFocusLoss: false, // Relajado para permitir trabajo médico fluido en doble pantalla o visores PDF paralelos
     blurDebounceMs: 250,
     onViolation: handleSecurityViolation
   });

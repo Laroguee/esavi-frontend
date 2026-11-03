@@ -26,6 +26,7 @@ dist-ssr
 # Archivos de entorno y seguridad
 .env
 .env.*
+!.env.example
 *.local
 
 # Scripts de poblacion y limpieza

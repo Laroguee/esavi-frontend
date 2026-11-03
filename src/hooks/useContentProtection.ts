@@ -16,7 +16,7 @@ export function useContentProtection(options: UseContentProtectionOptions = {}) 
     enabled = true,
     enableKeyboardBlock = true,
     enableContextMenuBlock = true,
-    enableBlurOnFocusLoss = true,
+    enableBlurOnFocusLoss = false,
     blurDebounceMs = 200,
     onViolation
   } = options;

@@ -144,6 +144,17 @@ export async function obtenerAnexoOffline(id_caso: string, tipo_anexo: string): 
 }
 
 /**
+ * Elimina un borrador local de Dexie una vez que el usuario lo descarta o lo envía exitosamente
+ */
+export async function eliminarBorradorOffline(id_caso: string, tipo_anexo: string): Promise<void> {
+  const id = `${id_caso}_${tipo_anexo}`;
+  const registro = await dbLocal.anexosLocales.get(id);
+  if (registro && registro.estado === 'BORRADOR') {
+    await dbLocal.anexosLocales.delete(id);
+  }
+}
+
+/**
  * Guarda un archivo binario (Blob/File) en IndexedDB listo para ser sincronizado
  */
 export async function guardarEvidenciaOffline(

@@ -1,0 +1,137 @@
+flowchart TD
+    %% ==========================================
+    %% FASE 1: NOTIFICACIÓN
+    %% ==========================================
+    subgraph Fase1 ["Fase 1: Notificación"]
+        direction TB
+        F1_ESAVI(["ESAVI Institucional / Clínica"]):::greenNode
+        F1_ANEXO["Notificación / Anexo I"]:::dashedBox
+        
+        F1_ESAVI -->|Persona notificadora original| F1_ANEXO
+    end
+
+    %% ==========================================
+    %% FASE 2: EVALUACIÓN Y TRIAJE
+    %% ==========================================
+    subgraph Fase2 ["Fase 2: Evaluación y Triaje"]
+        direction TB
+        F2_EQUIPO(["Equipo Coordinador<br/>(DEIS, Inmuno y Epidemio - PSVI / DDE)"]):::blueNode
+        F2_MATRIZ["Matriz de Riesgo"]:::dashedBox
+        
+        F2_EQUIPO -->|Objetivos y Criterios Nivel de Riesgo| F2_MATRIZ
+    end
+
+    %% ==========================================
+    %% FASE 3: ASIGNACIÓN LER
+    %% ==========================================
+    subgraph Fase3 ["Fase 3: Asignación LER"]
+        direction TB
+        F3_EQUIPO(["Equipo Coordinador"]):::blueNode
+        F3_ASIGNAR["Asignar LER"]:::dashedBox
+        F3_DDE(["Retroalimentación DDE"]):::yellowNode
+        F3_INTERNO["Coordinador, Analista, Apoyo Usuario"]:::dashedBox
+        F3_SOPORTE(["Actores de Soporte"]):::grayDashedNode
+
+        F3_EQUIPO -->|Asignar al equipo principal| F3_ASIGNAR
+        F3_EQUIPO -.->|Asignar usuarios adicionales| F3_SOPORTE
+        F3_ASIGNAR -->|¿Se requiere la DDE?| F3_DDE
+        F3_DDE -->|Conformado equipo interno| F3_INTERNO
+    end
+
+    %% ==========================================
+    %% FASE 5: CONTROL DE CALIDAD (Contenedor Mayor)
+    %% ==========================================
+    subgraph Fase5 ["Fase 5: Control de Calidad"]
+        direction TB
+
+        %% --------------------------------------
+        %% FASE 4: INVESTIGACIÓN DE CAMPO
+        %% --------------------------------------
+        subgraph Fase4 ["Fase 4: Investigación de Campo"]
+            direction TB
+            F4_CUALQUIERA(["Cualquiera del equipo de investigación"]):::whitePill
+            F4_NOTAS["Notas de reunión Fase 4"]:::dashedBox
+            F4_CUALQUIERA -.->|Planificar encuentros| F4_NOTAS
+
+            F4_ESAVI(["ESAVI Local"]):::greenNode
+            F4_INMUNO(["Inmuno Local"]):::greenNode
+            F4_PAPELES["Papeles / Requisitorio"]:::dashedBox
+            F4_EPIDEMIO(["Epidemio Local"]):::greenNode
+            F4_LECTURA["Solo ver la información del caso sin poder editar"]:::whiteBox
+
+            F4_ANEXOS["Anexos de campo"]:::dashedBox
+
+            F4_ESAVI -->|Llena Anexo II| F4_ANEXOS
+            F4_ESAVI -->|Llena Anexo VI| F4_ANEXOS
+            F4_INMUNO -->|Llena Anexo IV| F4_ANEXOS
+            F4_PAPELES --> F4_ANEXOS
+            F4_EPIDEMIO -->|Llena Anexo III| F4_ANEXOS
+            F4_LECTURA -.-> F4_ANEXOS
+        end
+
+        F5_JEFATURA(["Jefatura Institucional"]):::blueNode
+        F5_D1{"¿Aprobada CC1?"}:::decision
+        F5_ADA(["Acuerdo de la ADA"]):::yellowNode
+        F5_D2{"¿Aprobada CC2?"}:::decision
+        F5_COMITE["Agendar Comité"]:::dashedBox
+
+        F4_ANEXOS --> F5_JEFATURA
+        F5_JEFATURA -->|Auditoría Fase C1| F5_D1
+        F5_D1 -->|Aprobado| F5_ADA
+        F5_ADA -->|Auditoría Fase C2| F5_D2
+        F5_D2 -->|Aprobado| F5_COMITE
+    end
+
+    %% ==========================================
+    %% FASE 6: COMITÉ EXTERNO
+    %% ==========================================
+    subgraph Fase6 ["Fase 6: Comité Externo"]
+        direction TB
+        F6_EXTERNO(["Comité Externo de Vacunación"]):::redNode
+        F6_DICTAMEN["Dictamen Final de Causalidad"]:::dashedBox
+
+        F6_EXTERNO -->|Emitir resolución| F6_DICTAMEN
+    end
+
+    %% ==========================================
+    %% CONEXIONES INTER-FASES
+    %% ==========================================
+    F1_ANEXO --> F2_EQUIPO
+    F2_MATRIZ --> F3_EQUIPO
+
+    %% Conexiones desde Fase 3 hacia Fase 4
+    F3_ASIGNAR --> F4_ESAVI
+    F3_ASIGNAR --> F4_INMUNO
+    F3_INTERNO -.->|Edita y visualiza directamente| F4_PAPELES
+    F3_ASIGNAR --> F4_EPIDEMIO
+
+    F3_SOPORTE -.->|Permiso DEIS| F4_LECTURA
+    F3_SOPORTE -.->|Permiso LER/ADD| F4_LECTURA
+
+    %% Retroalimentaciones por Observaciones
+    F5_D1 -->|Observaciones| F4_ESAVI
+    F5_D2 -->|Observaciones| F4_ESAVI
+
+    %% Cierre hacia Comité Externo
+    F5_COMITE --> F6_EXTERNO
+
+    %% ==========================================
+    %% DEFINICIÓN DE ESTILOS
+    %% ==========================================
+    classDef greenNode fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000;
+    classDef blueNode fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000;
+    classDef yellowNode fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000;
+    classDef redNode fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px,color:#000;
+    classDef dashedBox fill:#ffffff,stroke:#9e9e9e,stroke-width:1.5px,stroke-dasharray: 4 4,color:#000;
+    classDef grayDashedNode fill:#eceff1,stroke:#78909c,stroke-width:1.5px,stroke-dasharray: 4 4,color:#000;
+    classDef whitePill fill:#ffffff,stroke:#9e9e9e,stroke-width:1.5px,color:#000;
+    classDef whiteBox fill:#ffffff,stroke:#37474f,stroke-width:1.5px,color:#000;
+    classDef decision fill:#ffffff,stroke:#546e7a,stroke-width:2px,color:#000;
+
+    style Fase1 fill:#fdf4fb,stroke:#ce93d8,stroke-width:2px;
+    style Fase2 fill:#e0f7fa,stroke:#4dd0e1,stroke-width:2px;
+    style Fase3 fill:#fff8e1,stroke:#ffb74d,stroke-width:2px;
+    style Fase5 fill:#e1f5fe,stroke:#4fc3f7,stroke-width:2px;
+    style Fase4 fill:#e8f5e9,stroke:#81c784,stroke-width:2px;
+    style Fase6 fill:#ede7f6,stroke:#b39ddb,stroke-width:2px;
+
