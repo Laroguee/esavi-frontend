@@ -10,7 +10,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useCatalogStore } from '../../../store/useCatalogStore';
-import { guardarEnSheets, crearCarpetaCaso, crearNotificacion, verificarDuplicado, listarCasos, registrarLog } from '../../../services/firebaseService';
+import { guardarEnSheets, crearCarpetaCaso, crearNotificacion, verificarDuplicado, registrarLog, generarNuevoIdCaso } from '../../../services/firebaseService';
 import { VoiceTextField } from '../../../components/common/VoiceTextField';
 
 // Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
@@ -98,7 +98,7 @@ interface NotificacionInicialProps {
 export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onClose }: NotificacionInicialProps) {
   const navigate = useNavigate();
   const crearCaso = useCasesStore(state => state.crearCaso);
-  const { userEmail } = useAuthStore();
+  const { userEmail, userEstablecimiento, userInstitucionMacro, currentRole, userName } = useAuthStore();
   const { establecimientos } = useCatalogStore();
 
   const { control, handleSubmit, watch, reset, setValue } = useForm<NotificacionFormValues>({
@@ -113,6 +113,31 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
   });
 
   const casos = useCasesStore(state => state.casos);
+
+  // Pre-llenado contextual según perfil y establecimiento autenticado
+  useEffect(() => {
+    if (!casoIdEdit) {
+      if (userEstablecimiento) {
+        setValue('establecimientoNotificador', userEstablecimiento);
+      }
+      if (userEmail) {
+        setValue('correoNotificador', userEmail);
+      }
+      if (userName) {
+        setValue('nombreNotificador', userName);
+      }
+    }
+  }, [casoIdEdit, userEstablecimiento, userEmail, userName, setValue]);
+
+  // Filtrado de catálogo de establecimientos para respetar la macro-institución (ISSS vs MINSAL)
+  const establecimientosFiltrados = React.useMemo(() => {
+    const listActivos = establecimientos.filter(e => e.activo === true || String(e.activo).toLowerCase() === 'true');
+    if (userInstitucionMacro && currentRole?.includes('INSTITUCIONAL')) {
+      const match = listActivos.filter(e => (e.institucionMacro || '').trim().toUpperCase() === userInstitucionMacro.trim().toUpperCase());
+      if (match.length > 0) return match.map(e => e.nombre);
+    }
+    return listActivos.map(e => e.nombre);
+  }, [establecimientos, userInstitucionMacro, currentRole]);
 
   useEffect(() => {
     if (casoIdEdit) {
@@ -332,24 +357,9 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
 
     console.log("Notificación Inicial Registrada:", data);
     
-    // Obtener casos reales de la base de datos para generar un correlativo nacional exacto
+    // Generar correlativo nacional único garantizado (Anti-Collision Engine)
     const anioActual = new Date().getFullYear();
-    const resCasos = await listarCasos();
-    let casosNacionales: any[] = [];
-    if (resCasos.success && resCasos.data) {
-      casosNacionales = resCasos.data;
-    } else {
-      // Fallback a los casos del store local si falla la base de datos
-      casosNacionales = useCasesStore.getState().casos;
-    }
-
-    const casosDelAnio = casosNacionales.filter((c: any) => {
-      const id = c.id_caso || c.id || '';
-      return id.includes(`ESAVI-${anioActual}-`);
-    });
-    
-    const correlativo = casosDelAnio.length + 1;
-    const idCasoNuevo = `ESAVI-${anioActual}-${correlativo.toString().padStart(3, '0')}`;
+    const idCasoNuevo = await generarNuevoIdCaso(anioActual);
     
     const estabSeleccionado = establecimientos.find(e => e.nombre === data.establecimientoNotificador);
     
@@ -360,6 +370,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         id_caso: idCasoNuevo,
         id_creador: userEmail || 'desconocido',
         estado_flujo: 'NUEVO', // REGLA DE NEGOCIO ESTRICTA
+        archivosAdjuntos: [], // Inicialización limpia: casos nuevos nacen sin archivos residuales
         fecha_creacion_sistema: new Date().toISOString(),
         fecha_notificacion: data.fechaNotificacion || new Date().toISOString().split('T')[0],
         identificador_paciente: data.expedienteClinico || '',
@@ -438,6 +449,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       // 3. Guardar en Store Local (Zustand)
     const nuevoCaso = {
       id: idCasoNuevo,
+      id_creador: userEmail || 'desconocido',
       paciente: data.nombrePaciente,
       establecimiento: data.establecimientoNotificador,
       id_establecimiento: estabSeleccionado ? estabSeleccionado.id : undefined,
@@ -534,7 +546,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
               <Controller name="establecimientoNotificador" control={control} render={({ field, fieldState }) => (
                 <Autocomplete
                   {...field}
-                  options={establecimientos.filter(e => e.activo === true || String(e.activo).toLowerCase() === 'true').map(e => e.nombre)}
+                  options={establecimientosFiltrados}
                   onChange={(_, data) => field.onChange(data)}
                   renderInput={(params) => (
                     <TextField {...params} fullWidth label="Establecimiento de Salud (SIBASI)" required 

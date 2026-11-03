@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, addDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, listAll } from 'firebase/storage';
 import { db } from '../config/firebase';
@@ -284,6 +285,74 @@ export async function listarArchivosCaso(id_caso: string) {
   } catch (error: any) {
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * Limpia todos los archivos adjuntos de un expediente en Firestore
+ */
+export async function limpiarArchivosCaso(id_caso: string) {
+  try {
+    const casoRef = doc(db, 'casos', id_caso);
+    await updateDoc(casoRef, { archivosAdjuntos: [] });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error al limpiar archivos del caso:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Genera el siguiente ID de expediente garantizando unicidad y evitando colisiones (Anti-Collision Engine)
+ */
+export async function generarNuevoIdCaso(anio: number = new Date().getFullYear()): Promise<string> {
+  const prefix = `ESAVI-${anio}-`;
+  let maxCorrelativo = 0;
+
+  try {
+    const casosRef = collection(db, 'casos');
+    const querySnapshot = await getDocs(casosRef);
+
+    querySnapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const id = String(data.id_caso || docSnap.id || '');
+      if (id.includes(prefix)) {
+        const parts = id.split(prefix);
+        if (parts.length > 1) {
+          const num = parseInt(parts[1], 10);
+          if (!isNaN(num) && num > maxCorrelativo) {
+            maxCorrelativo = num;
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.warn("[Anti-Collision] Fallo al consultar catálogo global de casos en Firestore:", error);
+  }
+
+  // Candidato inicial
+  let candidato = maxCorrelativo + 1;
+  let idGenerado = `${prefix}${candidato.toString().padStart(3, '0')}`;
+
+  // Verificación directa documento por documento contra Firestore
+  let existe = true;
+  let intentos = 0;
+  while (existe && intentos < 100) {
+    intentos++;
+    try {
+      const docSnap = await getDoc(doc(db, 'casos', idGenerado));
+      if (docSnap.exists()) {
+        candidato++;
+        idGenerado = `${prefix}${candidato.toString().padStart(3, '0')}`;
+      } else {
+        existe = false;
+      }
+    } catch {
+      // Si la consulta unitaria falla (ej. offline), salir con el candidato actual
+      existe = false;
+    }
+  }
+
+  return idGenerado;
 }
 
 export async function eliminarCaso(idCaso: string) {

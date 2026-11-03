@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useCallback } from 'react';
 import { 
   Box, Paper, Typography, Tabs, Tab, Grid, Button, 
@@ -9,7 +10,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
-import { subirArchivoEvidencia, listarArchivosCaso, borrarArchivoEvidencia } from '../../services/firebaseService';
+import { listarArchivosCaso, borrarArchivoEvidencia, limpiarArchivosCaso } from '../../services/firebaseService';
 import { guardarEvidenciaHibrida } from '../../services/offline/syncEngine';
 import { obtenerEvidenciasCasoOffline } from '../../services/offline/offlineDB';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -277,6 +278,20 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
     }
   };
 
+  const handleLimpiarTodo = async () => {
+    if (window.confirm(`¿Desea limpiar todos los archivos existentes del repositorio para el expediente ${caseId}? Esta acción removerá cualquier archivo residual.`)) {
+      setLoadingFiles(true);
+      const res = await limpiarArchivosCaso(caseId);
+      if (res.success) {
+        alert("Repositorio limpiado correctamente.");
+        await cargarArchivosExistentes();
+      } else {
+        alert("No se pudo limpiar el repositorio: " + (res.error || 'Error'));
+      }
+      setLoadingFiles(false);
+    }
+  };
+
   return (
     <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden', mb: 4 }}>
       
@@ -429,8 +444,19 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                 
                 {/* LISTA DE ARCHIVOS EXISTENTES */}
                 <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff', mt: readOnly ? 0 : 3 }}>
-                  <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderBottom: '1px solid #ddd' }}>
+                  <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos Existentes en Repositorio</Typography>
+                    {!readOnly && (currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SECRETARIADO') && archivosExistentes.length > 0 && (
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="text"
+                        sx={{ fontSize: '0.75rem', textTransform: 'none', py: 0 }}
+                        onClick={handleLimpiarTodo}
+                      >
+                        Limpiar repositorio
+                      </Button>
+                    )}
                   </Box>
                   {loadingFiles ? (
                     <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>
