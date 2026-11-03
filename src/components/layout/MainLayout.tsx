@@ -260,7 +260,7 @@ export default function MainLayout() {
             {/* REGLA: EL COMITÉ VE LOS DICTÁMENES */}
             {currentRole === 'COMITE_EXTERNO' && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/comite-causalidad')}>
+                <ListItemButton onClick={() => navigate('/comitée-causalidad')}>
                   <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Dictámenes Causalidad" />
                 </ListItemButton>
@@ -326,7 +326,7 @@ export default function MainLayout() {
 
               {currentRole === 'COMITE_EXTERNO' && (
                 <ListItem disablePadding>
-                  <ListItemButton onClick={() => navigate('/comite-causalidad')}>
+                  <ListItemButton onClick={() => navigate('/comitée-causalidad')}>
                     <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
                     <ListItemText primary="Dictámenes Causalidad" />
                   </ListItemButton>

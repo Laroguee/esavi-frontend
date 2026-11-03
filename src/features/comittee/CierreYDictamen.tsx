@@ -13,10 +13,10 @@ import { useCasesStore } from '../../store/useCasesStore';
 import { obtenerExpediente, actualizarCaso } from '../../services/firebaseService';
 import VisorAnexoLectura from '../cases/VisorAnexoLectura';
 
-// Interface para el formulario del Comité
+// Interface para el formulario del Comitéé
 interface FormDataCausalidad {
   clasificacionFinal: string;
-  comentariosComite: string;
+  comentariosComitée: string;
   recomendaciones: string;
   fechaEvaluacion: string;
   firmasExpertos: string;
@@ -47,7 +47,7 @@ export default function CierreYDictamen() {
   });
 
   const { control, handleSubmit } = useForm<FormDataCausalidad>({
-    defaultValues: { clasificacionFinal: '', comentariosComite: '', recomendaciones: '', fechaEvaluacion: '', firmasExpertos: '' }
+    defaultValues: { clasificacionFinal: '', comentariosComitée: '', recomendaciones: '', fechaEvaluacion: '', firmasExpertos: '' }
   });
 
   useEffect(() => {
@@ -149,16 +149,16 @@ export default function CierreYDictamen() {
       // 1. Guardar los datos del dictamen en el expediente
       await actualizarCaso(casoActual.id, {
         dictamen_clasificacion: data.clasificacionFinal,
-        dictamen_comentarios: data.comentariosComite,
+        dictamen_comentarios: data.comentariosComitée,
         dictamen_recomendaciones: data.recomendaciones,
         dictamen_fecha: data.fechaEvaluacion,
         dictamen_firmas: data.firmasExpertos
       });
 
       // 2. Avanzar el caso a estado CERRADO
-      await avanzarCaso(casoActual.id, 'CERRADO_DICTAMINADO', 'Fase 6: Cerrado por Comité', 'El Comité Externo ha emitido el dictamen final.');
+      await avanzarCaso(casoActual.id, 'CERRADO_DICTAMINADO', 'Fase 6: Cerrado por Comitéé', 'El Comitéé Externo ha emitido el dictamen final.');
       
-      alert(`Expediente ${casoActual.id} CERRADO OFICIALMENTE por el Comité de Expertos.`);
+      alert(`Expediente ${casoActual.id} CERRADO OFICIALMENTE por el Comitéé de Expertos.`);
       navigate('/');
     } catch (error) {
       console.error(error);
@@ -324,7 +324,7 @@ export default function CierreYDictamen() {
                 <GavelIcon color="secondary" sx={{ fontSize: 40 }} />
                 <Box>
                   <Typography variant="h5" color="secondary.main" sx={{ fontWeight: 'bold' }}>Dictamen Oficial de Causalidad</Typography>
-                  <Typography variant="body2" color="text.secondary">Uso exclusivo del Comité Nacional de Expertos de Vacunación Segura.</Typography>
+                  <Typography variant="body2" color="text.secondary">Uso exclusivo del Comitéé Nacional de Expertos de Vacunación Segura.</Typography>
                 </Box>
               </Box>
 
@@ -332,7 +332,7 @@ export default function CierreYDictamen() {
 
               <Grid container spacing={4}>
                 <Grid size={{ xs: 12, md: 8 }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Clasificación final otorgada por el Comité</Typography>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Clasificación final otorgada por el Comitéé</Typography>
                   <Controller name="clasificacionFinal" control={control} render={({ field }) => (
                     <TextField {...field} select fullWidth variant="filled" required sx={{ bgcolor: '#fffde7' }}>
                       <MenuItem value="A1">A1. Reacción relacionada con el producto de la vacuna</MenuItem>
@@ -355,8 +355,8 @@ export default function CierreYDictamen() {
 
                 <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Justificación Clínica y Epidemiológica del Dictamen</Typography>
-                  <Controller name="comentariosComite" control={control} render={({ field }) => (
-                    <TextField {...field} fullWidth multiline rows={4} placeholder="Redacte aquí la conclusión final del comité..." required />
+                  <Controller name="comentariosComitée" control={control} render={({ field }) => (
+                    <TextField {...field} fullWidth multiline rows={4} placeholder="Redacte aquí la conclusión final del comitéé..." required />
                   )}/>
                 </Grid>
 
@@ -381,7 +381,7 @@ export default function CierreYDictamen() {
                    Cierre de Expediente Médico-Legal
                  </Typography>
                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                   Al hacer clic en el botón de cierre, el Comité certifica haber revisado la evidencia sin conflictos de interés y dictamina la causalidad oficial del evento. Este caso no podrá ser modificado posteriormente.
+                   Al hacer clic en el botón de cierre, el Comitéé certifica haber revisado la evidencia sin conflictos de interés y dictamina la causalidad oficial del evento. Este caso no podrá ser modificado posteriormente.
                  </Typography>
                  <Button type="submit" variant="contained" color="primary" size="large" sx={{ px: 5, py: 1.5 }} disabled={loadingSubmit}>
                    {loadingSubmit ? <CircularProgress size={24} color="inherit" /> : 'DICTAMINAR Y CERRAR CASO'}

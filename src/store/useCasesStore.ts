@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import dayjs from 'dayjs';
@@ -166,14 +167,28 @@ export const useCasesStore = create<CasesState>()(
                 if (estado === 'EN_ASIGNACION' || estado === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación';
                 if (estado === 'EN_INVESTIGACION' || estado === 'DEVUELTO_A_ERR' || estado === 'CORREGIDO_POR_ERR') return 'Fase 4: Investigación';
                 if (estado === 'EN_REVISION_INSTITUCIONAL' || estado === 'DEVUELTO_A_INSTITUCIONAL' || estado === 'EN_REVISION_SECRETARIADO' || estado === 'APROBADO_PARA_COMITE') return 'Fase 5: Control de Calidad';
-                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comité Externo';
+                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comitéé Externo';
                 if (estado === 'CERRADO_DICTAMINADO' || estado === 'CERRADO') return 'Expediente Cerrado';
                 return 'Fase Activa';
               };
 
-              const estadoFinal = usarLocal ? existingCaso!.estadoFlujo : row.estado_flujo;
+              const anexoV_comp = usarLocal ? (existingCaso?.anexoV_completado || false) : (String(row.anexoV).toLowerCase() === 'true');
+              const anexoVI_comp = usarLocal ? (existingCaso?.anexoVI_completado || false) : (String(row.anexoVI).toLowerCase() === 'true');
+              const anexoVII_comp = usarLocal ? (existingCaso?.anexoVII_completado || false) : (String(row.anexoVII).toLowerCase() === 'true');
+              const anexoIII_comp = usarLocal ? (existingCaso?.anexoIII_completado || false) : (String(row.anexoIII).toLowerCase() === 'true');
 
-              // NormalizaciÃ³n robusta de miembrosERR
+              let estadoFinal = usarLocal ? existingCaso!.estadoFlujo : row.estado_flujo;
+
+              // Auto-reconciliación de coherencia de flujo:
+              // Si los 3 anexos nucleares de campo (V, VI, VII) están completados y el estado quedó en ASIGNADO_A_ERR o EN_INVESTIGACION,
+              // el trabajo de campo está concluido y debe promoverse a EN_REVISION_INSTITUCIONAL
+              if (anexoV_comp && anexoVI_comp && anexoVII_comp && (estadoFinal === 'ASIGNADO_A_ERR' || estadoFinal === 'EN_INVESTIGACION')) {
+                estadoFinal = 'EN_REVISION_INSTITUCIONAL';
+              } else if ((estadoFinal === 'ASIGNADO_A_ERR' || estadoFinal === 'EN_ASIGNACION') && (anexoIII_comp || anexoV_comp || anexoVI_comp || anexoVII_comp || row.notas_pre_fase4 || existingCaso?.notasPreFase4)) {
+                estadoFinal = 'EN_INVESTIGACION';
+              }
+
+              // Normalización robusta de miembrosERR
               let parsedMiembros: string[] = [];
               if (Array.isArray(row.miembros_err)) {
                 parsedMiembros = row.miembros_err;
@@ -186,7 +201,7 @@ export const useCasesStore = create<CasesState>()(
                 }
               }
 
-              let parsedEquipoERR = row.equipo_err_json ? (typeof row.equipo_err_json === 'string' ? JSON.parse(row.equipo_err_json) : row.equipo_err_json) : undefined;
+              const parsedEquipoERR = row.equipo_err_json ? (typeof row.equipo_err_json === 'string' ? JSON.parse(row.equipo_err_json) : row.equipo_err_json) : undefined;
               if (parsedMiembros.length === 0 && parsedEquipoERR) {
                 if (parsedEquipoERR.idLocalClinico) parsedMiembros.push(parsedEquipoERR.idLocalClinico);
                 if (parsedEquipoERR.idLocalInmuno) parsedMiembros.push(parsedEquipoERR.idLocalInmuno);
@@ -420,7 +435,7 @@ export const useCasesStore = create<CasesState>()(
       },
 
       devolverCaso: async (idCaso, nuevoEstado, observacion, anexo, textoNotificacion) => {
-        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+
 
         if (import.meta.env.VITE_USE_API === 'true') {
           await actualizarCaso(idCaso, {
@@ -575,7 +590,7 @@ export const useCasesStore = create<CasesState>()(
       },
 
       agendarReunionStore: async (casoId, nuevaReunion) => {
-        let reunionFinal = { ...nuevaReunion, id: nuevaReunion.id || `REU-${Date.now()}` };
+        const reunionFinal = { ...nuevaReunion, id: nuevaReunion.id || `REU-${Date.now()}` };
         if (import.meta.env.VITE_USE_API === 'true') {
            const payloadReunion = {
              id: reunionFinal.id,
@@ -628,7 +643,7 @@ export const useCasesStore = create<CasesState>()(
         const stateAfter = get();
         const casoDespues = stateAfter.casos.find(c => c.id === idCaso);
         
-        if (casoDespues && casoDespues.anexoV_completado && casoDespues.anexoVI_completado && casoDespues.anexoVII_completado && casoDespues.estadoFlujo === 'EN_INVESTIGACION') {
+        if (casoDespues && casoDespues.anexoV_completado && casoDespues.anexoVI_completado && casoDespues.anexoVII_completado && ['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'CORREGIDO_POR_ERR'].includes(casoDespues.estadoFlujo)) {
           // Avanzamos el caso a revisión primaria (Institucional)
           await stateAfter.avanzarCaso(idCaso, 'EN_REVISION_INSTITUCIONAL', 'Fase 5: Revisión Primaria', 'El trabajo de campo (Anexos V, VI, VII) ha sido completado por los tres investigadores.');
           
@@ -696,7 +711,7 @@ export const useCasesStore = create<CasesState>()(
       },
 
       eliminarCasoStore: async (idCaso) => {
-        const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
+
         
         if (import.meta.env.VITE_USE_API === 'true') {
            const { eliminarCaso } = await import('../services/firebaseService');

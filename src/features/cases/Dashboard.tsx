@@ -52,9 +52,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!currentRole) return;
     
-    // Si es Comité Externo, va a su bandeja limpia
+    // Si es Comitéé Externo, va a su bandeja limpia
     if (currentRole === 'COMITE_EXTERNO') {
-      navigate('/bandeja-comite', { replace: true });
+      navigate('/bandeja-comitée', { replace: true });
     }
     // Si es personal Local/Operativo, va a su panel de campo
     else if (['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole)) {
@@ -119,7 +119,7 @@ export default function Dashboard() {
       (filtroEstado === 'Fase 3: Asignación ERR' && ['EN_ASIGNACION', 'ASIGNADO_A_ERR'].includes(caso.estadoFlujo)) ||
       (filtroEstado === 'Fase 4: Investigación' && caso.estadoFlujo === 'EN_INVESTIGACION') ||
       (filtroEstado === 'Fase 5: Revisión Primaria' && ['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(caso.estadoFlujo)) ||
-      (filtroEstado === 'Fase 6: Evaluación de Comité' && ['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(caso.estadoFlujo)) ||
+      (filtroEstado === 'Fase 6: Evaluación de Comitéé' && ['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(caso.estadoFlujo)) ||
       (filtroEstado === 'Cerrado' && ['CERRADO_DICTAMINADO', 'CERRADO'].includes(caso.estadoFlujo))
     );
     const matchesRiesgo = filtroRiesgo === 'Todos' || caso.riesgo === filtroRiesgo;
@@ -146,13 +146,13 @@ export default function Dashboard() {
       case 'EN_REVISION_SECRETARIADO':
         return { label: 'Revisión Secretariado', sx: { bgcolor: '#00bcd4', color: 'white' } };
       case 'APROBADO_PARA_COMITE':
-        return { label: 'Aprobado para Comité', sx: { bgcolor: '#4caf50', color: 'white' } };
+        return { label: 'Aprobado para Comitéé', sx: { bgcolor: '#4caf50', color: 'white' } };
       case 'DEVUELTO_A_INSTITUCIONAL':
       case 'DEVUELTO_A_ERR':
       case 'CORREGIDO_POR_ERR':
         return { label: 'Devuelto por Observaciones', color: 'error' as const, icon: <WarningAmberIcon fontSize="small" /> };
       case 'EN_EVALUACION_COMITE':
-        return { label: 'En Comité', sx: { bgcolor: '#3f51b5', color: 'white' } };
+        return { label: 'En Comitéé', sx: { bgcolor: '#3f51b5', color: 'white' } };
       case 'DICTAMINADO':
       case 'CERRADO_DICTAMINADO':
       case 'CERRADO':
@@ -168,7 +168,7 @@ export default function Dashboard() {
     if (['EN_ASIGNACION', 'ASIGNADO_A_ERR'].includes(estadoFlujo)) return 'Fase 3: Asignación ERR';
     if (estadoFlujo === 'EN_INVESTIGACION') return 'Fase 4: Trabajo de Campo';
     if (['EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'DEVUELTO_A_INSTITUCIONAL', 'DEVUELTO_A_ERR', 'CORREGIDO_POR_ERR'].includes(estadoFlujo)) return 'Fase 5: Revisión Institucional';
-    if (['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(estadoFlujo)) return 'Fase 6: Comité Causalidad';
+    if (['EN_EVALUACION_COMITE', 'DICTAMINADO'].includes(estadoFlujo)) return 'Fase 6: Comitéé Causalidad';
     if (['CERRADO_DICTAMINADO', 'CERRADO'].includes(estadoFlujo)) return 'Cerrado';
     return 'Fase Activa';
   };
@@ -275,7 +275,7 @@ export default function Dashboard() {
               <MenuItem value="Fase 3: Asignación ERR">Fase 3: Asignación ERR</MenuItem>
               <MenuItem value="Fase 4: Investigación">Fase 4: Trabajo de Campo</MenuItem>
               <MenuItem value="Fase 5: Revisión Primaria">Fase 5: Revisión Institucional</MenuItem>
-              <MenuItem value="Fase 6: Evaluación de Comité">Fase 6: Comité de Causalidad</MenuItem>
+              <MenuItem value="Fase 6: Evaluación de Comitéé">Fase 6: Comitéé de Causalidad</MenuItem>
               <MenuItem value="Cerrado">Casos Cerrados</MenuItem>
             </TextField>
           </Grid>

@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
+﻿import { HashRouter, Routes, Route } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './features/cases/Dashboard';
 import FormularioApertura from './features/forms/Fase1_Apertura/FormularioApertura';
@@ -38,14 +38,14 @@ export default function App() {
             <Route path="anexo-clinico/:id" element={<AnexoVII_Clinico />} />
             <Route path="anexo-puesto/:id" element={<AnexoV_PuestoVacuna />} />
             <Route path="anexo-domicilio/:id" element={<AnexoVI_Domicilio />} />
-            <Route path="comite-causalidad" element={<DictamenCausalidad />} />
+            <Route path="comittee-causalidad" element={<DictamenCausalidad />} />
             <Route path="notificacion-inicial" element={<NotificacionInicial />} />
             <Route path="asignar-equipo/:id" element={<AsignacionERR />} />
             <Route path="anexo-logistica/:id" element={<AnexoIII_Logistica />} />
             <Route path="dictamen/:id" element={<DictamenCausalidad />} />
             <Route path="trabajo-campo" element={<TrabajoCampo />} />
             <Route element={<RoleProtectedRoute allowedRoles={['COMITE_EXTERNO', 'SECRETARIADO']} />}>
-              <Route path="bandeja-comite" element={<BandejaComite />} />
+              <Route path="bandeja-comittee" element={<BandejaComite />} />
             </Route>
             {/* RUTA DE ADMINISTRACIÓN BLINDADA POR ROL */}
             <Route element={<RoleProtectedRoute allowedRoles={['SECRETARIADO']} />}>

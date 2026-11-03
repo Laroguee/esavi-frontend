@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { 
@@ -12,7 +13,7 @@ import PregnantWomanIcon from '@mui/icons-material/PregnantWoman';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCasesStore } from '../../../store/useCasesStore';
-import { guardarEnSheets, obtenerExpediente, subirArchivoEvidencia } from '../../../services/firebaseService';
+import { obtenerExpediente, subirArchivoEvidencia } from '../../../services/firebaseService';
 import { guardarAnexoHibrido } from '../../../services/offline/syncEngine';
 import { getDoc, doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
@@ -27,6 +28,9 @@ import { useScrollToError } from '../../../hooks/useScrollToError';
 import AutoSaveBadge from '../../../components/common/AutoSaveBadge';
 import DraftRecoveryModal from '../../../components/common/DraftRecoveryModal';
 import ValidationSummaryBanner from '../../../components/common/ValidationSummaryBanner';
+import { VoiceTextField } from '../../../components/common/VoiceTextField';
+import MicIcon from '@mui/icons-material/Mic';
+import Chip from '@mui/material/Chip';
 
 // =======================================================
 // ESQUEMA ESTRICTO DE ZOD (Evaluación Clínica)
@@ -469,7 +473,20 @@ export default function AnexoVII_Clinico() {
         </Box>
       </Box>
 
-            {/* Banner Resumen de Validaciones Zod */}
+            
+      {/* Banner Informativo de Dictado por Voz */}
+      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Chip
+          icon={<MicIcon fontSize="small" sx={{ color: '#1976d2 !important' }} />}
+          label="Dictado por voz disponible: haga clic en el icono azul 🎙️ en los campos clínicos de las Pestañas A, B y C"
+          color="primary"
+          variant="outlined"
+          size="small"
+          sx={{ fontWeight: 'medium', bgcolor: '#e3f2fd', borderColor: '#90caf9' }}
+        />
+      </Box>
+
+      {/* Banner Resumen de Validaciones Zod */}
       <ValidationSummaryBanner
         errors={errors}
         fieldLabels={FIELD_LABELS_VII}
@@ -522,7 +539,7 @@ export default function AnexoVII_Clinico() {
                     <Grid size={{ xs: 12, sm: 4 }}><Controller name="fuentes_comunitaria" control={control} render={({ field }) => <FormControlLabel control={<Checkbox size="small" name={field.name} checked={Boolean(field.value)} onChange={(e) => field.onChange(e.target.checked)} />} label={<Typography variant="body2">Inv. comunitaria</Typography>} />} /></Grid>
                     <Grid size={{ xs: 12, sm: 8 }}>
                       <Controller name="fuentes_otro" control={control} render={({ field, fieldState }) => (
-                        <TextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        <VoiceTextField {...field} fullWidth placeholder="Otro ¿Cuál?" size="small" variant="standard" error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )} />
                     </Grid>
                   </Grid>
@@ -557,13 +574,13 @@ export default function AnexoVII_Clinico() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Si eligió 'Otro'</Typography>
                 <Controller name="lugarVacunacionOtro" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <VoiceTextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )} />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Dirección completa del lugar de vacunación</Typography>
                 <Controller name="direccionVacunacion" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <VoiceTextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )} />
               </Grid>
             </Grid>
@@ -677,7 +694,7 @@ export default function AnexoVII_Clinico() {
                   <Grid size={{ xs: 12 }}>
                     <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Registre los datos de la necropsia</Typography>
                     <Controller name="datosNecropsia" control={control} render={({ field, fieldState }) => (
-                      <TextField {...field} fullWidth size="small" multiline rows={2} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                      <VoiceTextField {...field} fullWidth size="small" multiline rows={2} error={!!fieldState.error} helperText={fieldState.error?.message} />
                     )} />
                   </Grid>
                 </Grid>
@@ -705,7 +722,7 @@ export default function AnexoVII_Clinico() {
               <Grid size={{ xs: 12, md: 8 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Observaciones</Typography>
                 <Controller name="obs_hosp30Dias" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <VoiceTextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )} />
               </Grid>
               
@@ -720,7 +737,7 @@ export default function AnexoVII_Clinico() {
               <Grid size={{ xs: 12, md: 8 }}>
                 <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Observaciones</Typography>
                 <Controller name="obs_antFamiliares" control={control} render={({ field, fieldState }) => (
-                  <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                  <VoiceTextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />
                 )} />
               </Grid>
             </Grid>
@@ -909,7 +926,7 @@ export default function AnexoVII_Clinico() {
                     <Grid size={{ xs: 12, md: instDiferente === 'SI' ? 4 : 6 }}>
                       <Typography variant="subtitle2" color="primary" gutterBottom sx={{ fontWeight: 'bold' }}>Referencia Familiar</Typography>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Familiar/Persona con detalles clínicos</Typography>
-                      <Controller name="contactoConoceDetalles" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" multiline rows={4} placeholder="Nombre e información de contacto..." error={!!fieldState.error} helperText={fieldState.error?.message} />} />
+                      <Controller name="contactoConoceDetalles" control={control} render={({ field, fieldState }) => <VoiceTextField {...field} fullWidth size="small" multiline rows={4} placeholder="Nombre e información de contacto..." error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
                   </Grid>
                 </Paper>
@@ -930,7 +947,7 @@ export default function AnexoVII_Clinico() {
                     </Grid>
                     <Grid size={{ xs: 12, md: 8 }}>
                       <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Explique (si aplica)</Typography>
-                      <Controller name="exp_sospechaMaltrato" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
+                      <Controller name="exp_sospechaMaltrato" control={control} render={({ field, fieldState }) => <VoiceTextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -943,12 +960,12 @@ export default function AnexoVII_Clinico() {
                     </Grid>
                     <Grid size={{ xs: 12, md: 8 }}>
                       <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Explique (si aplica)</Typography>
-                      <Controller name="exp_violenciaIntrafamiliar" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
+                      <Controller name="exp_violenciaIntrafamiliar" control={control} render={({ field, fieldState }) => <VoiceTextField {...field} fullWidth size="small" error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
 
                     <Grid size={{ xs: 12 }}>
                       <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Otros antecedentes sociales relevantes del caso</Typography>
-                      <Controller name="otrosAntSociales" control={control} render={({ field, fieldState }) => <TextField {...field} fullWidth size="small" multiline rows={2} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
+                      <Controller name="otrosAntSociales" control={control} render={({ field, fieldState }) => <VoiceTextField {...field} fullWidth size="small" multiline rows={2} error={!!fieldState.error} helperText={fieldState.error?.message} />} />
                     </Grid>
                   </Grid>
                 </Paper>
@@ -962,21 +979,21 @@ export default function AnexoVII_Clinico() {
                     <Grid size={{ xs: 12 }}>
                       <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Signos y síntomas en orden cronológico desde la vacunación:</Typography>
                       <Controller name="signosCronologicos" control={control} render={({ field, fieldState }) => (
-                        <TextField {...field} fullWidth size="small" multiline rows={3} placeholder="Detalle cronológico..." error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        <VoiceTextField {...field} fullWidth size="small" multiline rows={3} placeholder="Detalle cronológico..." error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </Grid>
                     
                     <Grid size={{ xs: 12 }}>
                       <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Resumen completo clínico y paraclínico (exámenes y gabinete):</Typography>
                       <Controller name="resumenParaclinico" control={control} render={({ field, fieldState }) => (
-                        <TextField {...field} fullWidth size="small" multiline rows={3} placeholder="Resaltando lo más relevante..." error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        <VoiceTextField {...field} fullWidth size="small" multiline rows={3} placeholder="Resaltando lo más relevante..." error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </Grid>
 
                     <Grid size={{ xs: 12 }}>
                       <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>Diagnóstico final o presuntivo:</Typography>
                       <Controller name="diagnosticoFinal" control={control} render={({ field, fieldState }) => (
-                        <TextField {...field} fullWidth size="small" variant="outlined" sx={{ bgcolor: '#fffde7' }} error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        <VoiceTextField {...field} fullWidth size="small" variant="outlined" sx={{ bgcolor: '#fffde7' }} error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </Grid>
                   </Grid>

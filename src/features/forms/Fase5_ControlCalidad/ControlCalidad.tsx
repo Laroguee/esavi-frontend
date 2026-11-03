@@ -114,7 +114,7 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
     }
 
     const nuevoEstado = isJefe ? 'EN_REVISION_SECRETARIADO' : 'APROBADO_PARA_COMITE';
-    const nuevaFase = isJefe ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
+    const nuevaFase = isJefe ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comitéé';
     const msg = `Expediente aprobado por ${currentRole}. Avanza a ${nuevoEstado}.`;
 
     guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
@@ -245,7 +245,7 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
               disabled={isJefe ? (!chkMinuta || !chkLineaTiempo || !chkInformeFinal || !Object.values(evaluaciones).every(e => e.estado === 'aprobado')) : false}
               sx={{ fontWeight: 'bold', px: 4 }}
             >
-              {isJefe ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comité'}
+              {isJefe ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comitéé'}
             </Button>
           </Box>
         </Box>

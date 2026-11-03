@@ -204,7 +204,7 @@ export default function AsignacionERR() {
         (dataToSave as any).personal_inactivo = todosInactivos.join(', ');
       }
 
-      // Registrar o preservar la fecha de asignaciÃ³n del ERR para SLA acumulado
+      // Registrar o preservar la fecha de asignación del ERR para SLA acumulado
       const fechaAsignacion = casoActual?.fechaAsignacionERR || new Date().toISOString();
 
       const payloadAsignacion = {

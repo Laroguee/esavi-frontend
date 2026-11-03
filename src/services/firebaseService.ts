@@ -319,7 +319,7 @@ export async function eliminarCaso(idCaso: string) {
  * para mitigar fuga masiva de datos (IDOR).
  * 
  * - Roles locales: Solo descargan casos de su propio establecimiento o donde son id_creador.
- * - Roles supervisores (SECRETARIADO, COMITE_EXTERNO, INSTITUCIONAL): Visibilidad para triaje y comités.
+ * - Roles supervisores (SECRETARIADO, COMITE_EXTERNO, INSTITUCIONAL): Visibilidad para triaje y comitéés.
  */
 export async function listarCasos(rol?: string, establecimiento?: string, userEmail?: string) {
   try {
@@ -354,7 +354,7 @@ export async function listarCasos(rol?: string, establecimiento?: string, userEm
         }
       }
 
-      // Consulta C: Casos donde el usuario estÃ¡ asignado al ERR (ASIGNACIONES_ERR)
+      // Consulta C: Casos donde el usuario está asignado al ERR (ASIGNACIONES_ERR)
       if (emailClean) {
         try {
           const asigRef = collection(db, 'ASIGNACIONES_ERR');

@@ -138,7 +138,7 @@ export default function TrabajoCampo() {
           );
           if (!estadoValido) return false;
 
-          // 1. Es miembro asignado del ERR (normalizando minÃºsculas y espacios)
+          // 1. Es miembro asignado del ERR (normalizando minúsculas y espacios)
           const esMiembro = (caso.miembrosERR || []).some(
             (m: string) => m.trim().toLowerCase() === userEmailClean
           );

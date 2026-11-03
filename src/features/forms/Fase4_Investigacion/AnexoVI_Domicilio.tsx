@@ -16,6 +16,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useReactToPrint } from 'react-to-print';
 import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { VoiceTextField } from '../../../components/common/VoiceTextField';
 import * as z from 'zod';
 
 // =======================================================
@@ -316,7 +317,7 @@ export default function AnexoVI_Domicilio() {
   function RenderRow({ titulo, nombreControl }: { titulo: string, nombreControl: keyof AnexoVIFormValues }) {
     return (
       <Controller name={nombreControl as any} control={control} render={({ field, fieldState }) => (
-        <TextField 
+        <VoiceTextField 
           {...field} fullWidth size="small" sx={{ mb: 3 }} 
           label={titulo} 
           slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} 
@@ -331,7 +332,7 @@ export default function AnexoVI_Domicilio() {
   function EntrevistaField({ name, label }: { name: string, label: string }) {
     return (
       <Controller name={name as any} control={control} render={({ field, fieldState }) => (
-        <TextField 
+        <VoiceTextField 
           {...field} fullWidth size="small" sx={{ mb: 3 }} 
           label={label} 
           slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} 
@@ -406,7 +407,7 @@ export default function AnexoVI_Domicilio() {
                     <TableCell sx={{ fontSize: '0.875rem' }}>{row.desc}</TableCell>
                     <TableCell>
                       <Controller name={`fase1_nota_${row.num}` as any} control={control} render={({ field, fieldState }) => (
-                        <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        <VoiceTextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </TableCell>
                   </TableRow>
@@ -510,7 +511,7 @@ export default function AnexoVI_Domicilio() {
                     <TableCell sx={{ fontSize: '0.875rem' }}>{row.desc}</TableCell>
                     <TableCell>
                       <Controller name={`domicilio_obs_${row.num}` as any} control={control} render={({ field, fieldState }) => (
-                        <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        <VoiceTextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Registrar hallazgos..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
                       )}/>
                     </TableCell>
                   </TableRow>

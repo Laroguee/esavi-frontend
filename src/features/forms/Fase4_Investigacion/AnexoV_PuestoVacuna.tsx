@@ -17,6 +17,7 @@ import { useScrollToError } from '../../../hooks/useScrollToError';
 import AutoSaveBadge from '../../../components/common/AutoSaveBadge';
 import DraftRecoveryModal from '../../../components/common/DraftRecoveryModal';
 import ValidationSummaryBanner from '../../../components/common/ValidationSummaryBanner';
+import { VoiceTextField } from '../../../components/common/VoiceTextField';
 
 const anexoVSchema = z.object({
   idUnico: z.string().optional(),
@@ -387,7 +388,7 @@ export default function AnexoV_PuestoVacuna() {
                 </TableCell>
                 <TableCell>
                   <Controller name={`s1_obs_${item.num}` as any} control={control} render={({ field, fieldState }) => (
-                    <TextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Anotar hallazgo..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                    <VoiceTextField {...field} fullWidth size="small" multiline minRows={1} placeholder="Anotar hallazgo..." variant="outlined" error={!!fieldState.error} helperText={fieldState.error?.message} />
                   )}/>
                 </TableCell>
               </TableRow>
@@ -406,13 +407,13 @@ export default function AnexoV_PuestoVacuna() {
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>A. Generalidades del puesto</Typography>
           <Controller name="entrevista_a1" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cuál es el flujo habitual de vacunación en este puesto (número de personas vacunadas por día)?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cuál es el flujo habitual de vacunación en este puesto (número de personas vacunadas por día)?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_a2" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué vacunas se administran actualmente y con qué frecuencia reciben abastecimiento?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué vacunas se administran actualmente y con qué frecuencia reciben abastecimiento?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_a3" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué procedimientos se siguen para el registro y control de los lotes?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué procedimientos se siguen para el registro y control de los lotes?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
         </Box>
 
@@ -421,16 +422,16 @@ export default function AnexoV_PuestoVacuna() {
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>B. Manejo y conservación de vacunas</Typography>
           <Controller name="entrevista_b1" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se recibe la vacuna desde el nivel superior? ¿Se documenta la temperatura al momento de la recepción?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se recibe la vacuna desde el nivel superior? ¿Se documenta la temperatura al momento de la recepción?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_b2" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué equipamiento se utiliza para la conservación de las vacunas? ¿Cuenta con registro de temperatura diario?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué equipamiento se utiliza para la conservación de las vacunas? ¿Cuenta con registro de temperatura diario?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_b3" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cuándo fue el último mantenimiento del equipo de refrigeración?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cuándo fue el último mantenimiento del equipo de refrigeración?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_b4" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Existen procedimientos escritos para el control de la cadena de frío?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Existen procedimientos escritos para el control de la cadena de frío?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
         </Box>
 
@@ -439,28 +440,28 @@ export default function AnexoV_PuestoVacuna() {
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>C. Preparación y administración</Typography>
           <Controller name="entrevista_c1" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Quién prepara la vacuna antes de su aplicación?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Quién prepara la vacuna antes de su aplicación?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c2" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué procedimientos se siguen para la reconstitución (en caso de vacunas liofilizadas)?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué procedimientos se siguen para la reconstitución (en caso de vacunas liofilizadas)?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c3" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué tipo de jeringas o dispositivos se utilizan? ¿Se han observado dificultades recientes con su uso?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué tipo de jeringas o dispositivos se utilizan? ¿Se han observado dificultades recientes con su uso?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c4" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué se hace si se detecta una vacuna con cambio de aspecto o expirada?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué se hace si se detecta una vacuna con cambio de aspecto o expirada?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c5" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se verifica la identidad del paciente y el tipo de vacuna antes de aplicar?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se verifica la identidad del paciente y el tipo de vacuna antes de aplicar?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c6" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se verifica que el paciente no tenga contraindicaciones para la administración de la vacuna?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se verifica que el paciente no tenga contraindicaciones para la administración de la vacuna?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c7" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué medidas de seguridad se implementan posterior a la administración de la vacuna?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué medidas de seguridad se implementan posterior a la administración de la vacuna?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_c8" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Quiénes están entrenados en detección y manejo de un caso de anafilaxia?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Quiénes están entrenados en detección y manejo de un caso de anafilaxia?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
         </Box>
 
@@ -469,13 +470,13 @@ export default function AnexoV_PuestoVacuna() {
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>D. Condiciones de trabajo y supervisión</Typography>
           <Controller name="entrevista_d1" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Existen controles o supervisiones periódicas del puesto? ¿Cuándo fue la última supervisión?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Existen controles o supervisiones periódicas del puesto? ¿Cuándo fue la última supervisión?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_d2" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se maneja la comunicación con el nivel jurisdiccional ante un evento adverso?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se maneja la comunicación con el nivel jurisdiccional ante un evento adverso?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_d3" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué medidas se adoptan si ocurre una reacción inmediata tras la vacunación?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué medidas se adoptan si ocurre una reacción inmediata tras la vacunación?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
         </Box>
 
@@ -484,13 +485,13 @@ export default function AnexoV_PuestoVacuna() {
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle1" color="primary.dark" sx={{ fontWeight: 'bold', mb: 2 }}>E. Cierre y documentación</Typography>
           <Controller name="entrevista_e1" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Dónde se registran los datos de la vacunación (SISA, fichas locales, NOMIVAC, etc.)?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Dónde se registran los datos de la vacunación (SISA, fichas locales, NOMIVAC, etc.)?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_e2" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se almacena o archiva la información sobre las vacunas aplicadas?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Cómo se almacena o archiva la información sobre las vacunas aplicadas?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
           <Controller name="entrevista_e3" control={control} render={({ field, fieldState }) => (
-            <TextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué dificultades enfrenta el equipo en la gestión de registros o en la notificación de ESAVI?" error={!!fieldState.error} helperText={fieldState.error?.message} />
+            <VoiceTextField {...field} fullWidth multiline minRows={2} sx={{ mb: 3 }} slotProps={{ inputLabel: { shrink: true, sx: { whiteSpace: 'normal', maxWidth: '100%' } } }} label="¿Qué dificultades enfrenta el equipo en la gestión de registros o en la notificación de ESAVI?" error={!!fieldState.error} helperText={fieldState.error?.message} />
           )}/>
         </Box>
       </Paper>

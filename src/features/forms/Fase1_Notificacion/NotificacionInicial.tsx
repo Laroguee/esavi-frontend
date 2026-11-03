@@ -11,6 +11,7 @@ import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useCatalogStore } from '../../../store/useCatalogStore';
 import { guardarEnSheets, crearCarpetaCaso, crearNotificacion, verificarDuplicado, listarCasos, registrarLog } from '../../../services/firebaseService';
+import { VoiceTextField } from '../../../components/common/VoiceTextField';
 
 // Configuración del worker de PDF.js usando CDN para evitar problemas de build con Vite
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
@@ -650,7 +651,7 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
               <Controller name="padeceOtrasEnfermedades" control={control} render={({ field }) => (
                 <FormControlLabel
                   control={<Checkbox checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                  label="¿Padece otras enfermedades relevantes o concomitantes?"
+                  label="¿Padece otras enfermedades relevantes o concomitéantes?"
                 />
               )}/>
             </Grid>
@@ -844,19 +845,19 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
 
             <Grid size={{ xs: 12 }}>
               <Controller name="sintomasReaccion" control={control} render={({ field, fieldState }) => (
-                <TextField {...field} fullWidth multiline rows={4} label="Síntomas / Diagnóstico de la Reacción" placeholder="Describa a detalle los signos, síntomas, texto diagnóstico..." required error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <VoiceTextField {...field} fullWidth multiline rows={4} label="Síntomas / Diagnóstico de la Reacción" placeholder="Describa a detalle los signos, síntomas, texto diagnóstico..." required error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 
             <Grid size={{ xs: 12 }}>
               <Controller name="observacionesAdicionales" control={control} render={({ field, fieldState }) => (
-                <TextField {...field} fullWidth multiline rows={2} label="Observaciones Adicionales" placeholder="Notas extra provenientes de la notificación..." error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <VoiceTextField {...field} fullWidth multiline rows={2} label="Observaciones Adicionales" placeholder="Notas extra provenientes de la notificación..." error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 
             <Grid size={{ xs: 12 }}>
               <Controller name="antecedentesMedicosRelevantes" control={control} render={({ field, fieldState }) => (
-                <TextField {...field} fullWidth multiline rows={3} label="Antecedentes médicos relevantes y alergias" placeholder="Detalle alergias a medicamentos u otras condiciones clínicas..." error={!!fieldState.error} helperText={fieldState.error?.message} />
+                <VoiceTextField {...field} fullWidth multiline rows={3} label="Antecedentes médicos relevantes y alergias" placeholder="Detalle alergias a medicamentos u otras condiciones clínicas..." error={!!fieldState.error} helperText={fieldState.error?.message} />
               )}/>
             </Grid>
 

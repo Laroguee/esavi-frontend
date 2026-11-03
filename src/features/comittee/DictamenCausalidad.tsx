@@ -35,11 +35,11 @@ export default function DictamenCausalidad() {
       console.log("Acta de Causalidad:", data);
       
       if (id) {
-        await avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.', undefined, data);
+        await avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comitéé.', undefined, data);
       }
       
       alert("Dictamen Final Guardado. El caso ESAVI ha sido CERRADO OFICIALMENTE.");
-      navigate('/bandeja-comite');
+      navigate('/bandeja-comitée');
     } catch (error) {
       console.error("Error cerrando el caso:", error);
       alert("Hubo un error al guardar el dictamen. Intente nuevamente.");
@@ -61,12 +61,12 @@ export default function DictamenCausalidad() {
           Historial de Dictámenes Emitidos
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Lista de casos ESAVI que ya han sido dictaminados y cerrados oficialmente por el Comité Nacional de Vacunación Segura.
+          Lista de casos ESAVI que ya han sido dictaminados y cerrados oficialmente por el Comitéé Nacional de Vacunación Segura.
         </Typography>
 
         <Paper elevation={2} sx={{ p: 4, mb: 4, bgcolor: '#f8f9fa' }}>
            {casosCerrados.length === 0 ? (
-             <Typography color="text.secondary">No hay casos cerrados por el comité actualmente.</Typography>
+             <Typography color="text.secondary">No hay casos cerrados por el comitéé actualmente.</Typography>
            ) : (
              <Grid container spacing={2}>
                {casosCerrados.map(caso => (
@@ -102,7 +102,7 @@ export default function DictamenCausalidad() {
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-          Fase 6: Comité Nacional de Vacunación Segura
+          Fase 6: Comitéé Nacional de Vacunación Segura
         </Typography>
         <Button variant="outlined" onClick={() => navigate(-1)}>Volver</Button>
       </Box>
@@ -167,7 +167,7 @@ export default function DictamenCausalidad() {
           <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>Justificación Clínica y Epidemiológica del Dictamen</Typography>
             <Controller name="justificacionCausalidad" control={control} render={({ field }) => (
-              <TextField {...field} fullWidth multiline rows={5} placeholder="Redacte aquí la conclusión final del comité..." />
+              <TextField {...field} fullWidth multiline rows={5} placeholder="Redacte aquí la conclusión final del comitéé..." />
             )}/>
           </Grid>
 
@@ -184,7 +184,7 @@ export default function DictamenCausalidad() {
              * DECLARACIÓN DE CONFIDENCIALIDAD Y CONFLICTO DE INTERÉS
            </Typography>
            <Typography variant="caption" sx={{ display: 'block', mb: 2 }}>
-             Al hacer clic en el botón de cierre, el Comité certifica haber revisado la evidencia sin conflictos de interés y dictamina la causalidad oficial del evento. Este caso no podrá ser modificado posteriormente.
+             Al hacer clic en el botón de cierre, el Comitéé certifica haber revisado la evidencia sin conflictos de interés y dictamina la causalidad oficial del evento. Este caso no podrá ser modificado posteriormente.
            </Typography>
            <Button type="submit" variant="contained" color="primary" startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <GavelIcon />} size="large" disabled={isSubmitting}>
               {isSubmitting ? 'GUARDANDO DICTAMEN...' : 'DICTAMINAR Y CERRAR CASO'}
