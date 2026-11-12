@@ -67,6 +67,10 @@ export interface CasoESAVI {
   establecimiento: string;
   id_establecimiento?: number;
   vacuna: string;
+  numeroNotificacionFacedra?: string;
+  esSeguimiento?: boolean;
+  establecimientoVacunacion?: string;
+  medicamentosConcomitantes?: any[];
   fase: string;
   estadoFlujo: EstadoFlujo;
   riesgo: string;
@@ -219,6 +223,10 @@ export const useCasesStore = create<CasesState>()(
               establecimiento: row.establecimiento_notificador || 'Desconocido',
               id_establecimiento: row.id_establecimiento ? Number(row.id_establecimiento) : undefined,
               vacuna: row.nombre_vacuna || 'Otra',
+              numeroNotificacionFacedra: row.numero_notificacion || row.numeroNotificacionFacedra || '',
+              esSeguimiento: row.es_seguimiento === true || String(row.es_seguimiento).toLowerCase() === 'true',
+              establecimientoVacunacion: row.establecimiento_vacunacion || '',
+              medicamentosConcomitantes: row.medicamentos_concomitantes_json ? (typeof row.medicamentos_concomitantes_json === 'string' ? JSON.parse(row.medicamentos_concomitantes_json) : row.medicamentos_concomitantes_json) : (row.medicamentosConcomitantes || []),
               fase: mapEstadoToFase(estadoFinal),
               estadoFlujo: estadoFinal,
               riesgo: usarLocal ? (existingCaso?.riesgo || 'Sin clasificar') : (row.riesgo || 'Sin clasificar'),
@@ -443,7 +451,8 @@ export const useCasesStore = create<CasesState>()(
             observacion_rechazo: observacion || '',
             anexo_rechazado: anexo || ''
           });
-          await registrarLog(idCaso, userEmail, textoNotificacion);
+          const currentUser = useAuthStore.getState().userEmail || 'Sistema';
+          await registrarLog(idCaso, currentUser, textoNotificacion);
 
           // Crear notificación para el rol destino
           if (nuevoEstado === 'DEVUELTO_A_ERR') {
@@ -491,7 +500,8 @@ export const useCasesStore = create<CasesState>()(
           if (res && !res.success) {
             throw new Error(res.error || 'Error al actualizar el estado del caso en el backend');
           }
-          await registrarLog(idCaso, userEmail, textoNotificacion);
+          const currentUser = useAuthStore.getState().userEmail || 'Sistema';
+          await registrarLog(idCaso, currentUser, textoNotificacion);
         }
 
         set((state) => {
@@ -539,7 +549,8 @@ export const useCasesStore = create<CasesState>()(
         const userRole = useAuthStore.getState().currentRole || 'Sistema';
 
         if (import.meta.env.VITE_USE_API === 'true') {
-           await registrarLog(idCaso, userEmail, textoNotificacion);
+           const currentUser = useAuthStore.getState().userEmail || 'Sistema';
+          await registrarLog(idCaso, currentUser, textoNotificacion);
         }
 
         set((state) => ({

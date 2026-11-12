@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { 
   Box, Paper, Typography, Grid, TextField, Button, MenuItem, FormControlLabel, Switch, 
   Collapse, Divider, Checkbox, FormLabel, Tabs, Tab, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert 
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -178,7 +178,23 @@ export default function AnexoVII_Clinico() {
   const [esMujerFertil, setEsMujerFertil] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!id);
-  const { userEmail } = useAuthStore();
+  const { userEmail, currentRole } = useAuthStore();
+  const { casos } = useCasesStore();
+  const casoActual = casos.find((c: any) => c.id === id);
+
+  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
+  const isSecretariado = currentRole === 'SECRETARIADO';
+  const isComitée = currentRole === 'COMITE_EXTERNO';
+  const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
+
+  const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
+    currentRole === 'ESAVI_LOCAL' ||
+    casoActual?.equipoERR?.idLocalClinico === userEmail ||
+    casoActual?.equipoERR?.idLocal === userEmail ||
+    casoActual?.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR')
+  );
+
+  const effectiveViewMode = isViewMode || !canEdit;
 
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
@@ -266,40 +282,81 @@ export default function AnexoVII_Clinico() {
           }
 
           // === AUTOCOMPLETAR DATOS DEL ERR ===
-          // Si es un formulario nuevo (o si faltan los nombres), intentamos autocompletarlos
+          // Si faltan nombres o correos en el equipo, autocompletamos desde las asignaciones
           const finalValues = fetchedFormValues ? { ...fetchedFormValues } : {};
           
-          if (!isViewMode && (!finalValues.eq_farma_nombre || !finalValues.eq_epi_nombre)) {
+          if (!finalValues.eq_farma_nombre || !finalValues.eq_epi_nombre || !finalValues.eq_farma_correo) {
              try {
-                const asigQuery = query(collection(db, 'ASIGNACIONES_ERR'), where('id_caso', '==', id));
-                const asigSnap = await getDocs(asigQuery);
-                if (!asigSnap.empty) {
-                   const asigParsed = asigSnap.docs[0].data();
-                   const usuariosRes = await listarUsuarios();
-                   if (usuariosRes.success && usuariosRes.data) {
-                      const usuarios = usuariosRes.data;
-                      const findUser = (email: string) => usuarios.find((u: any) => u.email === email);
-                      
-                      const farmaUser = findUser(asigParsed.id_clinico);
+                // 1. Obtener la asignación desde múltiples fuentes resilientes
+                let asigParsed = res.data?.asignaciones || null;
+                
+                if (!asigParsed) {
+                   const storeCaso = useCasesStore.getState().casos.find((c) => c.id === id);
+                   if (storeCaso?.equipoERR) {
+                      asigParsed = storeCaso.equipoERR;
+                   }
+                }
+
+                if (!asigParsed) {
+                   const asigSnap = await getDoc(doc(db, 'ASIGNACIONES_ERR', id));
+                   if (asigSnap.exists()) {
+                      const aData = asigSnap.data();
+                      asigParsed = typeof aData.datos_formulario_json === 'string' ? JSON.parse(aData.datos_formulario_json) : (aData.datos_formulario_json || aData);
+                   } else {
+                      const asigQuery = query(collection(db, 'ASIGNACIONES_ERR'), where('id_caso', '==', id));
+                      const asigQuerySnap = await getDocs(asigQuery);
+                      if (!asigQuerySnap.empty) {
+                         const aData = asigQuerySnap.docs[0].data();
+                         asigParsed = typeof aData.datos_formulario_json === 'string' ? JSON.parse(aData.datos_formulario_json) : (aData.datos_formulario_json || aData);
+                      }
+                   }
+                }
+
+                // Resolver correos asignados (soporta modelo crítico, modelo normal y equipoERR)
+                const storeCaso = useCasesStore.getState().casos.find((c) => c.id === id);
+                const eq = storeCaso?.equipoERR;
+
+                const clinicoEmail = eq?.idLocalClinico || eq?.idLocal || asigParsed?.id_clinico || asigParsed?.err_local_clinico || asigParsed?.farmacovigilancia || '';
+                const inmunoEmail = eq?.idLocalInmuno || asigParsed?.id_inmuno || asigParsed?.err_local_inmuno || asigParsed?.inmunizaciones || '';
+                const epidemioEmail = eq?.idLocalEpidemio || eq?.idLocal2 || asigParsed?.id_epidemio || asigParsed?.err_local_epidemio || asigParsed?.epidemiologia || '';
+
+                if (clinicoEmail && !finalValues.eq_farma_correo) finalValues.eq_farma_correo = clinicoEmail;
+                if (inmunoEmail && !finalValues.eq_inmuno_correo) finalValues.eq_inmuno_correo = inmunoEmail;
+                if (epidemioEmail && !finalValues.eq_epi_correo) finalValues.eq_epi_correo = epidemioEmail;
+
+                // 2. Resolver perfiles de usuarios desde el directorio
+                const usuariosRes = await listarUsuarios();
+                if (usuariosRes.success && usuariosRes.data) {
+                   const usuarios = usuariosRes.data;
+                   const findUser = (email: string) => usuarios.find((u: any) => String(u.email || '').trim().toLowerCase() === String(email || '').trim().toLowerCase());
+                   
+                   if (clinicoEmail) {
+                      const farmaUser = findUser(clinicoEmail);
                       if (farmaUser) {
-                         finalValues.eq_farma_nombre = farmaUser.name || farmaUser.nombre || '';
-                         finalValues.eq_farma_cargo = farmaUser.role || farmaUser.cargo || 'Farmacovigilancia';
-                         finalValues.eq_farma_correo = farmaUser.email;
-                         finalValues.eq_farma_tel = farmaUser.telefono || '';
+                         finalValues.eq_farma_nombre = farmaUser.name || farmaUser.nombre || finalValues.eq_farma_nombre || '';
+                         finalValues.eq_farma_cargo = farmaUser.role || farmaUser.cargo || 'Referente Clínico / Farmacovigilancia';
+                         finalValues.eq_farma_correo = farmaUser.email || clinicoEmail;
+                         finalValues.eq_farma_tel = farmaUser.telefono || finalValues.eq_farma_tel || '';
                       }
-                      const inmunoUser = findUser(asigParsed.id_inmuno);
+                   }
+
+                   if (inmunoEmail) {
+                      const inmunoUser = findUser(inmunoEmail);
                       if (inmunoUser) {
-                         finalValues.eq_inmuno_nombre = inmunoUser.name || inmunoUser.nombre || '';
+                         finalValues.eq_inmuno_nombre = inmunoUser.name || inmunoUser.nombre || finalValues.eq_inmuno_nombre || '';
                          finalValues.eq_inmuno_cargo = inmunoUser.role || inmunoUser.cargo || 'Inmunizaciones';
-                         finalValues.eq_inmuno_correo = inmunoUser.email;
-                         finalValues.eq_inmuno_tel = inmunoUser.telefono || '';
+                         finalValues.eq_inmuno_correo = inmunoUser.email || inmunoEmail;
+                         finalValues.eq_inmuno_tel = inmunoUser.telefono || finalValues.eq_inmuno_tel || '';
                       }
-                      const epiUser = findUser(asigParsed.id_epidemio);
+                   }
+
+                   if (epidemioEmail) {
+                      const epiUser = findUser(epidemioEmail);
                       if (epiUser) {
-                         finalValues.eq_epi_nombre = epiUser.name || epiUser.nombre || '';
+                         finalValues.eq_epi_nombre = epiUser.name || epiUser.nombre || finalValues.eq_epi_nombre || '';
                          finalValues.eq_epi_cargo = epiUser.role || epiUser.cargo || 'Epidemiología';
-                         finalValues.eq_epi_correo = epiUser.email;
-                         finalValues.eq_epi_tel = epiUser.telefono || '';
+                         finalValues.eq_epi_correo = epiUser.email || epidemioEmail;
+                         finalValues.eq_epi_tel = epiUser.telefono || finalValues.eq_epi_tel || '';
                       }
                    }
                 }
@@ -309,9 +366,9 @@ export default function AnexoVII_Clinico() {
           }
 
           // === AUTOCOMPLETAR DATOS DE LA INSTITUCIÓN INICIAL ===
-          if (!isViewMode && res.success && res.data && !finalValues.instInicial) {
+          if (res.success && res.data && !finalValues.instInicial) {
              try {
-                const exp = res.data.expediente || ({} as any);
+                const exp = res.data.expediente || {};
                 finalValues.instInicial = exp.establecimiento_notificador || exp.establecimiento_vacunacion || '';
                 finalValues.medicoInicial = exp.nombre_notificador || '';
                 
@@ -322,9 +379,9 @@ export default function AnexoVII_Clinico() {
 
                 // Referencia familiar
                 if (!finalValues.contactoConoceDetalles) {
-                   const familiar = exp.paciente_responsable ? `Responsable: ${exp.paciente_responsable}` : `Paciente: ${exp.nombre_paciente || ''}`;
-                   const tel = exp.paciente_direccion ? `\nDirección/Contacto: ${exp.paciente_direccion}` : '';
-                   finalValues.contactoConoceDetalles = `${familiar}${tel}`.trim();
+                   const familiar = exp.paciente_responsable ? 'Responsable: ' + exp.paciente_responsable : ('Paciente: ' + (exp.nombre_paciente || ''));
+                   const tel = exp.paciente_direccion ? ('\nDirección/Contacto: ' + exp.paciente_direccion) : '';
+                   finalValues.contactoConoceDetalles = (familiar + tel).trim();
                 }
              } catch (e) {
                 console.warn("No se pudo autocompletar la institución inicial:", e);
@@ -358,6 +415,10 @@ export default function AnexoVII_Clinico() {
   const instDiferente = watch('institucionDiferente');
 
   const onSubmit = async (data: AnexoVIIFormValues) => {
+    if (!canEdit) {
+      alert("Acceso denegado: El llenado del Anexo VII corresponde exclusivamente al Referente Clínico / ERR Local.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
@@ -502,6 +563,12 @@ export default function AnexoVII_Clinico() {
         tipoAnexoNombre="Anexo VII (Evaluación Clínica)"
       />
 
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Modo Consulta:</strong> Su rol cuenta con acceso de solo lectura al Anexo VII. La evaluación clínica en campo corresponde al Referente Clínico / ERR Local.
+        </Alert>
+      )}
+
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
         <Paper elevation={3} sx={{ borderRadius: 2 }}>
         {/* CORRECCIÓN: Se reemplazó (e, val) por (_, val) */}
@@ -512,7 +579,7 @@ export default function AnexoVII_Clinico() {
         </Tabs>
 
         <Box sx={{ p: 3 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+          <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           {/* =========================================================
               PESTAÑA A: INFO BÁSICA
           ========================================================= */}
@@ -1021,7 +1088,7 @@ export default function AnexoVII_Clinico() {
       </Paper>
       </Box> {/* Cierre de componentRef */}
 
-      {!isViewMode && (
+      {!effectiveViewMode && (
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2, mt: 3 }}>
           <Button variant="contained" color="primary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}

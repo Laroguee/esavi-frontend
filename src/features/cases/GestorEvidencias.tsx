@@ -3,7 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { 
   Box, Paper, Typography, Tabs, Tab, Grid, Button, 
   List, ListItem, ListItemIcon, ListItemText, IconButton, 
-  Divider, Chip, CircularProgress 
+  Divider, Chip, CircularProgress, Alert 
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -85,6 +85,11 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
   const esRiesgoAlto = riesgoStr.includes('ALTO') || riesgoStr.includes('CRÍTICO') || riesgoStr.includes('CRITICO') || riesgoStr.includes('NACIONAL');
   
   const isSRS = currentRole?.toUpperCase() === 'SECRETARIADO';
+  const isSecretariadoApoyo = isSRS && casoActual?.equipoRegulatorio?.apoyo === userEmail;
+  const isSecretariadoAnalista = isSRS && casoActual?.equipoRegulatorio?.analista === userEmail;
+  const isSecretariadoCoordinador = isSRS && (casoActual?.equipoRegulatorio?.coordinador === userEmail || (!casoActual?.equipoRegulatorio && isSRS));
+
+  const effectiveReadOnly = readOnly || isSecretariadoApoyo;
 
   const CATEGORIAS = React.useMemo(() => {
     const cats: CategoriaConfig[] = [...BASE_CATEGORIAS];
@@ -307,6 +312,12 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
         <Chip label={`Expediente: ${caseId}`} color="secondary" sx={{ fontWeight: 'bold', fontSize: '1rem' }} />
       </Box>
 
+      {isSecretariadoApoyo && (
+        <Alert severity="info" sx={{ m: 2 }}>
+          <strong>Modo Lectura:</strong> Ha sido asignado como <strong>Secretariado Apoyo</strong>. Cuenta con acceso de solo lectura para consulta de toda la evidencia documental del expediente.
+        </Alert>
+      )}
+
       {/* PESTAÑAS DE CATEGORÍAS */}
       <Tabs 
         value={tabIndex} 
@@ -343,11 +354,12 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
               
               {/* ÁREA DE DRAG & DROP */}
               {(() => {
-                const isUploadAllowed = !readOnly && (
+                const isUploadAllowed = !effectiveReadOnly && (
                   cat.id !== 'regulatorio' || 
-                  (casoActual?.equipoRegulatorio && (userEmail === casoActual.equipoRegulatorio.analista || userEmail === casoActual.equipoRegulatorio.coordinador))
+                  isSecretariadoAnalista || 
+                  (!casoActual?.equipoRegulatorio?.analista && isSecretariadoCoordinador)
                 );
-                return isUploadAllowed && (
+                return isUploadAllowed ? (
                   <Grid size={{ xs: 12, md: 6 }}>
                   <Box
                     onDragEnter={(e) => handleDrag(e, cat.id)}
@@ -384,14 +396,23 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                     />
                   </Box>
                 </Grid>
+                ) : (
+                  cat.id === 'regulatorio' && isSecretariadoCoordinador && casoActual?.equipoRegulatorio?.analista ? (
+                    <Grid size={{ xs: 12 }}>
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        <strong>Espacio Regulatorio:</strong> La carga de documentos normativos en este buzón está asignada exclusivamente al Secretariado Analista (<strong>{casoActual.equipoRegulatorio.analista}</strong>).
+                      </Alert>
+                    </Grid>
+                  ) : null
                 );
               })()}
 
               {/* LISTA DE PREVISUALIZACIÓN Y ARCHIVOS EXISTENTES */}
               {(() => {
-                const isUploadAllowed = !readOnly && (
+                const isUploadAllowed = !effectiveReadOnly && (
                   cat.id !== 'regulatorio' || 
-                  (casoActual?.equipoRegulatorio && (userEmail === casoActual.equipoRegulatorio.analista || userEmail === casoActual.equipoRegulatorio.coordinador))
+                  isSecretariadoAnalista || 
+                  (!casoActual?.equipoRegulatorio?.analista && isSecretariadoCoordinador)
                 );
                 return (
               <Grid size={{ xs: 12, md: isUploadAllowed ? 6 : 12 }}>
@@ -443,10 +464,10 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                 )}
                 
                 {/* LISTA DE ARCHIVOS EXISTENTES */}
-                <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff', mt: readOnly ? 0 : 3 }}>
+                <Paper variant="outlined" sx={{ minHeight: 200, maxHeight: 300, overflowY: 'auto', bgcolor: '#ffffff', mt: effectiveReadOnly ? 0 : 3 }}>
                   <Box sx={{ p: 2, bgcolor: '#e3f2fd', borderBottom: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Archivos Existentes en Repositorio</Typography>
-                    {!readOnly && (currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SECRETARIADO') && archivosExistentes.length > 0 && (
+                    {!effectiveReadOnly && (currentRole === 'ESAVI_INSTITUCIONAL' || currentRole === 'SECRETARIADO') && archivosExistentes.length > 0 && (
                       <Button
                         size="small"
                         color="error"
@@ -473,7 +494,12 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
                          }
                          return carpetaData.archivos.map((fileObj: any, idx: number) => {
                            const isPdf = fileObj.mimeType === 'application/pdf';
-                           const canDelete = !readOnly && (currentRole === 'ESAVI_INSTITUCIONAL' || (currentRole as any) === 'SUPERADMIN' || fileObj.uploadedBy === userEmail);
+                           const canDelete = !effectiveReadOnly && (
+                             (currentRole as any) === 'SUPERADMIN' || 
+                             currentRole === 'ESAVI_INSTITUCIONAL' || 
+                             (cat.id === 'regulatorio' && (isSecretariadoAnalista || isSecretariadoCoordinador)) || 
+                             fileObj.uploadedBy === userEmail
+                           );
                            return (
                              <React.Fragment key={`exist-${idx}`}>
                                <ListItem
@@ -531,7 +557,7 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
       </Box>
 
       {/* BOTÓN FINAL DE GUARDADO */}
-      {!readOnly && (
+      {!effectiveReadOnly && (
         <Box sx={{ p: 3, bgcolor: '#f4f6f8', borderTop: '1px solid #e0e0e0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2 }}>
           {isUploading && <Typography variant="body2" color="text.secondary">{uploadProgress}</Typography>}
           <Button 

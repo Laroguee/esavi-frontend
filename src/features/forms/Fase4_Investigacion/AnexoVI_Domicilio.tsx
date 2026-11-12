@@ -2,7 +2,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { 
   Box, Paper, Typography, Grid, TextField, Button, Divider, 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Accordion, AccordionSummary, AccordionDetails, CircularProgress
+  Accordion, AccordionSummary, AccordionDetails, CircularProgress, Alert
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
@@ -152,7 +152,22 @@ export default function AnexoVI_Domicilio() {
   const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!id);
-  const { userEmail } = useAuthStore();
+  const { userEmail, currentRole } = useAuthStore();
+  const { casos } = useCasesStore();
+  const casoActual = casos.find((c: any) => c.id === id);
+
+  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
+  const isSecretariado = currentRole === 'SECRETARIADO';
+  const isComitée = currentRole === 'COMITE_EXTERNO';
+  const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
+
+  const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
+    currentRole === 'EPIDEMIO_LOCAL' ||
+    casoActual?.equipoERR?.idLocalEpidemio === userEmail ||
+    casoActual?.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR')
+  );
+
+  const effectiveViewMode = isViewMode || !canEdit;
 
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
@@ -228,6 +243,10 @@ export default function AnexoVI_Domicilio() {
   }, [id, isViewMode, reset, setSearchParams]);
 
   const onSubmit = async (data: AnexoVIFormValues) => {
+    if (!canEdit) {
+      alert("Acceso denegado: El llenado del Anexo VI corresponde exclusivamente al Referente de Epidemiología / ERR Local.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
@@ -366,10 +385,16 @@ export default function AnexoVI_Domicilio() {
         </Box>
       </Box>
 
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Modo Consulta:</strong> Su rol cuenta con acceso de solo lectura al Anexo VI. La investigación domiciliaria en campo corresponde al Referente de Epidemiología / ERR Local.
+        </Alert>
+      )}
+
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
 
       {/* ENCABEZADO FIJO */}
-      <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+      <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
       <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, mb: 3, borderTop: '4px solid', borderColor: 'primary.main' }}>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -390,7 +415,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>1. Fase I: Observación de la Comunidad</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 0 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+          <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <TableContainer sx={{ overflowX: 'auto' }}>
             <Table size="small" sx={{ minWidth: 650 }}>
               <TableHead>
@@ -427,7 +452,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>2. Fase II: Entrevista a Persona Afectada o Familia</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: { xs: 2, md: 4 } }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+          <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           
           <Typography variant="subtitle2" color="secondary.main" sx={{ fontWeight: 'bold', mb: 2, fontSize: '1rem' }}>A. Sobre el evento y su evolución</Typography>
           <EntrevistaField name="entrevista_a1" label="¿Qué síntomas presentó y cuándo comenzaron?" />
@@ -494,7 +519,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>3. Fase II: Observación Directa en Domicilio</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 0 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+          <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <TableContainer>
             <Table size="small" sx={{ minWidth: 650 }}>
               <TableHead>
@@ -531,7 +556,7 @@ export default function AnexoVI_Domicilio() {
           <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>4. Fase III: Cierre Administrativo y Evidencia</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: 4 }}>
-          <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+          <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           
           <Grid container spacing={4} sx={{ mb: 4 }}>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -562,7 +587,7 @@ export default function AnexoVI_Domicilio() {
       {/* BOTÓN FINAL */}
       </Box>
       
-      {!isViewMode && (
+      {!effectiveViewMode && (
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2, mt: 3 }}>
           <Button variant="contained" color="primary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}

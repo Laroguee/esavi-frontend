@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Card, CardContent, Typography, TextField, Button, Alert, InputAdornment, CircularProgress } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, Alert, InputAdornment, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
@@ -18,6 +20,31 @@ export default function Login() {
   const setSession = useAuthStore((state) => state.setSession);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [openForgotModal, setOpenForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotAlert, setForgotAlert] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+
+  const handleSendForgotEmail = async () => {
+    if (!forgotEmail.trim()) return;
+    setForgotLoading(true);
+    setForgotAlert(null);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim().toLowerCase());
+      setForgotAlert({
+        type: 'success',
+        msg: 'Enlace enviado exitosamente. Si su dirección institucional recibe correos externos, revise su bandeja de entrada.'
+      });
+      setForgotEmail('');
+    } catch (err: any) {
+      setForgotAlert({
+        type: 'error',
+        msg: err.message || 'No se pudo enviar el correo de recuperación.'
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const { control, handleSubmit } = useForm<LoginFormData>({
     defaultValues: {
@@ -121,6 +148,17 @@ export default function Login() {
               )}
             />
 
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -2, mb: 3 }}>
+              <Button 
+                variant="text" 
+                size="small" 
+                onClick={() => { setOpenForgotModal(true); setForgotAlert(null); }}
+                sx={{ textTransform: 'none', fontSize: '0.85rem' }}
+              >
+                ¿Olvidó su contraseña?
+              </Button>
+            </Box>
+
             <Button type="submit" fullWidth variant="contained" color="secondary" size="large" sx={{ py: 1.5, fontWeight: 'bold' }} disabled={loading}>
               {loading ? <CircularProgress size={24} /> : 'INICIAR SESIÓN'}
             </Button>
@@ -131,6 +169,48 @@ export default function Login() {
           </Typography>
         </CardContent>
       </Card>
+    
+      {/* DIÁLOGO: RECUPERACIÓN DE CONTRASEÑA */}
+      <Dialog open={openForgotModal} onClose={() => !forgotLoading && setOpenForgotModal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ bgcolor: '#1976d2', color: 'white', py: 1.5 }}>
+          Recuperar Contraseña
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Ingrese su correo institucional. Si su cuenta tiene una dirección válida para recibir mensajes externos, se le enviará un enlace oficial para definir una nueva clave.
+          </Typography>
+          {forgotAlert && (
+            <Alert severity={forgotAlert.type} sx={{ mb: 2 }}>
+              {forgotAlert.msg}
+            </Alert>
+          )}
+          <TextField
+            fullWidth
+            size="small"
+            label="Correo Institucional"
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
+            disabled={forgotLoading}
+            autoFocus
+          />
+          <Alert severity="info" sx={{ mt: 2, fontSize: '0.8rem' }}>
+            <strong>Nota para entornos de prueba:</strong> Si utiliza cuentas institucionales simuladas sin buzón de correo activo, contacte a su Administrador del Secretariado Técnico (SRS) para asistencia de acceso.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setOpenForgotModal(false)} disabled={forgotLoading} color="inherit">
+            Cerrar
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            disabled={forgotLoading || !forgotEmail.trim()} 
+            onClick={handleSendForgotEmail}
+          >
+            {forgotLoading ? <CircularProgress size={20} color="inherit" /> : 'Enviar Enlace'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

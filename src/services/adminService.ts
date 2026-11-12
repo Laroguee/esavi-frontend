@@ -1,7 +1,7 @@
 import { collection, doc, setDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { db, firebaseConfig } from '../config/firebase';
+import { db, auth, firebaseConfig } from '../config/firebase';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, updatePassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 import type { MockUser } from '../store/useAuthStore';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -10,6 +10,14 @@ function assertAdminRole() {
   const role = useAuthStore.getState().currentRole;
   if (role !== 'SECRETARIADO') {
     throw new Error('Operación no autorizada: requiere privilegios de SECRETARIADO.');
+  }
+}
+
+function assertCanReadUsers() {
+  const role = useAuthStore.getState().currentRole;
+  const isAllowed = !!role;
+  if (!isAllowed) {
+    throw new Error('Operación no autorizada: usuario no autenticado.');
   }
 }
 
@@ -23,7 +31,7 @@ const createSecondaryApp = () => {
 
 export async function listarUsuarios() {
   try {
-    assertAdminRole();
+    assertCanReadUsers();
     const querySnapshot = await getDocs(collection(db, 'usuarios'));
     const usuarios = querySnapshot.docs.map(doc => doc.data());
     return { success: true, data: usuarios };
@@ -74,6 +82,16 @@ export async function editarUsuario(emailOriginal: string, updates: Partial<Mock
     }
     
     await updateDoc(docRef, updatesToSave);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function enviarCorreoRestablecimiento(email: string) {
+  try {
+    assertAdminRole();
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

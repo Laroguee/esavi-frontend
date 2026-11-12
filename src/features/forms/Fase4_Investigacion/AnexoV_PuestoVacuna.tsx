@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Divider, CircularProgress, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Divider, CircularProgress, ToggleButton, ToggleButtonGroup, Alert } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -115,7 +115,22 @@ export default function AnexoV_PuestoVacuna() {
   const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!id);
-  const { userEmail } = useAuthStore();
+  const { userEmail, currentRole } = useAuthStore();
+  const { casos } = useCasesStore();
+  const casoActual = casos.find((c: any) => c.id === id);
+
+  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
+  const isSecretariado = currentRole === 'SECRETARIADO';
+  const isComitée = currentRole === 'COMITE_EXTERNO';
+  const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
+
+  const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
+    currentRole === 'INMUNO_LOCAL' ||
+    casoActual?.equipoERR?.idLocalInmuno === userEmail ||
+    casoActual?.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR')
+  );
+
+  const effectiveViewMode = isViewMode || !canEdit;
 
   // === GENERACIÓN DE PDF ===
   const componentRef = useRef<HTMLDivElement>(null);
@@ -206,6 +221,10 @@ export default function AnexoV_PuestoVacuna() {
   }, [id, isViewMode, reset, setSearchParams]);
 
   const onSubmit = async (data: AnexoVFormValues) => {
+    if (!canEdit) {
+      alert("Acceso denegado: El llenado del Anexo V corresponde exclusivamente al Referente de Inmunizaciones / ERR Local.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
@@ -325,8 +344,14 @@ export default function AnexoV_PuestoVacuna() {
         tipoAnexoNombre="Anexo V (Puesto de Vacunacion)"
       />
 
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Modo Consulta:</strong> Su rol cuenta con acceso de solo lectura al Anexo V. La evaluación del puesto de vacunación corresponde al Referente de Inmunizaciones / ERR Local.
+        </Alert>
+      )}
+
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
-        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+        <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
 
       {/* ENCABEZADO */}
       <Paper elevation={2} sx={{ p: { xs: 2, md: 4 }, mb: 4, borderTop: '4px solid', borderColor: 'primary.main' }}>
@@ -512,7 +537,7 @@ export default function AnexoV_PuestoVacuna() {
         </fieldset>
       </Box>
 
-      {!isViewMode && (
+      {!effectiveViewMode && (
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2, mt: 3 }}>
           <Button variant="contained" color="primary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar y Finalizar Anexo'}

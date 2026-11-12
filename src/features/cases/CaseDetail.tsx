@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem } from '@mui/material';
@@ -18,13 +18,13 @@ import ControlCalidad from '../forms/Fase5_ControlCalidad/ControlCalidad';
 import EdicionFase1Modal from './EdicionFase1Modal';
 import ModalEquipoRegulatorio from './ModalEquipoRegulatorio';
 
-const fases = [
-  'Fase 1: Notificación',
-  'Fase 2: Evaluación',
-  'Fase 3: Asignación',
-  'Fase 4: Investigación',
-  'Fase 5: Control Calidad',
-  'Fase 6: Dictamen'
+const fasesConfig = [
+  { label: 'Fase 1: Notificación', rolResponsable: 'Notificador (Local / Inst.)' },
+  { label: 'Fase 2: Evaluación', rolResponsable: 'Equipo Coordinador Inst.' },
+  { label: 'Fase 3: Asignación', rolResponsable: 'Equipo Coordinador (ESAVI Inst.)' },
+  { label: 'Fase 4: Investigación', rolResponsable: 'Equipo ERR Campo' },
+  { label: 'Fase 5: Control Calidad', rolResponsable: 'Equipo Coordinador (5.1) & Secretariado (5.2)' },
+  { label: 'Fase 6: Dictamen', rolResponsable: 'Comité de Expertos CNED' }
 ];
 
 // El historial se lee ahora directamente desde el Store
@@ -187,7 +187,7 @@ export default function CaseDetail() {
       casoActual.equipoERR.idLocalClinico ||
       casoActual.equipoERR.idLocalInmuno ||
       casoActual.equipoERR.idLocalEpidemio ||
-      casoActual.equipoERR.esavi_inst ||
+      (casoActual.equipoERR as any)?.esavi_inst ||
       (Array.isArray(casoActual.equipoERR.apoyosSistema) && casoActual.equipoERR.apoyosSistema.length > 0)
     ))
   );
@@ -203,37 +203,6 @@ export default function CaseDetail() {
   const f3Completado = tieneEquipoAsignado || tieneInvestigacionIniciada ||
     !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'EN_ASIGNACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
 
-  // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
-  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
-  const eq = casoActual.equipoERR;
-  
-  // Soporte retrocompatible para casos asignados con el modelo anterior de 2 miembros genéricos
-  const isLegacyLiderOApoyo = !eq?.idLocalClinico && (eq?.idLocal === userEmail || eq?.idLocal2 === userEmail);
-
-  // Asignaciones especializadas por anexo:
-  // Anexo V (Puesto de Vacunación): Exclusivo Referente de Inmunizaciones Local
-  const isAssignedToV = isLegacyLiderOApoyo || 
-    eq?.idLocalInmuno === userEmail || 
-    (isUserAssignedToERR && currentRole?.includes('INMUNO')) || 
-    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR');
-
-  // Anexo VI (Investigación Domiciliaria): Exclusivo Referente de Epidemiología Local
-  const isAssignedToVI = isLegacyLiderOApoyo || 
-    eq?.idLocalEpidemio === userEmail || 
-    (isUserAssignedToERR && currentRole?.includes('EPIDEMIO')) || 
-    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR');
-
-  // Anexo VII (Evaluación Clínica): Exclusivo Referente Clínico / Farmacovigilancia Local
-  const isAssignedToVII = isLegacyLiderOApoyo || 
-    eq?.idLocalClinico === userEmail || 
-    (isUserAssignedToERR && currentRole?.includes('ESAVI')) || 
-    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR');
-
-  // Anexo III (Logística): Referente Clínico Local
-  const isAssignedToIII = isLegacyLiderOApoyo || 
-    eq?.idLocalClinico === userEmail || 
-    (isUserAssignedToERR && currentRole?.includes('ESAVI'));
-
   // --- REGLAS RBAC INTEGRADAS ---
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
   const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string);
@@ -242,15 +211,312 @@ export default function CaseDetail() {
   const isEpidemioLocal = currentRole === 'EPIDEMIO_LOCAL';
   const isEsaviInstitucional = String(currentRole).toUpperCase() === 'ESAVI_INSTITUCIONAL';
   const isSecretariado = String(currentRole).toUpperCase() === 'SECRETARIADO';
+  const isSecretariadoApoyo = isSecretariado && casoActual.equipoRegulatorio?.apoyo === userEmail;
+  const isSecretariadoAnalista = isSecretariado && casoActual.equipoRegulatorio?.analista === userEmail;
+  const isSecretariadoCoordinador = isSecretariado && (!casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail);
   const isComitée = String(currentRole).toUpperCase() === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
+
+  // Candado estricto Fase 4: Los roles institucionales, secretariado, comité y observadores solo auditan o consultan.
+  const isAuditorOrObserver = isJefe || isSecretariado || isComitée || isObserver;
+
+  // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
+  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
+  const eq = casoActual.equipoERR;
+  
+  // Soporte retrocompatible para casos asignados con el modelo anterior de 2 miembros genéricos
+  const isLegacyLiderOApoyo = !eq?.idLocalClinico && (eq?.idLocal === userEmail || eq?.idLocal2 === userEmail);
+
+  // Asignaciones especializadas por anexo (Exclusivo para investigadores de campo locales):
+  // Anexo V (Puesto de Vacunación): Exclusivo Referente de Inmunizaciones Local
+  const isAssignedToV = !isAuditorOrObserver && (
+    isInmunoLocal || 
+    eq?.idLocalInmuno === userEmail || 
+    (isLegacyLiderOApoyo && isInmunoLocal) || 
+    (isUserAssignedToERR && isInmunoLocal) || 
+    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR')
+  );
+
+  // Anexo VI (Investigación Domiciliaria): Exclusivo Referente de Epidemiología Local
+  const isAssignedToVI = !isAuditorOrObserver && (
+    isEpidemioLocal || 
+    eq?.idLocalEpidemio === userEmail || 
+    (isLegacyLiderOApoyo && isEpidemioLocal) || 
+    (isUserAssignedToERR && isEpidemioLocal) || 
+    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR')
+  );
+
+  // Anexo VII (Evaluación Clínica): Exclusivo Referente Clínico / Farmacovigilancia Local
+  const isAssignedToVII = !isAuditorOrObserver && (
+    isEsaviLocal || 
+    eq?.idLocalClinico === userEmail || 
+    isLegacyLiderOApoyo || 
+    (isUserAssignedToERR && isEsaviLocal) || 
+    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR')
+  );
+
+  // Anexo III (Logística): Referente Clínico Local
+  const isAssignedToIII = !isAuditorOrObserver && (
+    isEsaviLocal || 
+    eq?.idLocalClinico === userEmail || 
+    isLegacyLiderOApoyo || 
+    (isUserAssignedToERR && isLocalOperativo)
+  );
   const tieneReunionFase2 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 2');
   const tieneReunionFase3 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 3' || r.tema?.toLowerCase().includes('pre-fase 4'));
   const tieneReunionFase4 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 4' || r.tema?.toLowerCase().includes('campo'));
   const tieneReunionCierre = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 6' || r.faseRelacionada === 'Fase 5');
 
-  // ActionRow y ReadOnlyField extraidos a nivel de modulo
-  // ActionRow y ReadOnlyField extraidos a nivel de modulo
+  // Guía Contextual de Roles Determinística (Sin IA)
+  const guiaTurno = (() => {
+    const estado = casoActual.estadoFlujo;
+
+    if (['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(estado)) {
+      return {
+        esMiTurno: false,
+        esFinalizado: true,
+        rolResponsable: 'Comité Nacional de Expertos (CNED)',
+        titulo: 'Expediente Concluido y Dictaminado',
+        mensaje: 'Este caso ha culminado su proceso normativo y cuenta con el dictamen técnico vinculante de causalidad emitido.',
+        siguientePaso: 'Consultar el Dictamen de Causalidad o el Informe Técnico de Autoridades.',
+        accionTexto: casoActual.dictamenData ? 'Ver Dictamen' : undefined,
+        accionFn: casoActual.dictamenData ? () => setOpenDictamenModal(true) : undefined,
+      };
+    }
+
+    if (estado === 'NUEVO' || estado === 'NOTIFICADO') {
+      const esMiTurno = isJefe;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Equipo Coordinador Institucional',
+        titulo: esMiTurno ? 'Tu Turno: Oficialización del Expediente (Fase 2)' : 'En Espera: Oficialización por Equipo Coordinador Institucional',
+        mensaje: esMiTurno
+          ? 'Como miembro del Equipo Coordinador Institucional (ESAVI / Epidemio / Inmuno), debe verificar las evidencias del caso y proceder a oficializar el expediente para iniciar la evaluación del riesgo.'
+          : 'El caso ha sido registrado primariamente. Se encuentra a la espera de que el Equipo Coordinador Institucional realice el triaje, oficialice el expediente y convoque a reunión.',
+        siguientePaso: 'Oficializar el expediente y agendar la reunión de triaje en la tarjeta de Fase 2.',
+        accionTexto: esMiTurno ? 'Oficializar y Agendar' : undefined,
+        accionFn: esMiTurno ? () => {
+          if (casoActual.estadoFlujo === 'NUEVO') {
+            useCasesStore.getState().avanzarCaso(casoActual.id, 'EN_EVALUACION', 'Fase 2: Evaluación', 'El caso ha entrado en fase de evaluación y triaje.', 'Sin clasificar');
+          }
+          setOpenAgendaModal(true);
+        } : undefined,
+      };
+    }
+
+    if (estado === 'EN_EVALUACION' || estado === 'PENDIENTE_OFICIALIZAR') {
+      if (!f2Completado) {
+        const esMiTurno = isJefe;
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Equipo Coordinador Institucional (ESAVI / Epidemio / Inmuno)',
+          titulo: esMiTurno ? 'Tu Turno: Evaluación de Riesgo (Fase 2)' : 'En Espera: Evaluación de Riesgo por Equipo Coordinador',
+          mensaje: esMiTurno
+            ? 'Debe diligenciar la Matriz de Riesgo institucional para determinar la gravedad clínica y epidemiológica, estableciendo el nivel de respuesta sanitaria.'
+            : 'El expediente se encuentra en triaje técnico. El Equipo Coordinador Institucional está evaluando la matriz de riesgo.',
+          siguientePaso: 'Completar la Matriz de Riesgo para desbloquear la asignación del ERR.',
+          accionTexto: esMiTurno ? 'Ir a Matriz de Riesgo' : undefined,
+          accionFn: esMiTurno ? () => navigate(`/matriz-riesgo/${id}`) : undefined,
+        };
+      } else {
+        const esMiTurno = isJefe;
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Equipo Coordinador (ESAVI Institucional)',
+          titulo: esMiTurno ? 'Tu Turno: Asignación de Equipo ERR (Fase 3)' : 'En Espera: Designación de Equipo ERR',
+          mensaje: esMiTurno
+            ? 'La matriz de riesgo ha sido evaluada. Debe designar a los profesionales responsables del ERR local (Clínico, Inmunizaciones y Epidemiología).'
+            : 'La evaluación de riesgo fue completada. Se está a la espera de que la jefatura institucional asigne al equipo investigador local.',
+          siguientePaso: 'Designar a los miembros del ERR en la pantalla de Asignación de Equipo.',
+          accionTexto: esMiTurno ? 'Asignar Equipo ERR' : undefined,
+          accionFn: esMiTurno ? () => navigate(`/asignar-equipo/${id}`) : undefined,
+        };
+      }
+    }
+
+    if (estado === 'EN_ASIGNACION' || (f2Completado && !f3Completado)) {
+      const esMiTurno = isJefe;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Equipo Coordinador (ESAVI Institucional)',
+        titulo: esMiTurno ? 'Tu Turno: Asignación de Equipo ERR (Fase 3)' : 'En Espera: Asignación de Equipo ERR',
+        mensaje: esMiTurno
+          ? 'Debe designar formalmente al Equipo de Respuesta Rápida local que llevará a cabo la investigación de campo.'
+          : 'El nivel institucional está conformando el equipo de respuesta rápida para este caso.',
+        siguientePaso: 'Ingresar a Asignación de Equipo y seleccionar o registrar los profesionales locales.',
+        accionTexto: esMiTurno ? 'Asignar Equipo ERR' : undefined,
+        accionFn: esMiTurno ? () => navigate(`/asignar-equipo/${id}`) : undefined,
+      };
+    }
+
+    if (estado === 'ASIGNADO_A_ERR' || estado === 'EN_INVESTIGACION' || estado === 'CORREGIDO_POR_ERR') {
+      if (!casoActual.notasPreFase4) {
+        const esMiTurno = isJefe;
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Equipo Coordinador Institucional',
+          titulo: esMiTurno ? 'Tu Turno: Inducción y Lineamientos Pre-Fase 4' : 'En Espera: Lineamientos Pre-Fase 4 por Equipo Coordinador',
+          mensaje: esMiTurno
+            ? 'El equipo ERR ha sido asignado. Debe coordinar la reunión Pre-Fase 4 y redactar los acuerdos iniciales para desbloquear el llenado de anexos.'
+            : 'El equipo local está a la espera de que el Equipo Coordinador Institucional registre los acuerdos de la reunión de inducción Pre-Fase 4.',
+          siguientePaso: 'Redactar y guardar las Notas Pre-Fase 4 en la tarjeta de Investigación.',
+        };
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'ESAVI Institucional (Equipo Coordinador)',
+          titulo: esMiTurno ? 'Tu Turno: Inducción y Lineamientos Pre-Fase 4' : 'En Espera: Lineamientos Pre-Fase 4 por Jefatura',
+          mensaje: esMiTurno
+            ? 'El equipo ERR ha sido asignado. Debe coordinar la reunión Pre-Fase 4 y redactar los acuerdos iniciales para desbloquear el llenado de anexos.'
+            : 'El equipo local está a la espera de que la jefatura institucional registre los acuerdos de la reunión de inducción Pre-Fase 4.',
+          siguientePaso: 'Redactar y guardar las Notas Pre-Fase 4 en la tarjeta de Investigación.',
+        };
+      } else {
+        const todosAnexosCompletos = casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado;
+        if (todosAnexosCompletos) {
+          const esMiTurno = isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL';
+          return {
+            esMiTurno,
+            esFinalizado: false,
+            rolResponsable: 'Equipo Coordinador Institucional (Fase 5.1)',
+            titulo: esMiTurno ? 'Tu Turno: Auditoría y Control de Calidad Institucional (Fase 5.1)' : 'En Espera: Control de Calidad Institucional',
+            mensaje: esMiTurno
+              ? 'Todos los anexos de campo han sido completados. Debe realizar la auditoría institucional y aprobar el expediente para su revisión por el Secretariado SRS.'
+              : 'Los anexos de campo están completos. El equipo coordinador institucional está realizando la auditoría de calidad.',
+            siguientePaso: 'Hacer clic en "Auditoría Institucional" en la tarjeta de Fase 5.',
+            accionTexto: esMiTurno ? 'Auditoría Institucional' : undefined,
+            accionFn: esMiTurno ? () => setOpenAuditoria(true) : undefined,
+          };
+        }
+
+        const esMiTurno = isLocalOperativo && isUserAssignedToERR;
+        let detalleAnexo = 'completar los anexos técnicos asignados';
+        if (isInmunoLocal || isAssignedToV) detalleAnexo = 'completar el Anexo V (Puesto de Vacunación)';
+        else if (isEpidemioLocal || isAssignedToVI) detalleAnexo = 'completar el Anexo VI (Investigación Domiciliaria)';
+        else if (isEsaviLocal || isAssignedToVII || isAssignedToIII) detalleAnexo = 'completar el Anexo III (Logística) y Anexo VII (Evaluación Clínica)';
+
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Equipo de Respuesta Rápida (ERR Local)',
+          titulo: esMiTurno ? 'Tu Turno: Investigación de Campo (Fase 4)' : 'En Espera: Investigación de Campo por Equipo ERR',
+          mensaje: esMiTurno
+            ? `Como miembro asignado del ERR, le corresponde ${detalleAnexo}. Ingrese a los anexos correspondientes a su perfil.`
+            : 'Los profesionales del ERR local se encuentran recolectando información de campo y llenando los anexos normativos.',
+          siguientePaso: 'Llenar y finalizar los Anexos III, V, VI y VII de la Fase 4.',
+        };
+      }
+    }
+
+    if (estado === 'DEVUELTO_A_INSTITUCIONAL') {
+      const esMiTurno = isJefe;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'ESAVI Institucional (Equipo Coordinador)',
+        titulo: esMiTurno ? 'Tu Turno: Subsanación de Observaciones de Auditoría' : 'En Espera: Subsanación por Jefatura Institucional',
+        mensaje: esMiTurno
+          ? `El Secretariado SRS devolvió el expediente por inconsistencias en: ${casoActual.anexoRechazado || 'Anexo'}. Puede corregirlo directamente o delegarlo al ERR local.`
+          : 'El expediente fue devuelto por el Secretariado para subsanar observaciones de calidad.',
+        siguientePaso: 'Revisar la observación de auditoría y delegar o corregir el anexo observado.',
+      };
+    }
+
+    if (estado === 'DEVUELTO_A_ERR') {
+      const esMiTurno = isLocalOperativo && isUserAssignedToERR;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Equipo ERR Local',
+        titulo: esMiTurno ? 'Tu Turno: Corrección de Anexo de Campo' : 'En Espera: Corrección por Equipo ERR Local',
+        mensaje: esMiTurno
+          ? `Se requiere corrección en: ${casoActual.anexoRechazado || 'Anexo'}. Ingrese al anexo indicado, aplique los ajustes requeridos y vuelva a guardarlo.`
+          : 'El equipo local se encuentra corrigiendo las observaciones señaladas por la auditoría.',
+        siguientePaso: 'Modificar el anexo rechazado en la tarjeta de Fase 4.',
+      };
+    }
+
+    if (estado === 'EN_REVISION_INSTITUCIONAL') {
+      const esMiTurno = isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL';
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Equipo Coordinador Institucional (Fase 5.1)',
+        titulo: esMiTurno ? 'Tu Turno: Auditoría y Control de Calidad Institucional (Fase 5.1)' : 'En Espera: Control de Calidad Institucional',
+        mensaje: esMiTurno
+          ? 'Todos los anexos de campo han sido completados. Debe realizar la auditoría institucional y aprobar el expediente para su revisión por el Secretariado SRS.'
+          : 'Los anexos de campo están completos. El equipo coordinador institucional está realizando la auditoría de calidad.',
+        siguientePaso: 'Hacer clic en "Auditoría Institucional" en la tarjeta de Fase 5.',
+        accionTexto: esMiTurno ? 'Auditoría Institucional' : undefined,
+        accionFn: esMiTurno ? () => setOpenAuditoria(true) : undefined,
+      };
+    }
+
+    if (estado === 'EN_REVISION_SECRETARIADO') {
+      const isCoordinadorSRS = isSecretariado && (!casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail);
+      const esMiTurno = isCoordinadorSRS;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Secretariado Coordinador (SRS - Fase 5.2)',
+        titulo: esMiTurno ? 'Tu Turno: Auditoría Técnica de Regulación (Fase 5.2)' : 'En Espera: Auditoría por Secretariado Coordinador SRS',
+        mensaje: esMiTurno
+          ? 'Como Secretariado Coordinador, debe realizar la auditoría metodológica para autorizar el paso del expediente a la sala de espera del Comité de Expertos.'
+          : 'El expediente fue aprobado institucionalmente y está siendo auditado por el Secretariado Coordinador de la SRS.',
+        siguientePaso: 'Hacer clic en "Auditoría Secretariado" en la tarjeta de Fase 5.',
+        accionTexto: esMiTurno ? 'Auditoría Secretariado' : undefined,
+        accionFn: esMiTurno ? () => setOpenAuditoria(true) : undefined,
+      };
+    }
+
+    if (estado === 'APROBADO_PARA_COMITE') {
+      const isCoordinadorSRS = isSecretariado && (!casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail);
+      const esMiTurno = isCoordinadorSRS;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Secretariado Coordinador (SRS)',
+        titulo: esMiTurno ? 'Tu Turno: Convocatoria del Comité de Expertos (Fase 5)' : 'En Espera: Convocatoria de Comité por Secretariado',
+        mensaje: esMiTurno
+          ? 'El expediente está aprobado para deliberación. Debe programar la reunión de cierre y habilitar el caso para el Comité de Expertos.'
+          : 'El expediente superó la auditoría de calidad. El Secretariado Coordinador está agendando la sesión deliberativa con el Comité de Expertos.',
+        siguientePaso: 'Agendar la sesión en "Agendar para Comité".',
+        accionTexto: esMiTurno ? 'Agendar para Comité' : undefined,
+        accionFn: esMiTurno ? () => setOpenEnvioComitéeModal(true) : undefined,
+      };
+    }
+
+    if (estado === 'EN_EVALUACION_COMITE') {
+      const esMiTurno = isComitée;
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Comité Nacional de Expertos (CNED - Fase 6)',
+        titulo: esMiTurno ? 'Tu Turno: Dictamen de Causalidad OMS (Fase 6)' : 'En Espera: Deliberación del Comité de Expertos',
+        mensaje: esMiTurno
+          ? 'Como miembro del Comité, debe revisar la totalidad de las evidencias y emitir el dictamen formal de causalidad.'
+          : 'El expediente se encuentra en deliberación y evaluación de causalidad por parte del Comité Nacional de Expertos.',
+        siguientePaso: 'Aplicar el algoritmo de causalidad OMS y emitir el acta final.',
+        accionTexto: esMiTurno ? 'Emitir Dictamen' : undefined,
+        accionFn: esMiTurno ? () => navigate(`/dictamen/${id}`) : undefined,
+      };
+    }
+
+    return {
+      esMiTurno: false,
+      esFinalizado: false,
+      rolResponsable: 'En Proceso',
+      titulo: 'Expediente en Seguimiento',
+      mensaje: 'El expediente se encuentra activo en el flujo normativo.',
+      siguientePaso: 'Consultar las fases del expediente.',
+    };
+  })();
+
   return (
     <Box sx={{ maxWidth: 1000, margin: 'auto', pb: 8 }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2 }}>
@@ -275,23 +541,23 @@ export default function CaseDetail() {
             </Button>
           }
         >
-          <strong>ATENCIÃ“N:</strong> El Secretariado de la SRS ha devuelto este expediente.
+          <strong>ATENCIÓN:</strong> El Secretariado de la SRS ha devuelto este expediente.
           <br /><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
         </Alert>
       )}
 
       {casoActual.estadoFlujo === 'DEVUELTO_A_ERR' && isLocalOperativo && (
         <Alert severity="error" variant="filled" sx={{ mb: 3 }}>
-          <strong>ACCIÃ“N REQUERIDA:</strong> El ESAVI Institucional ha devuelto este expediente para corrección.
+          <strong>ACCIÓN REQUERIDA:</strong> El ESAVI Institucional ha devuelto este expediente para corrección.
           <br /><strong>Observación:</strong> "{casoActual.observacionRechazo}" (Sección: {casoActual.anexoRechazado}).
         </Alert>
       )}
 
       {(() => {
         const strRiesgo = String(casoActual.riesgo || '').toUpperCase();
-        const esCritico = strRiesgo.includes('CRITIC') || strRiesgo.includes('CRÍTICO') || strRiesgo.includes('NACIONAL');
+        const esRiesgoAltoOCritico = strRiesgo.includes('ALTO') || strRiesgo.includes('CRITIC') || strRiesgo.includes('CRÍTICO') || strRiesgo.includes('NACIONAL');
         
-        return isSecretariado && esCritico && !casoActual.equipoRegulatorio && (
+        return isSecretariado && esRiesgoAltoOCritico && !casoActual.equipoRegulatorio && (
           <Alert
             severity="warning"
             variant="filled"
@@ -302,7 +568,7 @@ export default function CaseDetail() {
               </Button>
             }
           >
-            <strong>ATENCIÃ“N CASO CRÍTICO:</strong> Debe conformar su Sub-Equipo Regulatorio Interno para habilitar el espacio documental.
+            <strong>ATENCIÓN CASO {strRiesgo.includes('ALTO') ? 'DE RIESGO ALTO (REGIONAL)' : 'CRÍTICO (NACIONAL)'}:</strong> Debe conformar su Sub-Equipo Regulatorio Interno (Coordinador, Analista y Apoyo) para habilitar y gestionar el espacio documental regulatorio.
           </Alert>
         );
       })()}
@@ -312,12 +578,14 @@ export default function CaseDetail() {
           severity="success"
           sx={{ mb: 3, alignItems: 'center' }}
           action={
-            <Button color="inherit" size="small" variant="outlined" onClick={() => setOpenEquipoRegulatorio(true)}>
-              Ver / Editar Equipo Regulatorio
-            </Button>
+            (!casoActual.equipoRegulatorio.coordinador || casoActual.equipoRegulatorio.coordinador === userEmail) ? (
+              <Button color="inherit" size="small" variant="outlined" onClick={() => setOpenEquipoRegulatorio(true)}>
+                Ver / Editar Equipo Regulatorio
+              </Button>
+            ) : undefined
           }
         >
-          <strong>Equipo Regulatorio Interno conformado.</strong> Coordinador: {casoActual.equipoRegulatorio.coordinador}
+          <strong>Sub-Equipo Regulatorio SRS:</strong> Coordinador: {casoActual.equipoRegulatorio.coordinador} | Analista: {casoActual.equipoRegulatorio.analista} | Apoyo: {casoActual.equipoRegulatorio.apoyo || 'Ninguno'}
         </Alert>
       )}
 
@@ -327,7 +595,21 @@ export default function CaseDetail() {
           <Grid size={{ xs: 12, md: 7 }}>
             <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>Expediente {casoActual.id}</Typography>
             <Typography variant="subtitle1" color="text.secondary">Paciente: {casoActual.paciente} | Vacuna: {casoActual.vacuna}</Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>Establecimiento: {casoActual.establecimiento}</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1, alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>Establecimiento Notificador: {casoActual.establecimiento}</Typography>
+              {casoActual.establecimientoVacunacion && (
+                <Chip size="small" variant="outlined" color="primary" label={`Lugar de Vacunación: ${casoActual.establecimientoVacunacion}`} />
+              )}
+              {casoActual.numeroNotificacionFacedra && (
+                <Chip size="small" color="secondary" label={`FACEDRA: ${casoActual.numeroNotificacionFacedra}`} />
+              )}
+              {casoActual.esSeguimiento && (
+                <Chip size="small" color="info" label="Seguimiento" />
+              )}
+              {Array.isArray(casoActual.medicamentosConcomitantes) && casoActual.medicamentosConcomitantes.length > 0 && (
+                <Chip size="small" variant="outlined" color="secondary" label={`+${casoActual.medicamentosConcomitantes.length} Vacuna(s) Concomitante(s)`} />
+              )}
+            </Box>
           </Grid>
 
           <Grid size={{ xs: 12, md: 5 }} sx={{ textAlign: 'right' }}>
@@ -341,14 +623,14 @@ export default function CaseDetail() {
                 if (estado === 'EN_ASIGNACION' || estado === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación';
                 if (estado === 'EN_INVESTIGACION' || estado === 'CORREGIDO_POR_ERR') return 'Fase 4: Investigación';
                 if (estado === 'EN_REVISION_INSTITUCIONAL' || estado === 'EN_REVISION_SECRETARIADO' || estado === 'APROBADO_PARA_COMITE') return 'Fase 5: Control de Calidad';
-                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comitéé Externo';
+                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comité Externo';
                 if (estado === 'CERRADO_DICTAMINADO' || estado === 'CERRADO') return 'Expediente Cerrado';
                 return casoActual.fase || 'Fase Activa';
               })()}
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', mt: 2 }}>
-              <Button variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => setOpenNotif(true)} sx={{ width: '220px' }}>
+              <Button variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => { setIsFase1ReadOnly(true); setOpenEdicionFase1(true); }} sx={{ width: '220px' }}>
                 Ver Notificación Inicial
               </Button>
               <Button variant="outlined" size="small" startIcon={<VisibilityIcon />} onClick={() => setOpenApertura(true)} sx={{ width: '220px' }}>
@@ -367,11 +649,69 @@ export default function CaseDetail() {
         </Grid>
       </Paper>
 
-      {/* ================= 1. STEPPER DINÁMICO ================= */}
+      {/* ================= GUÍA CONTEXTUAL DE ROLES ("MI TURNO DE ACTUACIÓN") ================= */}
+      <Paper
+        elevation={2}
+        sx={{
+          p: 2.5,
+          mb: 4,
+          borderRadius: 2,
+          borderLeft: '6px solid',
+          borderColor: guiaTurno.esFinalizado ? 'info.main' : guiaTurno.esMiTurno ? 'success.main' : 'warning.main',
+          bgcolor: guiaTurno.esFinalizado ? '#f4f6f8' : guiaTurno.esMiTurno ? '#edf7ed' : '#fffde7'
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+              <Chip
+                label={guiaTurno.esFinalizado ? "Expediente Concluido" : guiaTurno.esMiTurno ? "Tu Turno de Actuación" : "En Espera de Otro Rol"}
+                color={guiaTurno.esFinalizado ? "default" : guiaTurno.esMiTurno ? "success" : "warning"}
+                size="small"
+                sx={{ fontWeight: 'bold' }}
+              />
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
+                Rol Responsable: {guiaTurno.rolResponsable}
+              </Typography>
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', color: guiaTurno.esMiTurno ? 'success.dark' : 'text.primary', mb: 0.5 }}>
+              {guiaTurno.titulo}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+              {guiaTurno.mensaje}
+            </Typography>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.primary', display: 'block' }}>
+              Próximo paso requerido: {guiaTurno.siguientePaso}
+            </Typography>
+          </Box>
+
+          {guiaTurno.accionTexto && guiaTurno.accionFn && (
+            <Button
+              variant="contained"
+              color={guiaTurno.esMiTurno ? "success" : "primary"}
+              onClick={guiaTurno.accionFn}
+              sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
+            >
+              {guiaTurno.accionTexto}
+            </Button>
+          )}
+        </Box>
+      </Paper>
+
+      {/* ================= 1. STEPPER DINÁMICO CON ETIQUETAS DE ROL ================= */}
       <Stepper activeStep={faseActual} alternativeLabel sx={{ mb: 5 }}>
-        {fases.map((label) => (
-          <Step key={label}>
-            <StepLabel error={(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') && label === 'Fase 5: Control Calidad'}>{label}</StepLabel>
+        {fasesConfig.map((item) => (
+          <Step key={item.label}>
+            <StepLabel
+              optional={
+                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', color: 'text.secondary', fontWeight: 600, mt: 0.5 }}>
+                  {item.rolResponsable}
+                </Typography>
+              }
+              error={(casoActual.estadoFlujo === 'DEVUELTO_A_INSTITUCIONAL' || casoActual.estadoFlujo === 'DEVUELTO_A_ERR') && item.label === 'Fase 5: Control Calidad'}
+            >
+              {item.label}
+            </StepLabel>
           </Step>
         ))}
       </Stepper>
@@ -383,25 +723,28 @@ export default function CaseDetail() {
         </Alert>
       )}
 
-      {/* ================= TABS PRINCIPALES ================= */}
+      {/* ================= TABS PRINCIPALES (GESTIÓN DEL EXPEDIENTE PRIMERO) ================= */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} aria-label="expediente tabs" variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-          <Tab label="Gestor de Evidencias" />
           <Tab label="Gestión del Expediente" />
+          <Tab label="Gestor de Evidencias" />
           <Tab label="Historial de Cambios" iconPosition="start" icon={<HistoryIcon fontSize="small" />} />
           <Tab label="Agenda y Reuniones" />
         </Tabs>
       </Box>
 
-      {/* TAB 1: GESTIÃ“N DEL EXPEDIENTE */}
-      {tabIndex === 1 && (
+      {/* TAB 0: GESTIÓN DEL EXPEDIENTE */}
+      {tabIndex === 0 && (
         <Box>
-          {/* TARJETA 0: INFORMACIÃ“N GENERAL (Fase 1) */}
+          {/* TARJETA 0: INFORMACIÓN GENERAL (Fase 1) */}
           <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
             <CardContent sx={{ p: 0 }}>
-              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
-                <SearchIcon color="primary" />
-                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Información General del Caso (Fase 1) - llenado por esavi institucional</Typography>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SearchIcon color="primary" />
+                  <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Fase 1: Información General del Caso</Typography>
+                </Box>
+                <Chip label="Responsable: Notificador Local" size="small" variant="outlined" color="primary" />
               </Box>
               <Box sx={{ p: 2 }}>
                 <ActionRow
@@ -420,9 +763,12 @@ export default function CaseDetail() {
           {/* TARJETA 1: JEFATURAS (Fase 2 y 3) */}
           <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
             <CardContent sx={{ p: 0 }}>
-              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
-                <AssignmentIcon color="primary" />
-                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Evaluación y Asignación (Fases 2 y 3): esavi institucional, epidemio institucional e inmuno institucional (equipo coordinador)</Typography>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AssignmentIcon color="primary" />
+                  <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold' }}>Fases 2 y 3: Evaluación y Asignación de Equipo</Typography>
+                </Box>
+                <Chip label="Responsable: Equipo Coordinador Institucional" size="small" variant="outlined" color="primary" />
               </Box>
               <Box sx={{ p: 2 }}>
                 <ActionRow
@@ -521,10 +867,12 @@ export default function CaseDetail() {
               <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <SearchIcon color="secondary" />
-                  <Typography variant="subtitle1" color="secondary.main" sx={{ fontWeight: 'bold' }}>Investigación de Campo (Fase 4)</Typography>
+                  <Typography variant="subtitle1" color="secondary.main" sx={{ fontWeight: 'bold' }}>Fase 4: Investigación de Campo</Typography>
                 </Box>
-                {/* ETIQUETA DINÁMICA DE ASIGNACIÃ“N AL ERR */}
-                {isLocalOperativo && isUserAssignedToERR && <Chip label="Asignado como Investigador ERR" color="secondary" size="small" sx={{ fontWeight: 'bold' }} />}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Chip label="Responsable: Equipo ERR de Campo" size="small" variant="outlined" color="secondary" />
+                  {isLocalOperativo && isUserAssignedToERR && <Chip label="Asignado como Investigador ERR" color="secondary" size="small" sx={{ fontWeight: 'bold' }} />}
+                </Box>
               </Box>
 
               <Box sx={{ p: 2 }}>
@@ -593,7 +941,7 @@ export default function CaseDetail() {
                           else navigate('/anexo-logistica/' + id);
                         }}
                         disabled={a3Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToIII) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
-                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 (Notas) primero." : (!(isEsaviLocal || isAssignedToIII) ? "Acceso exclusivo para Coordinador Local o Clínico." : "Habilitado para completar."))}
+                        tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 (Notas) primero." : isAuditorOrObserver ? "Acceso exclusivo para el Equipo ERR Local (Referente Clínico Local). Como nivel institucional/auditor, su función es de consulta y posterior auditoría en Fase 5." : (!(isEsaviLocal || isAssignedToIII) ? "Acceso exclusivo para Coordinador Local o Clínico." : "Habilitado para completar."))}
                         color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow
@@ -606,7 +954,7 @@ export default function CaseDetail() {
                           else navigate(`/anexo-clinico/${id}`);
                         }}
                         disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToVII) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))}
-                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a7Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEsaviLocal || isAssignedToVII) ? "Acceso exclusivo para Referente Clínico o ERR." : "Habilitado para completar.")))}
+                        tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a7Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : isAuditorOrObserver ? "Acceso exclusivo para el Referente Clínico Local (ERR). El nivel institucional audita en Fase 5.1." : (!(isEsaviLocal || isAssignedToVII) ? "Acceso exclusivo para Referente Clínico o ERR." : "Habilitado para completar.")))}
                         color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow
@@ -619,7 +967,7 @@ export default function CaseDetail() {
                           else navigate(`/anexo-puesto/${id}`);
                         }}
                         disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || isAssignedToV) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))}
-                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a5Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isInmunoLocal || isAssignedToV) ? "Acceso exclusivo para Inmunizaciones o ERR." : "Habilitado para completar.")))}
+                        tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a5Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : isAuditorOrObserver ? "Acceso exclusivo para Inmunizaciones Local (ERR). El nivel institucional audita en Fase 5.1." : (!(isInmunoLocal || isAssignedToV) ? "Acceso exclusivo para Inmunizaciones o ERR." : "Habilitado para completar.")))}
                         color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                       <ActionRow
@@ -632,7 +980,7 @@ export default function CaseDetail() {
                           else navigate(`/anexo-domicilio/${id}`);
                         }}
                         disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || isAssignedToVI) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}
-                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a6Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : (!(isEpidemioLocal || isAssignedToVI) ? "Acceso exclusivo para Epidemiólogo o ERR." : "Habilitado para completar.")))}
+                        tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a6Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : isAuditorOrObserver ? "Acceso exclusivo para Epidemiología Local (ERR). El nivel institucional audita en Fase 5.1." : (!(isEpidemioLocal || isAssignedToVI) ? "Acceso exclusivo para Epidemiólogo o ERR." : "Habilitado para completar.")))}
                         color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                     </>
@@ -689,9 +1037,12 @@ export default function CaseDetail() {
           {/* TARJETA 2.5: CONTROL DE CALIDAD (Fase 5) */}
           <Card elevation={2} sx={{ mb: 4, borderRadius: 2 }}>
             <CardContent sx={{ p: 0 }}>
-              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
-                <FactCheckIcon sx={{ color: '#ed6c02' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#ed6c02' }}>Control de Calidad (Fase 5)</Typography>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FactCheckIcon sx={{ color: '#ed6c02' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#ed6c02' }}>Fase 5: Control de Calidad y Auditoría</Typography>
+                </Box>
+                <Chip label="Responsable: Equipo Coordinador (5.1) & Secretariado Coordinador (5.2)" size="small" variant="outlined" color="warning" />
               </Box>
               <Box sx={{ p: 2 }}>
                 <ActionRow
@@ -709,19 +1060,34 @@ export default function CaseDetail() {
                   btnText="Auditoría Secretariado"
                   color="warning"
                   onClick={() => setOpenAuditoria(true)}
-                  disabled={!(isSecretariado && casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO')}
-                  tooltipText={!isSecretariado ? "Exclusivo para Secretariado." : "Requiere que ESAVI Institucional haya aprobado."}
+                  disabled={!(
+                    isSecretariado &&
+                    casoActual.estadoFlujo === 'EN_REVISION_SECRETARIADO' &&
+                    (!casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail)
+                  )}
+                  tooltipText={
+                    !isSecretariado
+                      ? "Exclusivo para Secretariado."
+                      : casoActual.equipoRegulatorio && casoActual.equipoRegulatorio.coordinador !== userEmail
+                      ? "Exclusivo para el Secretariado Coordinador asignado a este caso."
+                      : casoActual.estadoFlujo !== 'EN_REVISION_SECRETARIADO'
+                      ? "Requiere que el Equipo Coordinador Institucional haya aprobado la Fase 5.1."
+                      : "Realizar auditoría regulatoria y pase a comité."
+                  }
                 />
               </Box>
             </CardContent>
           </Card>
 
-          {/* TARJETA 3: SECRETARIADO Y COMITÃ‰ (Fases 5 y 6) */}
+          {/* TARJETA 3: SECRETARIADO Y COMITÉ (Fases 5 y 6) */}
           <Card elevation={2} sx={{ borderRadius: 2 }}>
             <CardContent sx={{ p: 0 }}>
-              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e0e0e0' }}>
-                <FactCheckIcon sx={{ color: '#2e7d32' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>Cierre y Dictamen Técnico (Fases 5 y 6)</Typography>
+              <Box sx={{ bgcolor: '#f4f6f8', p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FactCheckIcon sx={{ color: '#2e7d32' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>Fase 6: Cierre y Dictamen Técnico</Typography>
+                </Box>
+                <Chip label="Responsable: Comité Nacional de Expertos (CNED)" size="small" variant="outlined" color="success" />
               </Box>
               <Box sx={{ p: 2 }}>
                 <ActionRow
@@ -731,12 +1097,12 @@ export default function CaseDetail() {
                   color="primary"
                   onClick={() => navigate('/dictamen/' + id)}
                   disabled={!isComitée || ['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo)}
-                  tooltipText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "El dictamen ya fue emitido para este expediente." : "Solo Comitéé."}
+                  tooltipText={['DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? "El dictamen ya fue emitido para este expediente." : "Solo Comité."}
                 />
                 <ActionRow
                   title="Sala de Espera (Fase 5)"
                   chipStatus={['EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
-                  btnText="Agendar para Comitéé"
+                  btnText="Agendar para Comité"
                   color="secondary"
                   onClick={() => setOpenEnvioComitéeModal(true)}
                   disabled={!isSecretariado || casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE' || !tieneReunionCierre}
@@ -755,7 +1121,7 @@ export default function CaseDetail() {
                   color="info"
                   onClick={() => navigate('/informe-tecnico/' + id)}
                   disabled={!['APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo)}
-                  tooltipText="Disponible una vez que el Secretariado haya aprobado el pase al Comitéé."
+                  tooltipText="Disponible una vez que el Secretariado haya aprobado el pase al Comité."
                 />
               </Box>
 
@@ -801,13 +1167,13 @@ export default function CaseDetail() {
         </Box>
       )}
 
-      {/* TAB 0: GESTOR DE EVIDENCIAS */}
-      {tabIndex === 0 && (
+      {/* TAB 1: GESTOR DE EVIDENCIAS */}
+      {tabIndex === 1 && (
         <Box>
           <Alert severity="info" sx={{ mb: 2, fontWeight: 'medium' }}>
             Recuerde subir la presentación del caso y la documentación pertinente en el Gestor de Evidencias antes de oficializar el expediente.
           </Alert>
-          <GestorEvidencias caseId={id || 'ESAVI-000'} readOnly={isObserver} />
+          <GestorEvidencias caseId={id || 'ESAVI-000'} readOnly={isObserver || isSecretariadoApoyo} />
         </Box>
       )}
 

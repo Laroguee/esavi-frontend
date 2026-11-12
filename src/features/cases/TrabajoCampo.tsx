@@ -222,7 +222,7 @@ export default function TrabajoCampo() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Chip icon={<AccessTimeIcon />} label={calcularSLA_ERR(caso, currentRole).etiqueta} color={calcularSLA_ERR(caso, currentRole).color as any} size="small" />
+                            <Chip icon={<AccessTimeIcon />} label={calcularSLA_ERR(caso, currentRole || undefined).etiqueta} color={calcularSLA_ERR(caso, currentRole || undefined).color as any} size="small" />
                           </TableCell>
                           <TableCell align="center">
                             {getActionBtn(caso.id, isCompletado)}

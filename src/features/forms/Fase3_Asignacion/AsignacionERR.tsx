@@ -28,6 +28,20 @@ export default function AsignacionERR() {
   const [apoyosManuales, setApoyosManuales] = useState<{nombre: string, cargo: string}[]>([]);
   const [apoyosSistema, setApoyosSistema] = useState<{email: string, permiso: 'VER' | 'LLENAR', areaApoyo?: string}[]>([]);
 
+    const getOpcionesLocal = (rolBase: 'ESAVI' | 'INMUNO' | 'EPIDEMIO', instNombre: string) => {
+    const norm = normalizeEstablecimiento(instNombre).toLowerCase().trim();
+    let opts = usuariosBD.filter(u => {
+      const roleOk = String(u.role).includes(rolBase) || (rolBase === 'ESAVI' && String(u.role).includes('LOCAL'));
+      const estOk = !norm || normalizeEstablecimiento(u.establecimiento).toLowerCase().trim() === norm;
+      return roleOk && estOk;
+    });
+
+    if (opts.length === 0 && norm) {
+      opts = usuariosBD.filter(u => String(u.role).includes(rolBase) || String(u.role).includes('LOCAL'));
+    }
+    return opts;
+  };
+
   const normalizeEstablecimiento = (est: string | undefined) => {
     if (!est) return '';
     const upper = est.toUpperCase().trim();
@@ -517,11 +531,33 @@ export default function AsignacionERR() {
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="err_local_clinico" control={control} render={({ field }) => {
-                      const options = usuariosBD.filter(u => String(u.role).includes('ESAVI') && (!valores.inst_err_local_clinico || u.establecimiento === valores.inst_err_local_clinico));
+                      const options = getOpcionesLocal('ESAVI', valores.inst_err_local_clinico);
+                      const isManual = field.value && !options.some(p => p.email === field.value);
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Responsable Clínico Local" required helperText="Encargado exclusivo de la evaluación clínica del paciente y llenado del Anexo VII.">
-                          {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
-                        </TextField>
+                        <Box>
+                          <TextField {...field} select fullWidth size="small" label="Responsable Clínico Local" required helperText="Encargado exclusivo de la evaluación clínica del paciente y llenado del Anexo VII.">
+                            {options.map((p) => (
+                              <MenuItem key={p.email} value={p.email}>
+                                {p.name} ({p.role}) {valores.inst_err_local_clinico && normalizeEstablecimiento(p.establecimiento) !== normalizeEstablecimiento(valores.inst_err_local_clinico) ? `[${p.establecimiento || 'Red General'}]` : ''}
+                              </MenuItem>
+                            ))}
+                            <MenuItem value="__MANUAL__">➕ Designar Profesional Directo (Ingresar correo)</MenuItem>
+                            {isManual && field.value !== '__MANUAL__' && (
+                              <MenuItem value={field.value}>{field.value}</MenuItem>
+                            )}
+                          </TextField>
+                          {field.value === '__MANUAL__' && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="Correo del profesional / médico responsable"
+                              placeholder="ejemplo: medico.clinico@isss.gob.sv"
+                              sx={{ mt: 1 }}
+                              onChange={(e) => field.onChange(e.target.value.trim())}
+                              helperText="Ingrese el correo oficial para asignarle la investigación del Anexo VII"
+                            />
+                          )}
+                        </Box>
                       );
                     }}/>
                   </Grid>
@@ -541,11 +577,33 @@ export default function AsignacionERR() {
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="err_local_inmuno" control={control} render={({ field }) => {
-                      const options = usuariosBD.filter(u => String(u.role).includes('INMUNO') && (!valores.inst_err_local_inmuno || u.establecimiento === valores.inst_err_local_inmuno));
+                      const options = getOpcionesLocal('INMUNO', valores.inst_err_local_inmuno);
+                      const isManual = field.value && !options.some(p => p.email === field.value);
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Responsable de Inmunizaciones Local" required helperText="Encargado exclusivo de la auditoría en puesto de vacunación y llenado del Anexo V.">
-                          {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
-                        </TextField>
+                        <Box>
+                          <TextField {...field} select fullWidth size="small" label="Responsable de Inmunizaciones Local" required helperText="Encargado exclusivo de la auditoría en puesto de vacunación y llenado del Anexo V.">
+                            {options.map((p) => (
+                              <MenuItem key={p.email} value={p.email}>
+                                {p.name} ({p.role}) {valores.inst_err_local_inmuno && normalizeEstablecimiento(p.establecimiento) !== normalizeEstablecimiento(valores.inst_err_local_inmuno) ? `[${p.establecimiento || 'Red General'}]` : ''}
+                              </MenuItem>
+                            ))}
+                            <MenuItem value="__MANUAL__">➕ Designar Profesional Directo (Ingresar correo)</MenuItem>
+                            {isManual && field.value !== '__MANUAL__' && (
+                              <MenuItem value={field.value}>{field.value}</MenuItem>
+                            )}
+                          </TextField>
+                          {field.value === '__MANUAL__' && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="Correo del referente de inmunizaciones"
+                              placeholder="ejemplo: inmuno.local@isss.gob.sv"
+                              sx={{ mt: 1 }}
+                              onChange={(e) => field.onChange(e.target.value.trim())}
+                              helperText="Ingrese el correo oficial para asignarle la investigación del Anexo V"
+                            />
+                          )}
+                        </Box>
                       );
                     }}/>
                   </Grid>
@@ -565,11 +623,33 @@ export default function AsignacionERR() {
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller name="err_local_epidemio" control={control} render={({ field }) => {
-                      const options = usuariosBD.filter(u => String(u.role).includes('EPIDEMIO') && (!valores.inst_err_local_epidemio || u.establecimiento === valores.inst_err_local_epidemio));
+                      const options = getOpcionesLocal('EPIDEMIO', valores.inst_err_local_epidemio);
+                      const isManual = field.value && !options.some(p => p.email === field.value);
                       return (
-                        <TextField {...field} select fullWidth size="small" label="Responsable Epidemiológico Local" required helperText="Encargado exclusivo de la investigación comunitaria/domiciliaria y llenado del Anexo VI.">
-                          {options.map((p) => (<MenuItem key={p.email} value={p.email}>{p.name} ({p.role})</MenuItem>))}
-                        </TextField>
+                        <Box>
+                          <TextField {...field} select fullWidth size="small" label="Responsable Epidemiológico Local" required helperText="Encargado exclusivo de la investigación comunitaria/domiciliaria y llenado del Anexo VI.">
+                            {options.map((p) => (
+                              <MenuItem key={p.email} value={p.email}>
+                                {p.name} ({p.role}) {valores.inst_err_local_epidemio && normalizeEstablecimiento(p.establecimiento) !== normalizeEstablecimiento(valores.inst_err_local_epidemio) ? `[${p.establecimiento || 'Red General'}]` : ''}
+                              </MenuItem>
+                            ))}
+                            <MenuItem value="__MANUAL__">➕ Designar Profesional Directo (Ingresar correo)</MenuItem>
+                            {isManual && field.value !== '__MANUAL__' && (
+                              <MenuItem value={field.value}>{field.value}</MenuItem>
+                            )}
+                          </TextField>
+                          {field.value === '__MANUAL__' && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="Correo del epidemiólogo local"
+                              placeholder="ejemplo: epidemio.local@isss.gob.sv"
+                              sx={{ mt: 1 }}
+                              onChange={(e) => field.onChange(e.target.value.trim())}
+                              helperText="Ingrese el correo oficial para asignarle la investigación del Anexo VI"
+                            />
+                          )}
+                        </Box>
                       );
                     }}/>
                   </Grid>

@@ -1,5 +1,5 @@
 import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, TextField, Button, Checkbox, FormControlLabel, FormGroup, CircularProgress } from '@mui/material';
+import { Box, Paper, Typography, TextField, Button, Checkbox, FormControlLabel, FormGroup, CircularProgress, Alert } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -26,7 +26,22 @@ export default function AnexoIII_Logistica() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isViewMode, setIsViewMode] = useState(searchParams.get('mode') === 'view');
-  const { setLogisticaCompletada, userEmail } = useAuthStore();
+  const { setLogisticaCompletada, userEmail, currentRole } = useAuthStore();
+  const { casos } = useCasesStore();
+  const casoActual = casos.find((c: any) => c.id === id);
+
+  const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
+  const isSecretariado = currentRole === 'SECRETARIADO';
+  const isComitée = currentRole === 'COMITE_EXTERNO';
+  const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
+
+  const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
+    currentRole === 'ESAVI_LOCAL' ||
+    casoActual?.equipoERR?.idLocalClinico === userEmail ||
+    casoActual?.equipoERR?.idLocal === userEmail
+  );
+
+  const effectiveViewMode = isViewMode || !canEdit;
   const marcarAnexoCompletado = useCasesStore(state => state.marcarAnexoCompletado);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!id);
@@ -92,6 +107,10 @@ export default function AnexoIII_Logistica() {
   }, [id, isViewMode, reset, setSearchParams]);
 
   const onSubmit = async (data: any) => {
+    if (!canEdit) {
+      alert("Acceso denegado: El llenado del Anexo III corresponde exclusivamente al Referente Clínico / ERR Local.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (id && import.meta.env.VITE_USE_API === 'true') {
@@ -141,7 +160,7 @@ export default function AnexoIII_Logistica() {
 
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, mb: 3, gap: 2 }}>
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-          Anexo III: Checklist Logístico <Typography component="span" variant="h6" color="text.secondary">(Llenado por: Epidemiólogo / ESAVI Institucional)</Typography>
+          Anexo III: Checklist Logístico <Typography component="span" variant="h6" color="text.secondary">(Llenado por: Referente Clínico / ERR Local)</Typography>
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
@@ -153,8 +172,14 @@ export default function AnexoIII_Logistica() {
         </Box>
       </Box>
 
+      {!canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Modo Consulta:</strong> Su rol cuenta con acceso de solo lectura al Anexo III. La ejecución logística previa al despliegue corresponde exclusivamente al Referente Clínico / ERR Local.
+        </Alert>
+      )}
+
       <Box ref={componentRef} sx={{ p: 2, bgcolor: '#fff', borderRadius: 2 }}>
-        <fieldset disabled={isViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+        <fieldset disabled={effectiveViewMode} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <Paper variant="outlined" sx={{ p: { xs: 2, md: 4 }, mb: 4, borderColor: '#e0e0e0', borderTop: '4px solid', borderTopColor: 'primary.main' }}>
             <Typography variant="h6" color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold' }}>
               <ChecklistRtlIcon /> Preparación para el Trabajo de Campo
@@ -198,7 +223,7 @@ export default function AnexoIII_Logistica() {
         </fieldset>
       </Box>
 
-      {!isViewMode && (
+      {!effectiveViewMode && (
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'flex-end', gap: 2 }}>
           <Button variant="contained" color="secondary" type="submit" size="large" fullWidth sx={{ maxWidth: { sm: 300 } }} startIcon={<SaveIcon />} disabled={isSubmitting}>
             {isSubmitting ? 'Guardando...' : 'Guardar Logística de Campo'}

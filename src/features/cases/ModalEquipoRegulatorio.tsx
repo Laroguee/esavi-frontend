@@ -45,7 +45,13 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
     }
   }, [open, casoActual, userEmail]);
 
+  const isCoordinator = !casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail;
+
   const handleSave = async () => {
+    if (!isCoordinator) {
+      alert("Solo el Secretariado Coordinador designado puede modificar los miembros del Sub-Equipo Regulatorio.");
+      return;
+    }
     if (!analista || !coordinador) {
       alert("El Coordinador y el Analista son obligatorios.");
       return;
@@ -62,9 +68,15 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
         Conformar Sub-Equipo Regulatorio SRS
       </DialogTitle>
       <DialogContent sx={{ mt: 2 }}>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          El expediente ha sido clasificado como <strong>Crítico (Nacional)</strong>. Según el POE, debe estructurar un equipo interno para la gestión del Espacio Regulatorio.
-        </Alert>
+        {!isCoordinator ? (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <strong>Modo Consulta:</strong> El caso ya cuenta con un Sub-Equipo Regulatorio asignado. Solo el Secretariado Coordinador designado (<strong>{casoActual.equipoRegulatorio?.coordinador}</strong>) puede modificar la conformación.
+          </Alert>
+        ) : (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            El expediente ha sido clasificado con <strong>Riesgo Alto (Regional) / Crítico (Nacional)</strong>. Según el POE, debe estructurar un equipo interno para la gestión del Espacio Regulatorio y el pase a comité.
+          </Alert>
+        )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Box>
@@ -76,8 +88,9 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
               fullWidth 
               size="small" 
               value={coordinador} 
+              disabled={!isCoordinator}
               onChange={e => setCoordinador(e.target.value)}
-              helperText="Aprueba la revisión regulatoria (Fase 5.2) y da el Visto Bueno."
+              helperText="Lidera el equipo y aprueba la revisión regulatoria (Fase 5.2) para el pase a comité."
             >
               {usuariosSRS.map(u => (
                 <MenuItem key={u.email} value={u.email}>{u.name} ({u.email})</MenuItem>
@@ -94,8 +107,9 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
               fullWidth 
               size="small" 
               value={analista} 
+              disabled={!isCoordinator}
               onChange={e => setAnalista(e.target.value)}
-              helperText="El único con permisos para subir y borrar documentos en el Espacio Regulatorio."
+              helperText="Exclusivo responsable para subir y gestionar documentación en el [Espacio Regulatorio]."
             >
               {usuariosSRS.filter(u => u.email !== coordinador).map(u => (
                 <MenuItem key={u.email} value={u.email}>{u.name} ({u.email})</MenuItem>
@@ -105,15 +119,16 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
 
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-              3. Secretariado Apoyo (Investigador Externo) *Opcional
+              3. Secretariado Apoyo (Consulta / Seguimiento) *Opcional
             </Typography>
             <TextField 
               select 
               fullWidth 
               size="small" 
               value={apoyo} 
+              disabled={!isCoordinator}
               onChange={e => setApoyo(e.target.value)}
-              helperText="Permisos de solo lectura en la plataforma. Recolecta información fuera del sistema."
+              helperText="Permisos estrictos de solo lectura en la plataforma para consulta y seguimiento."
             >
               <MenuItem value=""><em>(Ninguno)</em></MenuItem>
               {usuariosSRS.filter(u => u.email !== coordinador && u.email !== analista).map(u => (
@@ -122,12 +137,34 @@ export default function ModalEquipoRegulatorio({ open, onClose, casoActual }: Mo
             </TextField>
           </Box>
         </Box>
+
+        {/* RESUMEN DE FUNCIONES SEGÚN POE */}
+        <Box sx={{ mt: 3, p: 2, bgcolor: '#f4f6f8', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main', display: 'block', mb: 1, textTransform: 'uppercase' }}>
+            Funciones y Responsabilidades según el POE:
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              • <strong>Coordinador:</strong> Lidera la auditoría de Fase 5.2, autoriza el pase al Comité Nacional de Expertos y presenta el Informe Técnico a las autoridades.
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              • <strong>Analista:</strong> Sube y organiza la documentación en la pestaña <code>[REGULATORIO]</code> del repositorio de evidencias para sustentar la causalidad ante el Comité.
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              • <strong>Apoyo:</strong> Da seguimiento continuo al expediente, consulta anexos y evidencias del caso con permisos de solo lectura.
+            </Typography>
+          </Box>
+        </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
-        <Button onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-        <Button onClick={handleSave} variant="contained" color="success" disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando...' : 'Confirmar Equipo Regulatorio'}
+        <Button onClick={onClose} disabled={isSubmitting}>
+          {isCoordinator ? 'Cancelar' : 'Cerrar'}
         </Button>
+        {isCoordinator && (
+          <Button onClick={handleSave} variant="contained" color="success" disabled={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : 'Confirmar Equipo Regulatorio'}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

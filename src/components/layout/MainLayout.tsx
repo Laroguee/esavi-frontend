@@ -16,6 +16,8 @@ import CircleIcon from '@mui/icons-material/Circle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import MenuIcon from '@mui/icons-material/Menu';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import CambioClaveModal from '../auth/CambioClaveModal';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import { useCatalogStore } from '../../store/useCatalogStore';
@@ -33,6 +35,7 @@ export default function MainLayout() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [securityAlert, setSecurityAlert] = useState<string | null>(null);
+  const [openCambioClave, setOpenCambioClave] = useState(false);
 
   // Manejador de intentos de violación de seguridad (DLP)
   const handleSecurityViolation = useCallback((type: string) => {
@@ -145,6 +148,11 @@ export default function MainLayout() {
               </Badge>
             </IconButton>
 
+            {/* BOTÓN DE CAMBIAR CONTRASEÑA */}
+            <IconButton color="inherit" onClick={() => setOpenCambioClave(true)} title="Cambiar mi contraseña">
+              <VpnKeyIcon />
+            </IconButton>
+
             {/* BOTÓN DE CERRAR SESIÓN */}
             <IconButton color="inherit" onClick={handleLogout} title="Cerrar Sesión">
               <LogoutIcon />
@@ -221,7 +229,7 @@ export default function MainLayout() {
           <Box sx={{ overflow: 'auto', mt: 2 }}>
           <List>
             <ListItem disablePadding>
-              <ListItemButton onClick={() => navigate('/')}>
+              <ListItemButton onClick={() => navigate(currentRole === 'COMITE_EXTERNO' ? '/bandeja-comite' : '/')}>
                 <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
                 <ListItemText primary="Bandeja de Casos" />
               </ListItemButton>
@@ -250,7 +258,7 @@ export default function MainLayout() {
             {/* REGLA: LOS LOCALES VEN EL BOTÓN DE CAMPO */}
             {currentRole?.includes('LOCAL') && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/')}>
+                <ListItemButton onClick={() => navigate('/trabajo-campo')}>
                   <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Mi Trabajo de Campo" />
                 </ListItemButton>
@@ -260,7 +268,7 @@ export default function MainLayout() {
             {/* REGLA: EL COMITÉ VE LOS DICTÁMENES */}
             {currentRole === 'COMITE_EXTERNO' && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/comitée-causalidad')}>
+                <ListItemButton onClick={() => navigate('/comite-causalidad')}>
                   <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
                   <ListItemText primary="Dictámenes Causalidad" />
                 </ListItemButton>
@@ -291,7 +299,7 @@ export default function MainLayout() {
           <Box sx={{ overflow: 'auto', mt: 2 }}>
             <List>
               <ListItem disablePadding>
-                <ListItemButton onClick={() => navigate('/')}>
+                <ListItemButton onClick={() => navigate(currentRole === 'COMITE_EXTERNO' ? '/bandeja-comite' : '/')}>
                   <ListItemIcon><DashboardIcon color="primary" /></ListItemIcon>
                   <ListItemText primary="Bandeja de Casos" />
                 </ListItemButton>
@@ -317,7 +325,7 @@ export default function MainLayout() {
 
               {currentRole?.includes('LOCAL') && (
                 <ListItem disablePadding>
-                  <ListItemButton onClick={() => navigate('/')}>
+                  <ListItemButton onClick={() => navigate('/trabajo-campo')}>
                     <ListItemIcon><SearchIcon color="secondary" /></ListItemIcon>
                     <ListItemText primary="Mi Trabajo de Campo" />
                   </ListItemButton>
@@ -326,7 +334,7 @@ export default function MainLayout() {
 
               {currentRole === 'COMITE_EXTERNO' && (
                 <ListItem disablePadding>
-                  <ListItemButton onClick={() => navigate('/comitée-causalidad')}>
+                  <ListItemButton onClick={() => navigate('/comite-causalidad')}>
                     <ListItemIcon><GavelIcon color="secondary" /></ListItemIcon>
                     <ListItemText primary="Dictámenes Causalidad" />
                   </ListItemButton>
@@ -380,6 +388,9 @@ export default function MainLayout() {
           {securityAlert}
         </Alert>
       </Snackbar>
+
+      {/* MODAL PARA CAMBIO DE CONTRASEÑA AUTOSERVICIO */}
+      <CambioClaveModal open={openCambioClave} onClose={() => setOpenCambioClave(false)} />
     </Box>
   );
 }

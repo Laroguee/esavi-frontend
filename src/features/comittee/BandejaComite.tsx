@@ -5,10 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { useCasesStore } from '../../store/useCasesStore';
 import dayjs from 'dayjs';
 
-export default function BandejaComitée() {
+export default function BandejaComite() {
   const navigate = useNavigate();
   const casos = useCasesStore(state => state.casos);
-  const casosComitée = casos.filter(c => c.estadoFlujo === 'EN_EVALUACION_COMITE');
+  const casosComite = casos.filter(c => c.estadoFlujo === 'EN_EVALUACION_COMITE');
 
   return (
     <Box sx={{ maxWidth: 1100, margin: 'auto', pb: 8 }}>
@@ -17,7 +17,7 @@ export default function BandejaComitée() {
         <GavelIcon color="primary" sx={{ fontSize: 40 }} />
         <Box>
           <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-            Bandeja del Comitéé de Expertos
+            Bandeja del Comité de Expertos
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Expedientes consolidados, auditados y listos para dictamen de causalidad final.
@@ -39,7 +39,7 @@ export default function BandejaComitée() {
           </TableHead>
           
           <TableBody>
-            {casosComitée.map((caso) => (
+            {casosComite.map((caso) => (
               <TableRow key={caso.id} hover>
                 <TableCell sx={{ fontWeight: 'bold' }}>{caso.id}</TableCell>
                 <TableCell>{caso.paciente}</TableCell>
@@ -62,7 +62,7 @@ export default function BandejaComitée() {
               </TableRow>
             ))}
             
-            {casosComitée.length === 0 && (
+            {casosComite.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">No hay casos pendientes de evaluación.</Typography>

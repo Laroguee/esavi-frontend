@@ -10,9 +10,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import { type MockUser } from '../../store/useAuthStore';
 import { useCatalogStore, type Establecimiento } from '../../store/useCatalogStore';
-import { listarUsuarios, crearUsuario, editarUsuario, crearEstablecimiento, editarEstablecimiento, listarEstablecimientos } from '../../services/adminService';
+import { listarUsuarios, crearUsuario, editarUsuario, crearEstablecimiento, editarEstablecimiento, listarEstablecimientos, enviarCorreoRestablecimiento } from '../../services/adminService';
 
 const MACRO_INSTITUCIONES = ['MINSAL', 'ISSS', 'FOSALUD', 'SRS', 'Sanidad Militar'];
 
@@ -40,6 +41,34 @@ export default function ModuloAdministracion() {
 
   const [openEstabModal, setOpenEstabModal] = useState(false);
   const [isEditEstab, setIsEditEstab] = useState(false);
+  const [resetUser, setResetUser] = useState<MockUser | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState<{ type: 'success' | 'error' | 'info', msg: string } | null>(null);
+
+  const handleOpenReset = (user: MockUser) => {
+    setResetUser(user);
+    setResetFeedback(null);
+  };
+
+  const handleSendResetEmail = async () => {
+    if (!resetUser || !resetUser.email) return;
+    setResetLoading(true);
+    setResetFeedback(null);
+    const res = await enviarCorreoRestablecimiento(resetUser.email);
+    if (res.success) {
+      setResetFeedback({
+        type: 'success',
+        msg: 'Se ha emitido el enlace de restablecimiento de contraseña para ' + resetUser.email + '. Si su dominio cuenta con buzón de entrada activo, el usuario recibirá el correo para definir su nueva clave.'
+      });
+    } else {
+      setResetFeedback({
+        type: 'error',
+        msg: 'Error al emitir el restablecimiento: ' + res.error
+      });
+    }
+    setResetLoading(false);
+  };
+
   const [estabData, setEstabData] = useState<Partial<Establecimiento>>({
     nombre: '', tipo: '', sibasi: '', institucionMacro: ''
   });

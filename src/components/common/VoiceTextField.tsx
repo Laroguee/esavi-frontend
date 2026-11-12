@@ -36,6 +36,7 @@ export interface VoiceTextFieldProps extends Omit<TextFieldProps, 'onChange'> {
   onVoiceTranscript?: (finalTranscript: string) => void;
   enableVoice?: boolean;
   voiceLanguage?: string;
+  InputProps?: any;
 }
 
 export const VoiceTextField: React.FC<VoiceTextFieldProps> = ({
@@ -173,27 +174,19 @@ export const VoiceTextField: React.FC<VoiceTextFieldProps> = ({
             helperText
           )
         }
-        // Soporta tanto slotProps (MUI v6+) como InputProps (MUI v5)
+        // Soporta slotProps (MUI v6+) integrando InputProps legacy
         slotProps={{
           ...slotProps,
           input: {
+            ...InputProps,
             ...(slotProps as any)?.input,
             endAdornment: (
               <>
-                {(slotProps as any)?.input?.endAdornment}
+                {(slotProps as any)?.input?.endAdornment || InputProps?.endAdornment}
                 {voiceAdornment}
               </>
             ),
           },
-        }}
-        InputProps={{
-          ...InputProps,
-          endAdornment: (
-            <>
-              {InputProps?.endAdornment}
-              {voiceAdornment}
-            </>
-          ),
         }}
       />
     </Box>

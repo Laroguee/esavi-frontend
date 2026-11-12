@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Grid, Card, CardContent, FormControlLabel, RadioGroup, Radio, TextField, Button, Alert, Checkbox, Chip } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, FormControlLabel, RadioGroup, Radio, TextField, Button, Alert, Chip } from '@mui/material';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
@@ -19,27 +19,33 @@ type EvaluacionAnexo = {
 
 export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps) {
   const navigate = useNavigate();
-  const { currentRole } = useAuthStore();
+  const { currentRole, userEmail } = useAuthStore();
   const { casos, devolverCaso, avanzarCaso, guardarAuditoriaParcialStore } = useCasesStore();
   
   const caso = casos.find(c => c.id === casoId);
 
   const [evaluaciones, setEvaluaciones] = useState<Record<string, EvaluacionAnexo>>(() => {
     const defaults: Record<string, EvaluacionAnexo> = {
-      'Anexo III (Logística)': { estado: '', observacion: '' },
       'Anexo V (Puesto de Vacunación)': { estado: '', observacion: '' },
       'Anexo VI (Domiciliaria)': { estado: '', observacion: '' },
       'Anexo VII (Clínico)': { estado: '', observacion: '' },
     };
-    return { ...defaults, ...(caso?.evaluaciones_fase5 || {}) };
+    const loaded = { ...defaults };
+    if (caso?.evaluaciones_fase5) {
+      if (caso.evaluaciones_fase5['Anexo V (Puesto de Vacunación)']) loaded['Anexo V (Puesto de Vacunación)'] = caso.evaluaciones_fase5['Anexo V (Puesto de Vacunación)'];
+      if (caso.evaluaciones_fase5['Anexo VI (Domiciliaria)']) loaded['Anexo VI (Domiciliaria)'] = caso.evaluaciones_fase5['Anexo VI (Domiciliaria)'];
+      if (caso.evaluaciones_fase5['Anexo VII (Clínico)']) loaded['Anexo VII (Clínico)'] = caso.evaluaciones_fase5['Anexo VII (Clínico)'];
+    }
+    return loaded;
   });
 
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
+  const isSecretariado = currentRole === 'SECRETARIADO';
+  const isSecretariadoCoordinador = isSecretariado && (!caso?.equipoRegulatorio || caso.equipoRegulatorio.coordinador === userEmail);
+  const isSecretariadoAnalista = isSecretariado && caso?.equipoRegulatorio?.analista === userEmail;
+  const isSecretariadoApoyo = isSecretariado && caso?.equipoRegulatorio?.apoyo === userEmail;
 
-  // --- CANDADOS NORMATIVOS POE FASE 5 ---
-  const [chkMinuta, setChkMinuta] = useState(false);
-  const [chkLineaTiempo, setChkLineaTiempo] = useState(false);
-  const [chkInformeFinal, setChkInformeFinal] = useState(false);
+  
 
   const handleRadioChange = (anexo: string, value: string) => {
     setEvaluaciones(prev => ({
@@ -56,14 +62,18 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
   };
 
   const isAnexoEditable = (anexoNombre: string) => {
-    if (currentRole === 'SECRETARIADO') return true;
-    if (currentRole === 'EPIDEMIO_INSTITUCIONAL' && (anexoNombre === 'Anexo III (Logística)' || anexoNombre === 'Anexo VI (Domiciliaria)')) return true;
+    if (isSecretariado) return isSecretariadoCoordinador;
+    if (currentRole === 'EPIDEMIO_INSTITUCIONAL' && anexoNombre === 'Anexo VI (Domiciliaria)') return true;
     if (currentRole === 'INMUNO_INSTITUCIONAL' && anexoNombre === 'Anexo V (Puesto de Vacunación)') return true;
     if (currentRole === 'ESAVI_INSTITUCIONAL' && anexoNombre === 'Anexo VII (Clínico)') return true;
     return false;
   };
 
   const handleGuardarParcial = async (anexo: string) => {
+    if (isSecretariado && !isSecretariadoCoordinador) {
+      alert('Solo el Secretariado Coordinador puede guardar evaluaciones en la Fase 5.2.');
+      return;
+    }
     const evalData = evaluaciones[anexo];
     if (!evalData.estado) {
       alert('Seleccione un estado (Aprobado u Observado) antes de guardar.');
@@ -79,6 +89,10 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
   };
 
   const handleDevolverExpediente = async () => {
+    if (isSecretariado && !isSecretariadoCoordinador) {
+      alert('La devolución con observaciones (Fase 5.2) corresponde exclusivamente al Secretariado Coordinador.');
+      return;
+    }
     const anexosObservados = Object.entries(evaluaciones).filter(([_, data]) => data.estado === 'observado');
     if (anexosObservados.length === 0) {
       alert("No hay anexos observados para devolver.");
@@ -98,23 +112,20 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
   };
 
   const handleAprobarFinal = () => {
+    if (isSecretariado && !isSecretariadoCoordinador) {
+      alert('La aprobación y envío al comité (Fase 5.2) corresponde exclusivamente al Secretariado Coordinador.');
+      return;
+    }
     const todosAprobados = Object.values(evaluaciones).every(e => e.estado === 'aprobado');
     if (!todosAprobados && currentRole !== 'SECRETARIADO') {
-      alert("No puede enviar el expediente al Secretariado hasta que TODOS los anexos estén aprobados por sus respectivos especialistas.");
+      alert("No puede enviar el expediente al Secretariado hasta que TODOS los anexos técnicos (V, VI y VII) estén aprobados por sus respectivos especialistas.");
       return;
     }
 
-    const isSecretariado = currentRole === 'SECRETARIADO';
-
-    if (!isSecretariado) {
-      if (!chkMinuta || !chkLineaTiempo || !chkInformeFinal) {
-        alert("Debe confirmar todos los Requisitos de Cierre Institucional marcando las casillas.");
-        return;
-      }
-    }
+    
 
     const nuevoEstado = isJefe ? 'EN_REVISION_SECRETARIADO' : 'APROBADO_PARA_COMITE';
-    const nuevaFase = isJefe ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comitéé';
+    const nuevaFase = isJefe ? 'Fase 5: Control Calidad' : 'Fase 5: Aprobado para Comité';
     const msg = `Expediente aprobado por ${currentRole}. Avanza a ${nuevoEstado}.`;
 
     guardarAuditoriaFase5(casoId, currentRole || 'Desconocido', nuevoEstado, evaluaciones);
@@ -213,22 +224,29 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
 
       {(!isPaseDeMando && (isJefe || currentRole === 'SECRETARIADO')) && (
         <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e0e0e0' }}>
-          {isJefe && (
-            <Box sx={{ mb: 3, p: 2, bgcolor: '#f4f6f8', borderRadius: 1, border: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
-                Requisitos de Cierre Institucional (Paso 16 del POE)
+          {isSecretariado && !isSecretariadoCoordinador && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                Modo Consulta — Su Rol: {isSecretariadoAnalista ? 'Secretariado Analista (Operativo)' : isSecretariadoApoyo ? 'Secretariado Apoyo (Acompañamiento)' : 'Secretariado Técnico'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-                Solo habilitado cuando los 4 anexos estén aprobados.
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {isSecretariadoAnalista ? (
+                  <>
+                    Como <strong>Secretariado Analista</strong>, su función principal en este caso es preparar y subir la documentación regulatoria en la pestaña <strong>[REGULATORIO]</strong> del Gestor de Evidencias. La firma y aprobación final de la auditoría (Fase 5.2) corresponde al Secretariado Coordinador (<strong>{caso?.equipoRegulatorio?.coordinador || 'SRS'}</strong>).
+                  </>
+                ) : (
+                  <>
+                    Como <strong>Secretariado Apoyo</strong>, su función es el seguimiento y consulta integral de los anexos y evidencias del caso con permisos de solo lectura. La resolución y aprobación de la auditoría corresponde al Secretariado Coordinador (<strong>{caso?.equipoRegulatorio?.coordinador || 'SRS'}</strong>).
+                  </>
+                )}
               </Typography>
-              <FormControlLabel control={<Checkbox checked={chkMinuta} onChange={(e) => setChkMinuta(e.target.checked)} />} label={<Typography variant="body2">Minuta de reunión de cierre elaborada</Typography>} />
-              <FormControlLabel control={<Checkbox checked={chkLineaTiempo} onChange={(e) => setChkLineaTiempo(e.target.checked)} />} label={<Typography variant="body2">Línea de tiempo del caso documentada</Typography>} />
-              <FormControlLabel control={<Checkbox checked={chkInformeFinal} onChange={(e) => setChkInformeFinal(e.target.checked)} />} label={<Typography variant="body2">Informe final consolidado en el Gestor de Evidencias</Typography>} />
-            </Box>
+            </Alert>
           )}
 
+          
+
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            {Object.values(evaluaciones).some(e => e.estado === 'observado') && (
+            {Object.values(evaluaciones).some(e => e.estado === 'observado') && (isJefe || isSecretariadoCoordinador) && (
               <Button 
                 variant="contained" 
                 color="error" 
@@ -242,10 +260,14 @@ export default function ControlCalidad({ casoId, onClose }: ControlCalidadProps)
               variant="contained" 
               color="success" 
               onClick={handleAprobarFinal}
-              disabled={isJefe ? (!chkMinuta || !chkLineaTiempo || !chkInformeFinal || !Object.values(evaluaciones).every(e => e.estado === 'aprobado')) : false}
+              disabled={
+                isJefe 
+                  ? !Object.values(evaluaciones).every(e => e.estado === 'aprobado')
+                  : !isSecretariadoCoordinador
+              }
               sx={{ fontWeight: 'bold', px: 4 }}
             >
-              {isJefe ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comitéé'}
+              {isJefe ? 'Aprobar y Enviar al Secretariado' : 'Aprobar y Enviar al Comité'}
             </Button>
           </Box>
         </Box>

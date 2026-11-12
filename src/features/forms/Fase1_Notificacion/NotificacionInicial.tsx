@@ -1,11 +1,13 @@
-import { useForm, Controller } from 'react-hook-form';
-import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox, Autocomplete } from '@mui/material';
+import React, { useRef, useEffect, useMemo } from 'react';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { Box, Paper, Typography, Grid, TextField, Button, MenuItem, Divider, FormControl, FormLabel, FormGroup, FormControlLabel, Checkbox, Autocomplete, IconButton, Chip } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { useRef, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useCasesStore } from '../../../store/useCasesStore';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -20,7 +22,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.j
 // ESQUEMA ESTRICTO DE ZOD (Actualizado Fase 1 Noti-FACEDRA)
 // =======================================================
 const notificacionSchema = z.object({
-  // A. Notificador
+  // A. Notificador y Notificación
+  numeroNotificacionFacedra: z.string().optional(),
+  esSeguimiento: z.boolean().optional(),
   fechaNotificacion: z.string().min(1, "Campo obligatorio"),
   nombreNotificador: z.string().min(3, "Mínimo 3 caracteres"),
   cargoNotificador: z.string().optional(),
@@ -46,7 +50,7 @@ const notificacionSchema = z.object({
   pacienteDireccion: z.string().optional(),
   pacienteResponsable: z.string().optional(),
 
-  // C. Vacuna / Medicamento
+  // C. Vacuna / Medicamento Principal
   nombreVacuna: z.string().min(1, "Seleccione una vacuna/medicamento"),
   fechaAdministracion: z.string().min(1, "Campo obligatorio"),
   horaAdministracion: z.string().optional(),
@@ -57,6 +61,19 @@ const notificacionSchema = z.object({
   sitioAnatomico: z.string().optional(),
   establecimientoVacunacion: z.string().optional(),
   medidasTomadas: z.string().optional(),
+
+  // Vacunas o Medicamentos Concomitantes
+  medicamentosConcomitantes: z.array(z.object({
+    nombre: z.string(),
+    sospecha: z.string().optional(),
+    lote: z.string().optional(),
+    dosisPosologia: z.string().optional(),
+    viaAdministracion: z.string().optional(),
+    fechaAdministracion: z.string().optional(),
+    sitioAnatomico: z.string().optional(),
+    establecimientoVacunacion: z.string().optional(),
+    medidasTomadas: z.string().optional(),
+  })).optional(),
 
   // D. Reacciones (ESAVI)
   fechaInicioReaccion: z.string().min(1, "Campo obligatorio"),
@@ -104,12 +121,20 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
   const { control, handleSubmit, watch, reset, setValue } = useForm<NotificacionFormValues>({
     resolver: zodResolver(notificacionSchema),
     defaultValues: {
+      numeroNotificacionFacedra: '',
+      esSeguimiento: false,
       fechaNotificacion: '', nombreNotificador: '', cargoNotificador: '', establecimientoNotificador: '', telefonoNotificador: '', correoNotificador: '',
       nombrePaciente: '', genero: '', fechaNacimiento: '', edad: 0, unidadEdad: 'Años', expedienteClinico: '', 
       pesoKg: 0, alturaCm: 0, padeceOtrasEnfermedades: false, nombreEnfermedad: '', fechaDiagnostico: '', pacienteDUI: '', pacienteDireccion: '', pacienteResponsable: '',
       nombreVacuna: '', fechaAdministracion: '', horaAdministracion: '', dosisAdministradas: '', lote: '', fabricante: '', fechaCaducidad: '', sitioAnatomico: '', establecimientoVacunacion: '', medidasTomadas: '', viaAdministracion: '', dosisYPosologia: '',
+      medicamentosConcomitantes: [],
       fechaInicioReaccion: '', horaInicioReaccion: '', fechaFinReaccion: '', sintomasReaccion: '', eventoGravedad: '', criterioGravedad: [], desenlace: '', tratamientoRecibido: '', antecedentesMedicosRelevantes: '', observacionesAdicionales: ''
     }
+  });
+
+  const { fields: medsFields, append: appendMed, remove: removeMed } = useFieldArray({
+    control,
+    name: 'medicamentosConcomitantes'
   });
 
   const casos = useCasesStore(state => state.casos);
@@ -184,6 +209,17 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
 
       console.log("Texto extraído del PDF:", text);
 
+      // 1. Número de Notificación y Seguimiento (NOTI-FACEDRA)
+      const numNotifMatch = text.match(/N[úu]mero de Notificaci[óo]n:\s*([A-Z0-9]+)/i);
+      if (numNotifMatch) {
+        setValue('numeroNotificacionFacedra', numNotifMatch[1].trim());
+      }
+
+      const segMatch = text.match(/Seguimiento:\s*(S[íi]|No)/i);
+      if (segMatch) {
+        setValue('esSeguimiento', segMatch[1].toLowerCase().startsWith('s'));
+      }
+
       // Regex parsing según reglas FACEDRA mejorado
       const pacienteMatch = text.match(/Nombre y Apellidos:\s*(.+?)(?=N[º°] de [Ee]xpediente|Sexo|Edad)/is);
       if (pacienteMatch) {
@@ -216,52 +252,102 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       const alturaMatch = text.match(/Altura\s*\(cm\):\s*([\d,.]+)/i);
       if (alturaMatch) setValue('alturaCm', parseFloat(alturaMatch[1].replace(',', '.')));
 
-      // Mapeo inteligente de vacunas
-      const vacunaMatch = text.match(/Medicamento:\s*(.+?)(?=Lote y fecha|Motivo|Dosis)/is);
-      if (vacunaMatch) {
-        const vacStr = vacunaMatch[1].replace(/\n/g, ' ').toUpperCase();
-        let mappedVac = 'Otra';
-        if (vacStr.includes('NEUMO')) mappedVac = 'Neumococo';
-        else if (vacStr.includes('COVID')) mappedVac = 'COVID-19';
-        else if (vacStr.includes('ROTA')) mappedVac = 'Rotavirus';
-        else if (vacStr.includes('PENTA')) mappedVac = 'Pentavalente';
-        else if (vacStr.includes('POLIO')) mappedVac = 'Polio';
-        else if (vacStr.includes('HEPATITIS')) mappedVac = 'Hepatitis B';
-        else if (vacStr.includes('DPT')) mappedVac = 'DPT';
-        else if (vacStr.includes('SRP')) mappedVac = 'SRP';
-        else if (vacStr.includes('INFLUENZA') || vacStr.includes('ANTIGRIPAL')) mappedVac = 'Influenza';
-        else if (vacStr.includes('BCG')) mappedVac = 'BCG';
-        else if (vacStr.includes('VPH')) mappedVac = 'VPH';
-        else mappedVac = vacStr.trim();
-        
-        setValue('nombreVacuna', mappedVac);
-      }
+      // 2. Multi-medicamentos / Vacunas Concomitantes (NOTI-FACEDRA)
+      // Buscamos bloques de medicamentos para capturar Vacuna 1 y Vacuna 2 (o más)
+      const medBlocks = text.split(/MEDICAMENTO\s+\d+/i).slice(1);
+      const parsedMeds: Array<{
+        nombre: string;
+        sospecha?: string;
+        lote?: string;
+        dosisPosologia?: string;
+        viaAdministracion?: string;
+        fechaAdministracion?: string;
+        sitioAnatomico?: string;
+        establecimientoVacunacion?: string;
+        medidasTomadas?: string;
+      }> = [];
 
-      const loteMatch = text.match(/Lote y fecha de caducidad:\s*(.+?)(?=\n|Motivo|Dosis|-)/is);
-      if (loteMatch) {
-        const lote = loteMatch[1].replace(/\n/g, ' ').trim();
-        if (!lote.includes('NO DATOS')) {
-          setValue('lote', lote);
+      if (medBlocks.length > 0) {
+        for (const b of medBlocks) {
+          const cleanB = b.split(/REACCIONES/i)[0];
+          const nombreMatch = cleanB.match(/Medicamento:\s*(.+?)(?=\n\s*Motivo|\n\s*Lote|\n\s*Dosis|\n\s*V[íi]a)/is);
+          const nombre = nombreMatch ? nombreMatch[1].replace(/\s+/g, ' ').trim() : '';
+          const sospecha = cleanB.match(/Sospecha:\s*([^\s\n]+)/i)?.[1]?.trim() || 'Sospechoso';
+          const loteMatch = cleanB.match(/Lote y fecha de caducidad:\s*([^\n]+)/i);
+          let lote = loteMatch ? loteMatch[1].replace(/\s+/g, ' ').trim() : '';
+          if (lote.toUpperCase().includes('NO DATOS')) lote = '';
+          const dosis = cleanB.match(/Dosis y Posolog[íi]a:\s*([^\n]+)/i)?.[1]?.trim() || '';
+          const via = cleanB.match(/V[íi]a de administraci[óo]n:\s*([^\n]+)/i)?.[1]?.trim() || '';
+          const fechaAdminMatch = cleanB.match(/Fecha de administraci[óo]n de dosis:\s*(\d{2})\/(\d{2})\/(\d{4})/i) ||
+                                  cleanB.match(/Fecha inicio:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+          const formattedFechaAdmin = fechaAdminMatch ? `${fechaAdminMatch[3]}-${fechaAdminMatch[2]}-${fechaAdminMatch[1]}` : '';
+          const sitio = cleanB.match(/Parte del cuerpo donde se aplic[óo] la vacuna:\s*([^\n]+)/i)?.[1]?.trim() || '';
+          const estabVac = cleanB.match(/Establecimiento donde se administr[óo] la dosis:\s*([^\n]+)/i)?.[1]?.trim() || '';
+          const medidas = cleanB.match(/Medidas tomadas:\s*([^\n]+)/i)?.[1]?.trim() || '';
+
+          if (nombre) {
+            parsedMeds.push({
+              nombre,
+              sospecha,
+              lote,
+              dosisPosologia: dosis,
+              viaAdministracion: via,
+              fechaAdministracion: formattedFechaAdmin,
+              sitioAnatomico: sitio,
+              establecimientoVacunacion: estabVac,
+              medidasTomadas: medidas
+            });
+          }
         }
       }
 
-      const viaMatch = text.match(/Vía de administración:\s*(.+?)(?=\n|Medidas)/is);
-      if (viaMatch) setValue('viaAdministracion', viaMatch[1].replace(/\n/g, ' ').trim());
+      if (parsedMeds.length > 0) {
+        // Medicamento 1 (Principal): Guardar el nombre completo y exacto sin truncar
+        setValue('nombreVacuna', parsedMeds[0].nombre);
+        setValue('lote', parsedMeds[0].lote || 'NO REGISTRADO EN NOTIFICACIÓN');
+        if (parsedMeds[0].dosisPosologia) setValue('dosisYPosologia', parsedMeds[0].dosisPosologia);
+        if (parsedMeds[0].viaAdministracion) setValue('viaAdministracion', parsedMeds[0].viaAdministracion);
+        if (parsedMeds[0].fechaAdministracion) setValue('fechaAdministracion', parsedMeds[0].fechaAdministracion);
+        if (parsedMeds[0].sitioAnatomico) setValue('sitioAnatomico', parsedMeds[0].sitioAnatomico);
+        if (parsedMeds[0].establecimientoVacunacion) setValue('establecimientoVacunacion', parsedMeds[0].establecimientoVacunacion);
+        if (parsedMeds[0].medidasTomadas) setValue('medidasTomadas', parsedMeds[0].medidasTomadas);
 
-      const dosisPosMatch = text.match(/Dosis y posología:\s*(.+?)(?=\n|Vía)/is);
-      if (dosisPosMatch) setValue('dosisYPosologia', dosisPosMatch[1].replace(/\n/g, ' ').trim());
-
-      // Fechas (Hay dos en el documento: Vacuna y Evento)
-      // Buscamos explícitamente "Fecha de administración de dosis" para mayor precisión
-      const fechaAdminMatch = text.match(/Fecha de administración de dosis:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-      if (fechaAdminMatch) {
-        setValue('fechaAdministracion', `${fechaAdminMatch[3]}-${fechaAdminMatch[2]}-${fechaAdminMatch[1]}`);
+        // Medicamentos adicionales (Concomitantes: Medicamento 2, etc.)
+        if (parsedMeds.length > 1) {
+          setValue('medicamentosConcomitantes', parsedMeds.slice(1));
+        } else {
+          setValue('medicamentosConcomitantes', []);
+        }
       } else {
-        // Fallback a "Fecha inicio" bajo sección medicamento
-        const fechaMedMatch = text.match(/MEDICAMENTO[\s\S]*?Fecha inicio:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-        if (fechaMedMatch) {
-          setValue('fechaAdministracion', `${fechaMedMatch[3]}-${fechaMedMatch[2]}-${fechaMedMatch[1]}`);
+        // Fallback si no vinieron bloques MEDICAMENTO 1..N
+        const vacunaMatch = text.match(/Medicamento:\s*(.+?)(?=Lote y fecha|Motivo|Dosis)/is);
+        if (vacunaMatch) {
+          setValue('nombreVacuna', vacunaMatch[1].replace(/\s+/g, ' ').trim());
         }
+
+        const loteMatch = text.match(/Lote y fecha de caducidad:\s*(.+?)(?=\n|Motivo|Dosis|-)/is);
+        if (loteMatch) {
+          const lote = loteMatch[1].replace(/\n/g, ' ').trim();
+          setValue('lote', lote.includes('NO DATOS') ? 'NO REGISTRADO EN NOTIFICACIÓN' : lote);
+        }
+
+        const viaMatch = text.match(/Vía de administración:\s*(.+?)(?=\n|Medidas)/is);
+        if (viaMatch) setValue('viaAdministracion', viaMatch[1].replace(/\n/g, ' ').trim());
+
+        const dosisPosMatch = text.match(/Dosis y posología:\s*(.+?)(?=\n|Vía)/is);
+        if (dosisPosMatch) setValue('dosisYPosologia', dosisPosMatch[1].replace(/\n/g, ' ').trim());
+
+        const fechaAdminMatch = text.match(/Fecha de administración de dosis:\s*(\d{2})\/(\d{2})\/(\d{4})/i) ||
+                                text.match(/MEDICAMENTO[\s\S]*?Fecha inicio:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+        if (fechaAdminMatch) {
+          setValue('fechaAdministracion', `${fechaAdminMatch[3]}-${fechaAdminMatch[2]}-${fechaAdminMatch[1]}`);
+        }
+
+        const sitioMatch = text.match(/Parte del cuerpo donde se aplic[óo] la vacuna:\s*([^\n]+)/i);
+        if (sitioMatch) setValue('sitioAnatomico', sitioMatch[1].trim());
+
+        const estabVacMatch = text.match(/Establecimiento donde se administr[óo] la dosis:\s*([^\n]+)/i);
+        if (estabVacMatch) setValue('establecimientoVacunacion', estabVacMatch[1].trim());
       }
 
       const eventoMatch = text.match(/Reacción adversa:\s*(.+?)(?=Fecha|Desenlace)/is);
@@ -378,6 +464,11 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         establecimiento_notificador: data.establecimientoNotificador || '',
         id_establecimiento: estabSeleccionado ? estabSeleccionado.id : '',
         // Nuevos campos de Noti-FACEDRA integrados a la tabla principal
+        numero_notificacion: data.numeroNotificacionFacedra || '',
+        es_seguimiento: data.esSeguimiento === true,
+        establecimiento_vacunacion: data.establecimientoVacunacion || '',
+        sitio_anatomico: data.sitioAnatomico || '',
+        medicamentos_concomitantes_json: JSON.stringify(data.medicamentosConcomitantes || []),
         nombre_paciente: data.nombrePaciente || '',
         edad: data.edad || '',
         sexo: data.genero || '',
@@ -454,6 +545,10 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       establecimiento: data.establecimientoNotificador,
       id_establecimiento: estabSeleccionado ? estabSeleccionado.id : undefined,
       vacuna: data.nombreVacuna,
+      numeroNotificacionFacedra: data.numeroNotificacionFacedra || '',
+      esSeguimiento: data.esSeguimiento === true,
+      establecimientoVacunacion: data.establecimientoVacunacion || '',
+      medicamentosConcomitantes: data.medicamentosConcomitantes || [],
       fase: 'Fase 1: Notificación',
       estadoFlujo: 'NUEVO' as const,
       riesgo: 'Sin clasificar',
@@ -535,6 +630,21 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         </Box>
         <Box sx={{ p: { xs: 2, md: 4 } }}>
           <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Controller name="numeroNotificacionFacedra" control={control} render={({ field, fieldState }) => (
+                <TextField {...field} fullWidth label="Nº de Notificación FACEDRA (ej. NCA107211)" placeholder="Ej: NCA107211" 
+                  error={!!fieldState.error} helperText={fieldState.error?.message} />
+              )}/>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Controller name="esSeguimiento" control={control} render={({ field }) => (
+                <FormControlLabel
+                  sx={{ mt: 1 }}
+                  control={<Checkbox checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                  label="¿Es Notificación de Seguimiento?"
+                />
+              )}/>
+            </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
               <Controller name="fechaNotificacion" control={control} render={({ field, fieldState }) => (
                 <TextField {...field} fullWidth type="date" label="Fecha de notificación" required 
@@ -780,6 +890,141 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
                   <MenuItem value="Desconocido">Desconocido</MenuItem>
                 </TextField>
               )}/>
+            </Grid>
+
+            {/* Sub-sección: Medicamentos / Vacunas Concomitantes */}
+            <Grid size={{ xs: 12 }}>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    Medicamentos o Vacunas Concomitantes ({medsFields.length})
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Otras dosis o vacunas administradas simultáneamente (ej. Medicamento 2 en NOTI-FACEDRA).
+                  </Typography>
+                </Box>
+                {!readOnly && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<AddCircleIcon />}
+                    onClick={() => appendMed({
+                      nombre: '',
+                      sospecha: 'Concomitante',
+                      lote: '',
+                      dosisPosologia: '',
+                      viaAdministracion: '',
+                      fechaAdministracion: '',
+                      sitioAnatomico: '',
+                      establecimientoVacunacion: '',
+                      medidasTomadas: ''
+                    })}
+                  >
+                    + Agregar Concomitante
+                  </Button>
+                )}
+              </Box>
+
+              {medsFields.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', bgcolor: '#fbfbfb', p: 1.5, borderRadius: 1 }}>
+                  No se han registrado vacunas o fármacos concomitantes adicionales.
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {medsFields.map((fieldItem, idx) => (
+                    <Paper key={fieldItem.id} variant="outlined" sx={{ p: 2, bgcolor: '#fbfbfb', borderRadius: 1.5, borderLeft: '4px solid', borderColor: 'secondary.main' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip label={`Medicamento ${idx + 2}`} size="small" color="secondary" />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                            Vacuna / Fármaco Adicional
+                          </Typography>
+                        </Box>
+                        {!readOnly && (
+                          <IconButton size="small" color="error" onClick={() => removeMed(idx)} title="Eliminar este medicamento">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, md: 8 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.nombre`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Nombre Completo Vacuna / Medicamento" required />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.sospecha`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Sospecha / Tipo" placeholder="Concomitante" />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 3 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.fechaAdministracion`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" type="date" label="Fecha Administración" slotProps={{ inputLabel: { shrink: true } }} sx={getDateTimeSx(!!field.value)} />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 3 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.lote`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Lote" />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 3 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.dosisPosologia`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Dosis / Posología" placeholder="Ej: 0.5 ml" />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 3 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.viaAdministracion`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Vía de Administración" placeholder="Ej: INTRAMUSCULAR" />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.sitioAnatomico`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Sitio Anatómico (Ej: Muslo izquierdo)" />
+                            )}
+                          />
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                          <Controller
+                            name={`medicamentosConcomitantes.${idx}.establecimientoVacunacion`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField {...field} fullWidth size="small" label="Establecimiento de Dosis (Ej: ISSS)" />
+                            )}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
             </Grid>
           </Grid>
         </Box>
