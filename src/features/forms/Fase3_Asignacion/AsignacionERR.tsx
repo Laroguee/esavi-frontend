@@ -14,7 +14,7 @@ import { guardarEnSheets, registrarLog, crearNotificacion, obtenerExpediente } f
 export default function AsignacionERR() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const userEmail = useAuthStore(state => state.userEmail);
+  const { userEmail, currentRole } = useAuthStore();
   const { establecimientos } = useCatalogStore();
   const avanzarCaso = useCasesStore(state => state.avanzarCaso);
   const asignarMiembrosERR = useCasesStore(state => state.asignarMiembrosERR);
@@ -68,7 +68,7 @@ export default function AsignacionERR() {
   const riesgoStr = casoActual?.riesgo?.toUpperCase() || '';
   const esRiesgoAlto = riesgoStr.includes('ALTO') || riesgoStr.includes('CRÍTICO') || riesgoStr.includes('CRITICO') || riesgoStr.includes('NACIONAL');
 
-  const { control, handleSubmit, watch, setValue, reset } = useForm({
+  const { control, handleSubmit, watch, setValue, reset, getValues } = useForm({
     defaultValues: {
       inst_farmacovigilancia: '', farmacovigilancia: '',
       inst_inmunizaciones: '', inmunizaciones: '',
@@ -86,9 +86,15 @@ export default function AsignacionERR() {
     }
   });
 
-  // Pre-llenar si ya hay asignados (Reasignación)
+  // Pre-llenar si ya hay asignados (Reasignación) o preseleccionar al notificador ESAVI Institucional en casos Alto/Crítico
   useEffect(() => {
-    if (casoActual?.miembrosERR && casoActual.miembrosERR.length > 0 && usuariosBD.length > 0) {
+    if (usuariosBD.length === 0) return;
+
+    const creadorEsavi =
+      usuariosBD.find(u => u.email === casoActual?.id_creador && String(u.role).includes('ESAVI_INSTITUCIONAL')) ||
+      (currentRole === 'ESAVI_INSTITUCIONAL' ? usuariosBD.find(u => u.email === userEmail) : undefined);
+
+    if (casoActual?.miembrosERR && casoActual.miembrosERR.length > 0) {
       if (esRiesgoAlto && casoActual.equipoERR) {
         // Modo crítico pre-llenado
         const eq = casoActual.equipoERR;
@@ -104,7 +110,8 @@ export default function AsignacionERR() {
                               usuariosBD.find(u => String(u.role) === 'SECRETARIADO' && eq.idsInstitucionales?.includes(u.email)) ||
                               usuariosBD.find(u => u.email === eq.idsInstitucionales?.[3]);
         const uEsaviInst = usuariosBD.find(u => String(u.role).includes('ESAVI_INSTITUCIONAL') && eq.idsInstitucionales?.includes(u.email)) ||
-                           usuariosBD.find(u => u.email === eq.idsInstitucionales?.[0]);
+                           usuariosBD.find(u => u.email === eq.idsInstitucionales?.[0]) ||
+                           creadorEsavi;
         const uEpidemioInst = usuariosBD.find(u => String(u.role).includes('EPIDEMIO_INSTITUCIONAL') && eq.idsInstitucionales?.includes(u.email)) ||
                               usuariosBD.find(u => u.email === eq.idsInstitucionales?.[1]);
         const uInmunoInst = usuariosBD.find(u => String(u.role).includes('INMUNO_INSTITUCIONAL') && eq.idsInstitucionales?.includes(u.email)) ||
@@ -143,8 +150,11 @@ export default function AsignacionERR() {
           setApoyosManuales(casoActual.equipoERR.apoyosManuales || []);
         }
       }
+    } else if (esRiesgoAlto && creadorEsavi && !getValues('esavi_inst')) {
+      setValue('inst_esavi_inst', creadorEsavi.establecimiento || '');
+      setValue('esavi_inst', creadorEsavi.email);
     }
-  }, [casoActual, usuariosBD, reset, esRiesgoAlto]);
+  }, [casoActual, usuariosBD, reset, esRiesgoAlto, userEmail, currentRole, getValues, setValue]);
 
   const valores = watch();
 
@@ -376,6 +386,30 @@ export default function AsignacionERR() {
     usuariosBD.some(u => String(u.role).includes('INMUNO_INSTITUCIONAL') && u.establecimiento === inst.nombre)
   );
   const opcionesInstInmuno = estInmuno.length > 0 ? estInmuno : establecimientosCentrales;
+
+  const faltaOficializarORiesgo = casoActual && (
+    ['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'PENDIENTE_OFICIALIZAR'].includes(casoActual.estadoFlujo) ||
+    !casoActual.riesgo ||
+    casoActual.riesgo === 'Sin clasificar'
+  );
+
+  if (faltaOficializarORiesgo) {
+    return (
+      <Box sx={{ maxWidth: 750, margin: 'auto', pb: 8, pt: 4 }}>
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+            Paso previo requerido: Oficialización y Matriz de Riesgo (Fase 2)
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            No se puede asignar el Equipo de Respuesta Rápida (ERR) para el expediente <strong>{id}</strong> mientras no haya sido oficializado y evaluado en la Matriz de Riesgo (estado actual: <strong>{casoActual.estadoFlujo}</strong>).
+          </Typography>
+        </Alert>
+        <Button variant="contained" onClick={() => navigate('/caso/' + id)}>
+          Volver al Expediente
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 800, margin: 'auto', pb: 8, pt: 2 }}>

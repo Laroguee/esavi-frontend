@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { limpiarCacheSeguraEnLogout } from '../services/offline/offlineDB';
 
 export type Role = 
   | 'ESAVI_LOCAL' | 'INMUNO_LOCAL' | 'EPIDEMIO_LOCAL' 
@@ -73,12 +74,29 @@ export const useAuthStore = create<AuthState>()(
         if (broadcast) {
           authChannel.postMessage('logout');
         }
+
+        // Limpiar caché de consulta clínica en IndexedDB respetando borradores/cola offline
+        limpiarCacheSeguraEnLogout().catch((err) =>
+          console.warn('[Seguridad] No se pudo purgar caché local al cerrar sesión:', err)
+        );
+
+        // Si hay conexión, limpiar la caché de estados en localStorage y memoria
+        if (typeof window !== 'undefined' && navigator.onLine) {
+          localStorage.removeItem('esavi-cases-storage');
+        }
+        import('./useCasesStore')
+          .then(({ useCasesStore }) => {
+            useCasesStore.getState().limpiarMemoriaCasos();
+          })
+          .catch(() => {});
+
         set({ 
           isAuthenticated: false, 
           currentRole: null, 
           userEmail: null, 
           userName: null,
           userEstablecimiento: null,
+          userIdEstablecimiento: null,
           userInstitucionMacro: null,
           logisticaCompletada: false
         });

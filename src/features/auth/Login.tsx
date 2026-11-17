@@ -78,7 +78,7 @@ export default function Login() {
         alignItems: 'center', 
         justifyContent: 'center', 
         bgcolor: '#f4f6f8',
-        backgroundImage: 'url(https://res.cloudinary.com/dowejnpvd/image/upload/v1769541332/fondo_srs_nhzesc.png)',
+        backgroundImage: import.meta.env.VITE_LOGIN_BG_URL ? `url(${import.meta.env.VITE_LOGIN_BG_URL})` : 'none',
         backgroundSize: 'contain', 
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',

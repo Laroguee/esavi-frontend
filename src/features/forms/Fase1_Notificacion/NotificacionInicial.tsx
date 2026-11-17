@@ -207,8 +207,6 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         text += pageText + '\n';
       }
 
-      console.log("Texto extraído del PDF:", text);
-
       // 1. Número de Notificación y Seguimiento (NOTI-FACEDRA)
       const numNotifMatch = text.match(/N[úu]mero de Notificaci[óo]n:\s*([A-Z0-9]+)/i);
       if (numNotifMatch) {
@@ -432,7 +430,9 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
         data.nombrePaciente,
         data.nombreVacuna,
         data.fechaAdministracion,
-        data.nombreNotificador
+        data.nombreNotificador,
+        data.numeroNotificacionFacedra || '',
+        Boolean(data.esSeguimiento)
       );
       
       if (resDuplicado && resDuplicado.isDuplicado) {
@@ -441,8 +441,6 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       }
     }
 
-    console.log("Notificación Inicial Registrada:", data);
-    
     // Generar correlativo nacional único garantizado (Anti-Collision Engine)
     const anioActual = new Date().getFullYear();
     const idCasoNuevo = await generarNuevoIdCaso(anioActual);
@@ -521,7 +519,6 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
       if (import.meta.env.VITE_USE_API === 'true') {
         try {
           // A. Crear estructura de carpetas primero
-          console.log("Notificando a la UVS de la SRS y creando repositorio documental...");
           const resCarpeta = await crearCarpetaCaso(idCasoNuevo);
           if (resCarpeta && resCarpeta.data) {
              urlCarpetaDrive = resCarpeta.data.carpeta_principal;
@@ -574,7 +571,12 @@ export default function NotificacionInicial({ isModal, casoIdEdit, readOnly, onC
   };
 
   const handleDescargarPlantilla = () => {
-    window.open("https://res.cloudinary.com/dowejnpvd/image/upload/v1790783979/ESAVI-2026-002/clinica/Anexo_II__1790783979219.pdf", "_blank");
+    const plantillaUrl = import.meta.env.VITE_PLANTILLA_ANEXO_URL;
+    if (plantillaUrl) {
+      window.open(plantillaUrl, "_blank", "noopener,noreferrer");
+    } else {
+      alert("La URL de la plantilla oficial no está configurada en las variables de entorno (VITE_PLANTILLA_ANEXO_URL).");
+    }
   };
 
   const getDateTimeSx = (hasValue: boolean) => ({

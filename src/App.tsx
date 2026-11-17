@@ -1,4 +1,4 @@
-﻿import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './features/cases/Dashboard';
 import FormularioApertura from './features/forms/Fase1_Apertura/FormularioApertura';
@@ -20,10 +20,12 @@ import BandejaComite from './features/comittee/BandejaComite';
 import ModuloAdministracion from './features/administration/ModuloAdministracion';
 import ExpedienteDigital from './features/cases/ExpedienteDigital';
 
+const RouterComponent = import.meta.env.VITE_ROUTER_MODE === 'browser' ? BrowserRouter : HashRouter;
+
 export default function App() {
   return (
-    // TODO (Deploy): Cambiar a BrowserRouter para producción
-    <HashRouter>
+    // Router dual: BrowserRouter en Nginx/GCP y HashRouter en GitHub Pages
+    <RouterComponent>
       <Routes>
         {/* RUTA PÚBLICA */}
         <Route path="/login" element={<Login />} />
@@ -60,6 +62,6 @@ export default function App() {
           </Route>
         </Route>
       </Routes>
-    </HashRouter>
+    </RouterComponent>
   );
 }

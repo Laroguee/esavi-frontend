@@ -3,7 +3,7 @@ import {
   Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton, 
   ListItemIcon, ListItemText, Select, MenuItem, FormControl, ListSubheader, 
   Badge, IconButton, Menu, Divider, Button, useTheme, useMediaQuery,
-  Snackbar, Alert
+  Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress
 } from '@mui/material';
 import { Outlet, useNavigate } from 'react-router-dom';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
@@ -17,7 +17,9 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import MenuIcon from '@mui/icons-material/Menu';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CambioClaveModal from '../auth/CambioClaveModal';
+import { useIdleTimeout } from '../../hooks/useIdleTimeout';
 import { useAuthStore, type Role } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
 import { useCatalogStore } from '../../store/useCatalogStore';
@@ -63,6 +65,20 @@ export default function MainLayout() {
   // Se extrae la función logout del store global
   const { currentRole, userName, logout, setRole } = useAuthStore();
 
+  // Función para manejar el Cierre de Sesión
+  const handleLogout = useCallback(() => {
+    logout();
+    navigate('/login');
+  }, [logout, navigate]);
+
+  // Cierre automático por inactividad (15 min + 60s de advertencia)
+  const { isWarningOpen, secondsRemaining, stayActive } = useIdleTimeout({
+    enabled: true,
+    idleTimeMs: 15 * 60 * 1000,
+    warningTimeSec: 60,
+    onTimeout: handleLogout
+  });
+
   // --- CONEXIÓN AL STORE CENTRAL DE CASOS ---
   const { notificaciones, marcarNotificacionLeidaStore, cargarDatosBackend } = useCasesStore();
 
@@ -91,12 +107,6 @@ export default function MainLayout() {
 
   const handleCloseNotif = () => {
     setAnchorElNotif(null);
-  };
-
-  // Función para manejar el Cierre de Sesión
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
   };
 
   const handleDrawerToggle = () => {
@@ -391,6 +401,33 @@ export default function MainLayout() {
 
       {/* MODAL PARA CAMBIO DE CONTRASEÑA AUTOSERVICIO */}
       <CambioClaveModal open={openCambioClave} onClose={() => setOpenCambioClave(false)} />
+
+      {/* MODAL DE ADVERTENCIA POR INACTIVIDAD DE SESIÓN */}
+      <Dialog open={isWarningOpen} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 'bold', color: 'warning.dark' }}>
+          <AccessTimeIcon color="warning" /> Sesión por expirar
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Por seguridad de los datos clínicos, tu sesión se cerrará automáticamente por inactividad en{' '}
+            <strong>{secondsRemaining} segundos</strong>.
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={(secondsRemaining / 60) * 100}
+            color="warning"
+            sx={{ height: 8, borderRadius: 4 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleLogout} color="error" variant="outlined">
+            Cerrar Sesión Ahora
+          </Button>
+          <Button onClick={stayActive} color="primary" variant="contained" autoFocus>
+            Continuar Sesión
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

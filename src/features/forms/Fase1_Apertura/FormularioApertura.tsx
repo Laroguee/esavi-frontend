@@ -81,11 +81,6 @@ export default function FormularioApertura() {
   const { agendarReunionStore } = useCasesStore();
 
   const onSubmit = (data: AperturaFormValues) => {
-    console.log("Datos Apertura:", data);
-    if (anexoFile) {
-      console.log("Archivo adjunto preparado para envío:", anexoFile.name);
-    }
-
     const [fechaStr, horaStr] = data.fechaReunion.split('T');
 
     agendarReunionStore(data.idUnico, {

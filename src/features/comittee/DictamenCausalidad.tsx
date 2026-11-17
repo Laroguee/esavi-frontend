@@ -32,8 +32,6 @@ export default function DictamenCausalidad() {
   const onSubmit = async (data: FormDataCausalidad) => {
     setIsSubmitting(true);
     try {
-      console.log("Acta de Causalidad:", data);
-      
       if (id) {
         await avanzarCaso(id, 'CERRADO_DICTAMINADO', 'Cerrado', 'Dictamen de causalidad emitido por el comité.', undefined, data);
       }

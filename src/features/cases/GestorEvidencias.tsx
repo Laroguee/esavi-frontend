@@ -125,8 +125,16 @@ export default function GestorEvidencias({ caseId, readOnly = false }: GestorEvi
           isOffline: true
         }));
       setArchivosExistentes([...localesMapeados, ...remotos]);
+      const remotosPlanos = remotos.flatMap((g: any) =>
+        (g.archivos || []).map((a: any) => ({ ...a, categoria: g.carpeta }))
+      );
+      useCasesStore.getState().actualizarArchivosCasoStore(caseId, [...localesMapeados, ...remotosPlanos]);
     } catch (e) {
       setArchivosExistentes(remotos);
+      const remotosPlanos = remotos.flatMap((g: any) =>
+        (g.archivos || []).map((a: any) => ({ ...a, categoria: g.carpeta }))
+      );
+      useCasesStore.getState().actualizarArchivosCasoStore(caseId, remotosPlanos);
     }
 
     setLoadingFiles(false);

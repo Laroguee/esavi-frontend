@@ -100,6 +100,7 @@ export interface CasoESAVI {
   notasPreFase4?: string;
   notasFase4?: string;
   notasCierre?: string;
+  archivosAdjuntos?: any[];
   datosFase1?: any; // Para guardar el formulario completo si no hay DB
 }
 
@@ -130,6 +131,8 @@ interface CasesState {
   eliminarCasoStore: (idCaso: string) => Promise<void>;
   guardarAuditoriaParcialStore: (idCaso: string, anexo: string, estado: 'aprobado' | 'observado' | '', observacion: string) => Promise<void>;
   agregarLogStore: (idCaso: string, textoNotificacion: string) => Promise<void>;
+  actualizarArchivosCasoStore: (idCaso: string, archivos: any[]) => void;
+  limpiarMemoriaCasos: () => void;
 }
 
 // 2. Creación del Store
@@ -154,7 +157,7 @@ export const useCasesStore = create<CasesState>()(
           if (resCasos && resCasos.success && resCasos.data) {
             // Mapeo básico de Sheets a CasoESAVI
             const currentCasos = get().casos;
-            const pasosStr = ['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'CORREGIDO_POR_ERR', 'EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'];
+            const pasosStr = ['NUEVO', 'NORMAL', 'NOTIFICADO', 'PENDIENTE_OFICIALIZAR', 'EN_EVALUACION', 'EN_ASIGNACION', 'ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'CORREGIDO_POR_ERR', 'EN_REVISION_INSTITUCIONAL', 'EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE', 'EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'];
 
             const mappedCasos: CasoESAVI[] = resCasos.data.map((row: any) => {
               const existingCaso = currentCasos.find(c => c.id === row.id_caso);
@@ -171,7 +174,7 @@ export const useCasesStore = create<CasesState>()(
                 if (estado === 'EN_ASIGNACION' || estado === 'ASIGNADO_A_ERR') return 'Fase 3: Asignación';
                 if (estado === 'EN_INVESTIGACION' || estado === 'DEVUELTO_A_ERR' || estado === 'CORREGIDO_POR_ERR') return 'Fase 4: Investigación';
                 if (estado === 'EN_REVISION_INSTITUCIONAL' || estado === 'DEVUELTO_A_INSTITUCIONAL' || estado === 'EN_REVISION_SECRETARIADO' || estado === 'APROBADO_PARA_COMITE') return 'Fase 5: Control de Calidad';
-                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comitéé Externo';
+                if (estado === 'EN_EVALUACION_COMITE' || estado === 'DICTAMINADO') return 'Fase 6: Comité Externo';
                 if (estado === 'CERRADO_DICTAMINADO' || estado === 'CERRADO') return 'Expediente Cerrado';
                 return 'Fase Activa';
               };
@@ -254,7 +257,9 @@ export const useCasesStore = create<CasesState>()(
               evaluaciones_fase5: usarLocal ? (existingCaso?.evaluaciones_fase5 || row.evaluaciones_fase5) : row.evaluaciones_fase5,
               notasOficializacion: usarLocal ? (existingCaso?.notasOficializacion || row.notas_oficializacion) : row.notas_oficializacion,
               notasPreFase4: usarLocal ? (existingCaso?.notasPreFase4 || row.notas_pre_fase4) : row.notas_pre_fase4,
+              notasFase4: usarLocal ? (existingCaso?.notasFase4 || row.notas_fase4) : row.notas_fase4,
               notasCierre: usarLocal ? (existingCaso?.notasCierre || row.notas_cierre) : row.notas_cierre,
+              archivosAdjuntos: Array.isArray(row.archivosAdjuntos) ? row.archivosAdjuntos : (usarLocal ? (existingCaso?.archivosAdjuntos || []) : []),
               datosFase1: usarLocal && existingCaso?.datosFase1 ? existingCaso.datosFase1 : (row.datos_fase1_json ? JSON.parse(row.datos_fase1_json) : {
                 fechaNotificacion: row.fecha_notificacion || '',
                 nombreNotificador: row.nombre_notificador || '',
@@ -708,15 +713,27 @@ export const useCasesStore = create<CasesState>()(
       guardarNotasCaso: async (idCaso, tipoNota, texto) => {
         const userEmail = useAuthStore.getState().userEmail || 'Desconocido';
         const colMap = tipoNota === 'notasOficializacion' ? 'notas_oficializacion' : (tipoNota === 'notasPreFase4' ? 'notas_pre_fase4' : (tipoNota === 'notasFase4' ? 'notas_fase4' : 'notas_cierre'));
-        
+        const casoActual = get().casos.find(c => c.id === idCaso);
+        const debePromoverAFase4 = tipoNota === 'notasPreFase4' && casoActual?.estadoFlujo === 'ASIGNADO_A_ERR';
+
         if (import.meta.env.VITE_USE_API === 'true') {
-           await actualizarCaso(idCaso, { [colMap]: texto });
+           const updates: any = { [colMap]: texto };
+           if (debePromoverAFase4) {
+             updates.estado_flujo = 'EN_INVESTIGACION';
+           }
+           await actualizarCaso(idCaso, updates);
            await registrarLog(idCaso, userEmail, `Guardado de ${tipoNota}`);
         }
 
         set((state) => ({
           casos: state.casos.map(caso =>
-            caso.id === idCaso ? { ...caso, [tipoNota]: texto } : caso
+            caso.id === idCaso
+              ? {
+                  ...caso,
+                  [tipoNota]: texto,
+                  ...(debePromoverAFase4 ? { estadoFlujo: 'EN_INVESTIGACION' as EstadoFlujo, fase: 'Fase 4: Investigación' } : {})
+                }
+              : caso
           )
         }));
       },
@@ -733,6 +750,21 @@ export const useCasesStore = create<CasesState>()(
         set((state) => ({
           casos: state.casos.filter(caso => caso.id !== idCaso)
         }));
+      },
+
+      actualizarArchivosCasoStore: (idCaso, archivos) => {
+        set((state) => ({
+          casos: state.casos.map(caso =>
+            caso.id === idCaso ? { ...caso, archivosAdjuntos: archivos } : caso
+          )
+        }));
+      },
+
+      limpiarMemoriaCasos: () => {
+        set({ casos: [], notificaciones: [], isCargandoDatos: false });
+        if (typeof window !== 'undefined' && navigator.onLine) {
+          localStorage.removeItem('esavi-cases-storage');
+        }
       }
     }),
     { name: 'esavi-cases-storage' }

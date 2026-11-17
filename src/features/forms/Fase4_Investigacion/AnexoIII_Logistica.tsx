@@ -10,6 +10,9 @@ import { getDoc, doc } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 import { useReactToPrint } from 'react-to-print';
 import { useRef, useState, useEffect } from 'react';
+import { useFormAutoSave } from '../../../hooks/useFormAutoSave';
+import AutoSaveBadge from '../../../components/common/AutoSaveBadge';
+import DraftRecoveryModal from '../../../components/common/DraftRecoveryModal';
 
 const checklistOficial = [
   { id: 'chk_1', text: 'Identifique la zona geográfica y conozca las condiciones ambientales, de acceso o comunicación y los riesgos de seguridad.' },
@@ -35,10 +38,14 @@ export default function AnexoIII_Logistica() {
   const isComitée = currentRole === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
 
+  const userEmailClean = (userEmail || '').trim().toLowerCase();
+  const sameEmail = (a?: string, b?: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
   const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
     currentRole === 'ESAVI_LOCAL' ||
-    casoActual?.equipoERR?.idLocalClinico === userEmail ||
-    casoActual?.equipoERR?.idLocal === userEmail
+    sameEmail(casoActual?.equipoERR?.idLocalClinico, userEmailClean) ||
+    sameEmail(casoActual?.equipoERR?.idLocal, userEmailClean) ||
+    !!casoActual?.equipoERR?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['CLINICA', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   const effectiveViewMode = isViewMode || !canEdit;
@@ -53,12 +60,30 @@ export default function AnexoIII_Logistica() {
     documentTitle: `Anexo_III_Logistica_${id}`,
   });
 
-  const { control, handleSubmit, reset } = useForm({
+  const { control, handleSubmit, reset, watch, getValues } = useForm({
     defaultValues: {
       chk_1: false, chk_2: false, chk_3: false, chk_4: false,
       chk_5: false, chk_6: false, chk_7: false,
       observaciones: ''
     }
+  });
+
+  const {
+    isSaving,
+    lastSavedAt,
+    hasDraftAvailable,
+    draftTimestamp,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+  } = useFormAutoSave({
+    idCaso: id,
+    tipoAnexo: 'ANEXO_III',
+    watch,
+    reset,
+    getValues,
+    enabled: !effectiveViewMode && !!id,
+    debounceMs: 1500,
   });
 
   useEffect(() => {
@@ -124,6 +149,7 @@ export default function AnexoIII_Logistica() {
 
         await marcarAnexoCompletado(id, 'III');
         setLogisticaCompletada(true);
+        await clearDraft();
 
         const store = useCasesStore.getState();
         const casoActual = store.casos.find((c: any) => c.id === id);
@@ -162,7 +188,8 @@ export default function AnexoIII_Logistica() {
         <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo III: Checklist Logístico <Typography component="span" variant="h6" color="text.secondary">(Llenado por: Referente Clínico / ERR Local)</Typography>
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 1 }}>
+          {canEdit && <AutoSaveBadge isSaving={isSaving} lastSavedAt={lastSavedAt} />}
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
@@ -171,6 +198,20 @@ export default function AnexoIII_Logistica() {
           </Button>
         </Box>
       </Box>
+
+      <DraftRecoveryModal
+        open={hasDraftAvailable}
+        draftTimestamp={draftTimestamp}
+        onRestore={restoreDraft}
+        onDiscard={discardDraft}
+        tipoAnexoNombre="Anexo III (Checklist Logístico)"
+      />
+
+      {canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Guardado automático de borrador activo:</strong> Si no puede concluir el llenado en este momento, puede salir del formulario con tranquilidad; su avance queda guardado como borrador local en este dispositivo y podrá retomarlo al regresar.
+        </Alert>
+      )}
 
       {!canEdit && (
         <Alert severity="info" sx={{ mb: 3 }}>

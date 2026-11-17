@@ -124,10 +124,13 @@ export default function AnexoV_PuestoVacuna() {
   const isComitée = currentRole === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
 
+  const userEmailClean = (userEmail || '').trim().toLowerCase();
+  const sameEmail = (a?: string, b?: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
   const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
     currentRole === 'INMUNO_LOCAL' ||
-    casoActual?.equipoERR?.idLocalInmuno === userEmail ||
-    casoActual?.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR')
+    sameEmail(casoActual?.equipoERR?.idLocalInmuno, userEmailClean) ||
+    !!casoActual?.equipoERR?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['INMUNO', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   const effectiveViewMode = isViewMode || !canEdit;
@@ -171,7 +174,7 @@ export default function AnexoV_PuestoVacuna() {
     watch,
     reset,
     getValues,
-    enabled: !isViewMode && !!id,
+    enabled: !effectiveViewMode && !!id,
     debounceMs: 2500,
   });
 
@@ -249,6 +252,7 @@ export default function AnexoV_PuestoVacuna() {
         }
       }
       
+      await clearDraft();
       alert("Guía del Puesto de Vacunación (Anexo V) guardada exitosamente.");
       navigate(-1);
     } catch (error) {
@@ -272,6 +276,7 @@ export default function AnexoV_PuestoVacuna() {
         const base64 = reader.result as string;
         const res = await subirArchivoEvidencia(id, 'pni', base64, file.type, file.name);
         if (res.success) {
+          useCasesStore.getState().cargarDatosBackend();
           alert('Archivo subido exitosamente a la carpeta PNI del caso.');
         } else {
           alert('Error al subir el archivo: ' + res.error);
@@ -343,6 +348,12 @@ export default function AnexoV_PuestoVacuna() {
         onDiscard={discardDraft}
         tipoAnexoNombre="Anexo V (Puesto de Vacunacion)"
       />
+
+      {canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Guardado automático de borrador activo:</strong> Si no puede concluir el llenado en este momento, puede salir del formulario con tranquilidad; su avance queda guardado como borrador local en este dispositivo y podrá retomarlo al regresar.
+        </Alert>
+      )}
 
       {!canEdit && (
         <Alert severity="info" sx={{ mb: 3 }}>

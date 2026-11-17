@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: API Institucional ESAVI - Superintendencia de Regulación Sanitaria (SRS)
+  version: 0.1.0
+  description: >
+    Contrato REST API-First (Spec-Driven Development) para la transición de la
+    Plataforma Nacional de Vigilancia ESAVI hacia infraestructura contenerizada en GCP.
+servers:
+  - url: /api/v1
+    description: Gateway / Reverse Proxy interno (Nginx -> Backend)
+
+paths:
+  /health:
+    get:
+      summary: Verificación de salud del servicio (sin autenticación)
+      tags: [Observabilidad]
+      security: []
+      responses:
+        '200':
+          description: Servicio y dependencias críticas (Cloud SQL, Redis) operativas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Falla en base de datos, Redis u otra dependencia crítica
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /casos:
+    get:
+      summary: Listar expedientes ESAVI visibles según rol y establecimiento del usuario autenticado
+      tags: [Casos]
+      security:
+        - KeycloakBearerAuth: []
+      responses:
+        '200':
+          description: Lista de expedientes filtrada por RBAC en servidor
+    post:
+      summary: Registrar nueva Notificación Inicial (Fase 1) con generación atómica de correlativo
+      tags: [Casos]
+      security:
+        - KeycloakBearerAuth: []
+      responses:
+        '201':
+          description: Expediente creado exitosamente (ESAVI-YYYY-XXX)
+        '409':
+          description: Registro duplicado detectado según criterios FACEDRA/DUI
+
+  /casos/{idCaso}:
+    get:
+      summary: Obtener expediente integral (notificación, anexos, asignaciones, auditorías y logs)
+      tags: [Casos]
+      security:
+        - KeycloakBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdCaso'
+      responses:
+        '200':
+          description: Expediente completo
+        '403':
+          description: Acceso denegado por rol o establecimiento
+        '404':
+          description: Expediente no encontrado
+    patch:
+      summary: Actualizar estado del flujo o metadatos del caso (con validación de máquina de estados)
+      tags: [Casos]
+      security:
+        - KeycloakBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdCaso'
+      responses:
+        '200':
+          description: Caso actualizado y auditado en bitácora
+
+  /casos/{idCaso}/anexos/{tipoAnexo}:
+    put:
+      summary: Guardar o actualizar Anexo de investigación (III, V, VI, VII) o Matriz de Riesgo
+      tags: [Investigación de Campo]
+      security:
+        - KeycloakBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdCaso'
+        - name: tipoAnexo
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ANEXO_III, ANEXO_V, ANEXO_VI, ANEXO_VII, MATRIZ_RIESGO, ASIGNACIONES_ERR]
+      responses:
+        '200':
+          description: Anexo persistido correctamente
+
+  /casos/{idCaso}/evidencias/signed-url:
+    post:
+      summary: Solicitar URL firmada de corta duración en Google Cloud Storage para subir/descargar evidencia
+      tags: [Evidencias GCS]
+      security:
+        - KeycloakBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdCaso'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categoria, nombreArchivo, mimeType, tamanoBytes]
+              properties:
+                categoria:
+                  type: string
+                  enum: [clinica, pni, epidemiologica, general, regulatorio]
+                nombreArchivo:
+                  type: string
+                mimeType:
+                  type: string
+                tamanoBytes:
+                  type: integer
+      responses:
+        '200':
+          description: Signed URL emitida con expiración corta (5 minutos)
+        '403':
+          description: Rol sin permisos de escritura en la categoría solicitada (ej. [REGULATORIO] o modo lectura)
+
+  /casos/{idCaso}/dictamen:
+    post:
+      summary: Emitir Dictamen Final de Causalidad OMS (Fase 6 - exclusivo COMITE_EXTERNO)
+      tags: [Comité Externo]
+      security:
+        - KeycloakBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdCaso'
+      responses:
+        '200':
+          description: Dictamen registrado y caso cerrado oficialmente
+
+  /usuarios:
+    get:
+      summary: Listar usuarios activos del sistema
+      tags: [Administración]
+      security:
+        - KeycloakBearerAuth: []
+      responses:
+        '200':
+          description: Catálogo de usuarios
+    post:
+      summary: Crear o vincular usuario institucional (solo SECRETARIADO)
+      tags: [Administración]
+      security:
+        - KeycloakBearerAuth: []
+      responses:
+        '201':
+          description: Usuario registrado
+
+  /establecimientos:
+    get:
+      summary: Listar catálogo nacional de establecimientos MINSAL / ISSS
+      tags: [Catálogos]
+      security:
+        - KeycloakBearerAuth: []
+      responses:
+        '200':
+          description: Catálogo de establecimientos
+
+components:
+  securitySchemes:
+    KeycloakBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT emitido por Keycloak SRS y validado criptográficamente en Backend
+
+  parameters:
+    IdCaso:
+      name: idCaso
+      in: path
+      required: true
+      schema:
+        type: string
+        example: ESAVI-2026-010
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+          example: ok
+        service:
+          type: string
+          example: esavi-api
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-11-16T14:00:00Z'

@@ -187,11 +187,14 @@ export default function AnexoVII_Clinico() {
   const isComitée = currentRole === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
 
+  const userEmailClean = (userEmail || '').trim().toLowerCase();
+  const sameEmail = (a?: string, b?: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
   const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
     currentRole === 'ESAVI_LOCAL' ||
-    casoActual?.equipoERR?.idLocalClinico === userEmail ||
-    casoActual?.equipoERR?.idLocal === userEmail ||
-    casoActual?.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR')
+    sameEmail(casoActual?.equipoERR?.idLocalClinico, userEmailClean) ||
+    sameEmail(casoActual?.equipoERR?.idLocal, userEmailClean) ||
+    !!casoActual?.equipoERR?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['CLINICA', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   const effectiveViewMode = isViewMode || !canEdit;
@@ -247,7 +250,7 @@ export default function AnexoVII_Clinico() {
     watch,
     reset,
     getValues,
-    enabled: !isViewMode && !!id,
+    enabled: !effectiveViewMode && !!id,
     debounceMs: 2500,
   });
 
@@ -467,6 +470,7 @@ export default function AnexoVII_Clinico() {
         const base64 = reader.result as string;
         const res = await subirArchivoEvidencia(id, 'clinica', base64, file.type, file.name);
         if (res.success) {
+          useCasesStore.getState().cargarDatosBackend();
           alert('Archivo subido exitosamente a la carpeta clínica del caso.');
         } else {
           alert('Error al subir el archivo: ' + res.error);
@@ -562,6 +566,12 @@ export default function AnexoVII_Clinico() {
         onDiscard={discardDraft}
         tipoAnexoNombre="Anexo VII (Evaluación Clínica)"
       />
+
+      {canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Guardado automático de borrador activo:</strong> Si no puede concluir el llenado en este momento, puede salir del formulario con tranquilidad; su avance queda guardado como borrador local en este dispositivo y podrá retomarlo al regresar.
+        </Alert>
+      )}
 
       {!canEdit && (
         <Alert severity="info" sx={{ mb: 3 }}>

@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { Box, Paper, Typography, Grid, Stepper, Step, StepLabel, Button, Divider, Alert, Card, CardContent, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab, List, ListItem, ListItemAvatar, Avatar, ListItemText, TextField, MenuItem } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCasesStore } from '../../store/useCasesStore';
+import { listarArchivosCaso } from '../../services/firebaseService';
+import { obtenerEvidenciasCasoOffline } from '../../services/offline/offlineDB';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -78,8 +80,8 @@ export default function CaseDetail() {
   const navigate = useNavigate();
   const { currentRole, userEmail } = useAuthStore();
 
-  // --- CONEXIÃ“N AL STORE CENTRAL ---
-  const { casos, devolverCaso, agendarReunionStore, avanzarCaso, guardarNotasCaso } = useCasesStore();
+  // --- CONEXIÓN AL STORE CENTRAL ---
+  const { casos, devolverCaso, agendarReunionStore, avanzarCaso, guardarNotasCaso, actualizarArchivosCasoStore } = useCasesStore();
   const casoActual = casos.find(c => c.id === id);
 
   // --- ESTADOS PARA MODALES (Read-Only) ---
@@ -125,6 +127,57 @@ export default function CaseDetail() {
   });
 
 
+
+  useEffect(() => {
+    let active = true;
+    async function syncEvidenciasCaso() {
+      if (!id) return;
+      let archivosPlanos: any[] = [];
+      if (navigator.onLine) {
+        try {
+          const res = await listarArchivosCaso(id);
+          if (res.success && Array.isArray(res.data)) {
+            archivosPlanos = res.data.flatMap((g: any) =>
+              (g.archivos || []).map((a: any) => ({ ...a, categoria: g.carpeta }))
+            );
+          }
+        } catch {
+          // Mantener lista actual si falla red
+        }
+      }
+      try {
+        const locales = await obtenerEvidenciasCasoOffline(id);
+        const localesPendientes = locales
+          .filter(l => l.estado !== 'SINCRONIZADO')
+          .map(l => ({
+            name: l.nombreArchivo,
+            categoria: l.categoria,
+            size: l.tamanoBytes,
+            isOffline: true
+          }));
+        archivosPlanos = [...localesPendientes, ...archivosPlanos];
+      } catch {
+        // Ignorar error de IndexedDB
+      }
+      if (active) {
+        actualizarArchivosCasoStore(id, archivosPlanos);
+      }
+    }
+    syncEvidenciasCaso();
+    return () => { active = false; };
+  }, [id, actualizarArchivosCasoStore]);
+
+  const abrirModalAgenda = (fase: 'Fase 2' | 'Fase 3' | 'Fase 4' | 'Fase 6', temaSugerido = '') => {
+    setNuevaReunion({
+      tema: temaSugerido,
+      faseRelacionada: fase,
+      fecha: '',
+      hora: '',
+      modalidad: 'Virtual',
+      enlaceOLugar: ''
+    });
+    setOpenAgendaModal(true);
+  };
 
   const handleGuardarReunion = () => {
     if (!nuevaReunion.tema || !nuevaReunion.fecha || !nuevaReunion.hora) return;
@@ -204,68 +257,83 @@ export default function CaseDetail() {
     !['NUEVO', 'NOTIFICADO', 'EN_EVALUACION', 'EN_ASIGNACION', 'ASIGNADO_A_ERR'].includes(casoActual.estadoFlujo);
 
   // --- REGLAS RBAC INTEGRADAS ---
+  const userEmailClean = (userEmail || '').trim().toLowerCase();
+  const sameEmail = (a?: string, b?: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
   const isJefe = ['ESAVI_INSTITUCIONAL', 'EPIDEMIO_INSTITUCIONAL', 'INMUNO_INSTITUCIONAL'].includes(currentRole as string);
-  const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL'].includes(currentRole as string);
+  const idsInstAsignados = casoActual.equipoERR?.idsInstitucionales || [];
+  const tieneAsignacionInstitucional = idsInstAsignados.length > 0;
+  const isJefeAuditorAsignado = isJefe && (!tieneAsignacionInstitucional || idsInstAsignados.some(e => sameEmail(e, userEmailClean)));
+  const isLocalOperativo = ['ESAVI_LOCAL', 'INMUNO_LOCAL', 'EPIDEMIO_LOCAL', 'ERR'].includes(currentRole as string);
   const isEsaviLocal = currentRole === 'ESAVI_LOCAL';
   const isInmunoLocal = currentRole === 'INMUNO_LOCAL';
   const isEpidemioLocal = currentRole === 'EPIDEMIO_LOCAL';
   const isEsaviInstitucional = String(currentRole).toUpperCase() === 'ESAVI_INSTITUCIONAL';
   const isSecretariado = String(currentRole).toUpperCase() === 'SECRETARIADO';
-  const isSecretariadoApoyo = isSecretariado && casoActual.equipoRegulatorio?.apoyo === userEmail;
-  const isSecretariadoAnalista = isSecretariado && casoActual.equipoRegulatorio?.analista === userEmail;
-  const isSecretariadoCoordinador = isSecretariado && (!casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail);
+  const isSecretariadoApoyo = isSecretariado && sameEmail(casoActual.equipoRegulatorio?.apoyo, userEmailClean);
+  const isSecretariadoAnalista = isSecretariado && sameEmail(casoActual.equipoRegulatorio?.analista, userEmailClean);
+  const isSecretariadoCoordinador = isSecretariado && (!casoActual.equipoRegulatorio || sameEmail(casoActual.equipoRegulatorio.coordinador, userEmailClean));
   const isComitée = String(currentRole).toUpperCase() === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
 
   // Candado estricto Fase 4: Los roles institucionales, secretariado, comité y observadores solo auditan o consultan.
   const isAuditorOrObserver = isJefe || isSecretariado || isComitée || isObserver;
 
-  // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados
-  const isUserAssignedToERR = casoActual.miembrosERR.includes(userEmail || '');
+  // Flexibilidad: Comprobar si el correo del usuario actual está en la lista de asignados (case-insensitive)
   const eq = casoActual.equipoERR;
-  
-  // Soporte retrocompatible para casos asignados con el modelo anterior de 2 miembros genéricos
-  const isLegacyLiderOApoyo = !eq?.idLocalClinico && (eq?.idLocal === userEmail || eq?.idLocal2 === userEmail);
+  const isLegacyLiderOApoyo = !eq?.idLocalClinico && (sameEmail(eq?.idLocal, userEmailClean) || sameEmail(eq?.idLocal2, userEmailClean));
+  const isUserAssignedToERR = (casoActual.miembrosERR || []).some(m => sameEmail(m, userEmailClean)) ||
+    sameEmail(eq?.idLocalClinico, userEmailClean) ||
+    sameEmail(eq?.idLocalInmuno, userEmailClean) ||
+    sameEmail(eq?.idLocalEpidemio, userEmailClean) ||
+    isLegacyLiderOApoyo ||
+    !!eq?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && a.permiso === 'LLENAR');
 
   // Asignaciones especializadas por anexo (Exclusivo para investigadores de campo locales):
   // Anexo V (Puesto de Vacunación): Exclusivo Referente de Inmunizaciones Local
   const isAssignedToV = !isAuditorOrObserver && (
-    isInmunoLocal || 
-    eq?.idLocalInmuno === userEmail || 
-    (isLegacyLiderOApoyo && isInmunoLocal) || 
-    (isUserAssignedToERR && isInmunoLocal) || 
-    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'INMUNO' && a.permiso === 'LLENAR')
+    isInmunoLocal ||
+    sameEmail(eq?.idLocalInmuno, userEmailClean) ||
+    (isLegacyLiderOApoyo && isInmunoLocal) ||
+    (isUserAssignedToERR && isInmunoLocal) ||
+    !!eq?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['INMUNO', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   // Anexo VI (Investigación Domiciliaria): Exclusivo Referente de Epidemiología Local
   const isAssignedToVI = !isAuditorOrObserver && (
-    isEpidemioLocal || 
-    eq?.idLocalEpidemio === userEmail || 
-    (isLegacyLiderOApoyo && isEpidemioLocal) || 
-    (isUserAssignedToERR && isEpidemioLocal) || 
-    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR')
+    isEpidemioLocal ||
+    sameEmail(eq?.idLocalEpidemio, userEmailClean) ||
+    (isLegacyLiderOApoyo && isEpidemioLocal) ||
+    (isUserAssignedToERR && isEpidemioLocal) ||
+    !!eq?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['EPIDEMIO', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   // Anexo VII (Evaluación Clínica): Exclusivo Referente Clínico / Farmacovigilancia Local
   const isAssignedToVII = !isAuditorOrObserver && (
-    isEsaviLocal || 
-    eq?.idLocalClinico === userEmail || 
-    isLegacyLiderOApoyo || 
-    (isUserAssignedToERR && isEsaviLocal) || 
-    eq?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'CLINICA' && a.permiso === 'LLENAR')
+    isEsaviLocal ||
+    sameEmail(eq?.idLocalClinico, userEmailClean) ||
+    isLegacyLiderOApoyo ||
+    (isUserAssignedToERR && isEsaviLocal) ||
+    !!eq?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['CLINICA', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   // Anexo III (Logística): Referente Clínico Local
   const isAssignedToIII = !isAuditorOrObserver && (
-    isEsaviLocal || 
-    eq?.idLocalClinico === userEmail || 
-    isLegacyLiderOApoyo || 
-    (isUserAssignedToERR && isLocalOperativo)
+    isEsaviLocal ||
+    sameEmail(eq?.idLocalClinico, userEmailClean) ||
+    isLegacyLiderOApoyo ||
+    (isUserAssignedToERR && isEsaviLocal) ||
+    !!eq?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['CLINICA', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
   const tieneReunionFase2 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 2');
   const tieneReunionFase3 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 3' || r.tema?.toLowerCase().includes('pre-fase 4'));
   const tieneReunionFase4 = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 4' || r.tema?.toLowerCase().includes('campo'));
   const tieneReunionCierre = casoActual.reuniones?.some(r => r.faseRelacionada === 'Fase 6' || r.faseRelacionada === 'Fase 5');
+  const totalEvidencias = (casoActual.archivosAdjuntos || []).length;
+  const tieneEvidenciasRepositorio = totalEvidencias > 0;
+  const riesgoUpper = (casoActual.riesgo || '').toUpperCase();
+  const esRiesgoAlto = riesgoUpper.includes('ALTO') || riesgoUpper.includes('CRÍTICO') || riesgoUpper.includes('CRITICO') || riesgoUpper.includes('NACIONAL');
+  const tieneDocRegulatorio = (casoActual.archivosAdjuntos || []).some((a: any) => a.categoria === 'regulatorio');
 
   // Guía Contextual de Roles Determinística (Sin IA)
   const guiaTurno = (() => {
@@ -300,41 +368,67 @@ export default function CaseDetail() {
           if (casoActual.estadoFlujo === 'NUEVO') {
             useCasesStore.getState().avanzarCaso(casoActual.id, 'EN_EVALUACION', 'Fase 2: Evaluación', 'El caso ha entrado en fase de evaluación y triaje.', 'Sin clasificar');
           }
-          setOpenAgendaModal(true);
+          abrirModalAgenda('Fase 2', 'Reunión de Evaluación y Triaje Inicial');
         } : undefined,
       };
     }
 
     if (estado === 'EN_EVALUACION' || estado === 'PENDIENTE_OFICIALIZAR') {
-      if (!f2Completado) {
-        const esMiTurno = isJefe;
+      const esMiTurno = isJefe;
+      if (!tieneReunionFase2) {
         return {
           esMiTurno,
           esFinalizado: false,
           rolResponsable: 'Equipo Coordinador Institucional (ESAVI / Epidemio / Inmuno)',
-          titulo: esMiTurno ? 'Tu Turno: Evaluación de Riesgo (Fase 2)' : 'En Espera: Evaluación de Riesgo por Equipo Coordinador',
+          titulo: esMiTurno ? 'Tu Turno: Agendar Reunión de Triaje (Fase 2)' : 'En Espera: Programación de Reunión (Fase 2)',
           mensaje: esMiTurno
-            ? 'Debe diligenciar la Matriz de Riesgo institucional para determinar la gravedad clínica y epidemiológica, estableciendo el nivel de respuesta sanitaria.'
-            : 'El expediente se encuentra en triaje técnico. El Equipo Coordinador Institucional está evaluando la matriz de riesgo.',
-          siguientePaso: 'Completar la Matriz de Riesgo para desbloquear la asignación del ERR.',
-          accionTexto: esMiTurno ? 'Ir a Matriz de Riesgo' : undefined,
-          accionFn: esMiTurno ? () => navigate(`/matriz-riesgo/${id}`) : undefined,
+            ? 'Antes de diligenciar la Matriz de Riesgo o registrar acuerdos, debe programar la reunión inicial del Equipo Coordinador Institucional y verificar los documentos iniciales en el Gestor de Evidencias.'
+            : 'El Equipo Coordinador Institucional debe agendar su reunión inicial de triaje para continuar con la evaluación.',
+          siguientePaso: 'Hacer clic en "Agendar Reunión Fase 2" o ir a la pestaña "Agenda y Reuniones".',
+          accionTexto: esMiTurno ? 'Agendar Reunión Fase 2' : undefined,
+          accionFn: esMiTurno ? () => abrirModalAgenda('Fase 2', 'Reunión de Evaluación y Triaje Inicial') : undefined,
         };
-      } else {
-        const esMiTurno = isJefe;
+      }
+      if (!f2Completado) {
         return {
           esMiTurno,
           esFinalizado: false,
-          rolResponsable: 'Equipo Coordinador (ESAVI Institucional)',
-          titulo: esMiTurno ? 'Tu Turno: Asignación de Equipo ERR (Fase 3)' : 'En Espera: Designación de Equipo ERR',
+          rolResponsable: 'Equipo Coordinador Institucional (ESAVI / Epidemio / Inmuno)',
+          titulo: esMiTurno ? 'Tu Turno: Evaluación de Riesgo y Evidencias Iniciales (Fase 2)' : 'En Espera: Evaluación de Riesgo por Equipo Coordinador',
           mensaje: esMiTurno
-            ? 'La matriz de riesgo ha sido evaluada. Debe designar a los profesionales responsables del ERR local (Clínico, Inmunizaciones y Epidemiología).'
-            : 'La evaluación de riesgo fue completada. Se está a la espera de que la jefatura institucional asigne al equipo investigador local.',
-          siguientePaso: 'Designar a los miembros del ERR en la pantalla de Asignación de Equipo.',
-          accionTexto: esMiTurno ? 'Asignar Equipo ERR' : undefined,
-          accionFn: esMiTurno ? () => navigate(`/asignar-equipo/${id}`) : undefined,
+            ? 'Debe diligenciar la Matriz de Riesgo institucional para determinar el nivel de respuesta sanitaria. Recuerde revisar o adjuntar evidencias clínicas iniciales en "Gestor de Evidencias" y anotar los acuerdos de la reunión en la tarjeta de Fase 2.'
+            : 'El expediente se encuentra en triaje técnico. El Equipo Coordinador Institucional está evaluando la matriz de riesgo.',
+          siguientePaso: 'Completar la Matriz de Riesgo, adjuntar evidencias iniciales y guardar las notas de reunión.',
+          accionTexto: esMiTurno ? 'Ir a Matriz de Riesgo' : undefined,
+          accionFn: esMiTurno ? () => navigate(`/matriz-riesgo/${id}`) : undefined,
         };
       }
+      if (!casoActual.notasOficializacion) {
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Equipo Coordinador Institucional (Fase 2)',
+          titulo: esMiTurno ? 'Tu Turno: Notas de Reunión y Respaldos Iniciales (Fase 2)' : 'En Espera: Registro de Acuerdos de Reunión (Fase 2)',
+          mensaje: esMiTurno
+            ? 'La Matriz de Riesgo está completa. Antes de asignar al equipo ERR, registre los acuerdos de la reunión en "Notas y Acuerdos de Reunión (Equipo Coordinador)" y verifique en la pestaña "Gestor de Evidencias" si se adjuntó la documentación clínica inicial.'
+            : 'El Equipo Coordinador Institucional está registrando los acuerdos de la reunión inicial y validando los documentos base.',
+          siguientePaso: 'Redactar las notas de reunión en la tarjeta de Fases 2 y 3 y revisar la pestaña "Gestor de Evidencias".',
+          accionTexto: esMiTurno ? 'Ir a Gestor de Evidencias' : undefined,
+          accionFn: esMiTurno ? () => setTabIndex(1) : undefined,
+        };
+      }
+      return {
+        esMiTurno,
+        esFinalizado: false,
+        rolResponsable: 'Equipo Coordinador (ESAVI Institucional)',
+        titulo: esMiTurno ? 'Tu Turno: Asignación de Equipo ERR (Fase 3)' : 'En Espera: Designación de Equipo ERR',
+        mensaje: esMiTurno
+          ? 'La matriz de riesgo y los acuerdos de Fase 2 han sido completados. Debe designar a los profesionales responsables del ERR local (Clínico, Inmunizaciones y Epidemiología).'
+          : 'La evaluación de riesgo fue completada. Se está a la espera de que la jefatura institucional asigne al equipo investigador local.',
+        siguientePaso: 'Designar a los miembros del ERR en la pantalla de Asignación de Equipo.',
+        accionTexto: esMiTurno ? 'Asignar Equipo ERR' : undefined,
+        accionFn: esMiTurno ? () => navigate(`/asignar-equipo/${id}`) : undefined,
+      };
     }
 
     if (estado === 'EN_ASIGNACION' || (f2Completado && !f3Completado)) {
@@ -362,53 +456,152 @@ export default function CaseDetail() {
           rolResponsable: 'Equipo Coordinador Institucional',
           titulo: esMiTurno ? 'Tu Turno: Inducción y Lineamientos Pre-Fase 4' : 'En Espera: Lineamientos Pre-Fase 4 por Equipo Coordinador',
           mensaje: esMiTurno
-            ? 'El equipo ERR ha sido asignado. Debe coordinar la reunión Pre-Fase 4 y redactar los acuerdos iniciales para desbloquear el llenado de anexos.'
-            : 'El equipo local está a la espera de que el Equipo Coordinador Institucional registre los acuerdos de la reunión de inducción Pre-Fase 4.',
-          siguientePaso: 'Redactar y guardar las Notas Pre-Fase 4 en la tarjeta de Investigación.',
-        };
-        return {
-          esMiTurno,
-          esFinalizado: false,
-          rolResponsable: 'ESAVI Institucional (Equipo Coordinador)',
-          titulo: esMiTurno ? 'Tu Turno: Inducción y Lineamientos Pre-Fase 4' : 'En Espera: Lineamientos Pre-Fase 4 por Jefatura',
-          mensaje: esMiTurno
-            ? 'El equipo ERR ha sido asignado. Debe coordinar la reunión Pre-Fase 4 y redactar los acuerdos iniciales para desbloquear el llenado de anexos.'
-            : 'El equipo local está a la espera de que la jefatura institucional registre los acuerdos de la reunión de inducción Pre-Fase 4.',
-          siguientePaso: 'Redactar y guardar las Notas Pre-Fase 4 en la tarjeta de Investigación.',
+            ? (!tieneReunionFase3
+                ? 'El equipo ERR ha sido asignado. Primero debe programar la reunión Pre-Fase 4 en Agenda y luego redactar las notas y acuerdos para desbloquear los anexos de campo.'
+                : 'La reunión Pre-Fase 4 ya fue programada. Ahora redacte y guarde los lineamientos iniciales en "Notas y Acuerdos de Reunión (Pre-Fase 4)" para habilitar el llenado de anexos.')
+            : 'El equipo local está a la espera de que el Equipo Coordinador Institucional programe la reunión Pre-Fase 4 y registre los acuerdos iniciales.',
+          siguientePaso: !tieneReunionFase3
+            ? 'Hacer clic en "Agendar Reunión Pre-Fase 4" y luego redactar las Notas Pre-Fase 4.'
+            : 'Redactar y guardar las Notas Pre-Fase 4 en la tarjeta de Fase 4.',
+          accionTexto: esMiTurno && !tieneReunionFase3 ? 'Agendar Reunión Pre-Fase 4' : undefined,
+          accionFn: esMiTurno && !tieneReunionFase3 ? () => abrirModalAgenda('Fase 3', 'Reunión de Inducción Pre-Fase 4') : undefined,
         };
       } else {
         const todosAnexosCompletos = casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado;
         if (todosAnexosCompletos) {
-          const esMiTurno = isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL';
+          const esMiTurno = isJefeAuditorAsignado;
           return {
             esMiTurno,
             esFinalizado: false,
             rolResponsable: 'Equipo Coordinador Institucional (Fase 5.1)',
             titulo: esMiTurno ? 'Tu Turno: Auditoría y Control de Calidad Institucional (Fase 5.1)' : 'En Espera: Control de Calidad Institucional',
             mensaje: esMiTurno
-              ? 'Todos los anexos de campo han sido completados. Debe realizar la auditoría institucional y aprobar el expediente para su revisión por el Secretariado SRS.'
-              : 'Los anexos de campo están completos. El equipo coordinador institucional está realizando la auditoría de calidad.',
+              ? 'Todos los anexos de campo han sido completados. Recuerde revisar que se hayan registrado las notas de cierre de campo (Fase 4) y evidencias adjuntas antes de aprobar el pase a Secretariado SRS.'
+              : 'Los anexos de campo están completos. Los referentes institucionales designados en Fase 3 están realizando la auditoría de calidad.',
             siguientePaso: 'Hacer clic en "Auditoría Institucional" en la tarjeta de Fase 5.',
             accionTexto: esMiTurno ? 'Auditoría Institucional' : undefined,
             accionFn: esMiTurno ? () => setOpenAuditoria(true) : undefined,
           };
         }
 
-        const esMiTurno = isLocalOperativo && isUserAssignedToERR;
-        let detalleAnexo = 'completar los anexos técnicos asignados';
-        if (isInmunoLocal || isAssignedToV) detalleAnexo = 'completar el Anexo V (Puesto de Vacunación)';
-        else if (isEpidemioLocal || isAssignedToVI) detalleAnexo = 'completar el Anexo VI (Investigación Domiciliaria)';
-        else if (isEsaviLocal || isAssignedToVII || isAssignedToIII) detalleAnexo = 'completar el Anexo III (Logística) y Anexo VII (Evaluación Clínica)';
+        const puedeIII = isEsaviLocal || isAssignedToIII;
+        const puedeVII = isEsaviLocal || isAssignedToVII;
+        const puedeV = isInmunoLocal || isAssignedToV;
+        const puedeVI = isEpidemioLocal || isAssignedToVI;
+        const anexo3Listo = Boolean(casoActual.anexoIII_completado);
+
+        const puedeOperarFase4 = !isAuditorOrObserver && isLocalOperativo && (isUserAssignedToERR || puedeIII || puedeVII || puedeV || puedeVI);
+
+        if (puedeOperarFase4) {
+          // 1. Prioridad absoluta: Anexo III (Logística) desbloquea los demás anexos
+          if (puedeIII && !anexo3Listo) {
+            return {
+              esMiTurno: true,
+              esFinalizado: false,
+              rolResponsable: 'Referente Clínico / ERR Local (Anexo III)',
+              titulo: 'Tu Turno: Evaluación Logística previa (Anexo III)',
+              mensaje: 'Antes de habilitar el llenado de los Anexos V, VI y VII para todo el equipo ERR, complete el checklist logístico previo al despliegue.',
+              siguientePaso: 'Completar y guardar el Anexo III (Evaluación Logística).',
+              accionTexto: 'Completar Anexo III (Logística)',
+              accionFn: () => navigate('/anexo-logistica/' + id),
+            };
+          }
+
+          // 2. Bloqueo normativo mientras otro responsable completa Anexo III
+          if (!anexo3Listo && ((puedeV && !casoActual.anexoV_completado) || (puedeVI && !casoActual.anexoVI_completado) || (puedeVII && !casoActual.anexoVII_completado))) {
+            return {
+              esMiTurno: false,
+              esFinalizado: false,
+              rolResponsable: 'Referente Clínico / ERR Local (Anexo III)',
+              titulo: 'En Espera: Evaluación Logística Previa (Anexo III)',
+              mensaje: 'Su anexo de campo se habilitará automáticamente en cuanto el Referente Clínico Local complete el Anexo III (Logística).',
+              siguientePaso: 'Esperar la finalización del Anexo III para iniciar su anexo correspondiente.',
+            };
+          }
+
+          // 3. Anexo específico pendiente según rol/asignación del usuario actual
+          if (puedeVII && !casoActual.anexoVII_completado) {
+            return {
+              esMiTurno: true,
+              esFinalizado: false,
+              rolResponsable: 'Referente Clínico / ERR Local (Anexo VII)',
+              titulo: 'Tu Turno: Evaluación Clínica (Anexo VII)',
+              mensaje: 'La logística previa ya está lista. Le corresponde completar el Anexo VII (Evaluación Clínica); puede guardar borrador local automático si necesita pausar.',
+              siguientePaso: 'Completar el Anexo VII (Evaluación Clínica) y adjuntar evidencias clínicas en el repositorio.',
+              accionTexto: 'Llenar Anexo VII (Clínico)',
+              accionFn: () => navigate(`/anexo-clinico/${id}`),
+            };
+          }
+
+          if (puedeV && !casoActual.anexoV_completado) {
+            return {
+              esMiTurno: true,
+              esFinalizado: false,
+              rolResponsable: 'Inmunizaciones Local / ERR (Anexo V)',
+              titulo: 'Tu Turno: Puesto de Vacunación (Anexo V)',
+              mensaje: 'La logística previa ya está lista. Le corresponde completar el Anexo V (Puesto de Vacunación y cadena de frío); su avance se autoguarda localmente.',
+              siguientePaso: 'Completar el Anexo V (Puesto de Vacunación) y subir respaldos de PNI en Gestor de Evidencias.',
+              accionTexto: 'Llenar Anexo V (Puesto)',
+              accionFn: () => navigate(`/anexo-puesto/${id}`),
+            };
+          }
+
+          if (puedeVI && !casoActual.anexoVI_completado) {
+            return {
+              esMiTurno: true,
+              esFinalizado: false,
+              rolResponsable: 'Epidemiología Local / ERR (Anexo VI)',
+              titulo: 'Tu Turno: Investigación Domiciliaria (Anexo VI)',
+              mensaje: 'La logística previa ya está lista. Le corresponde completar el Anexo VI (Investigación Domiciliaria y Comunitaria); su avance se autoguarda localmente.',
+              siguientePaso: 'Completar el Anexo VI (Domiciliaria) y cargar fichas o croquis en Gestor de Evidencias.',
+              accionTexto: 'Llenar Anexo VI (Domiciliaria)',
+              accionFn: () => navigate(`/anexo-domicilio/${id}`),
+            };
+          }
+        }
+
+        const faltantes: string[] = [];
+        if (!casoActual.anexoIII_completado) faltantes.push('Anexo III (Logística)');
+        if (!casoActual.anexoVII_completado) faltantes.push('Anexo VII (Clínico)');
+        if (!casoActual.anexoV_completado) faltantes.push('Anexo V (Puesto)');
+        if (!casoActual.anexoVI_completado) faltantes.push('Anexo VI (Domiciliaria)');
+        const resumenFaltantes = faltantes.length > 0 ? faltantes.join(', ') : 'Cierre de investigación';
+
+        if (puedeOperarFase4) {
+          if (!tieneEvidenciasRepositorio) {
+            return {
+              esMiTurno: false,
+              esFinalizado: false,
+              rolResponsable: 'Equipo de Respuesta Rápida (ERR Local)',
+              titulo: 'Su Anexo está Completo — En Espera del Equipo ERR',
+              mensaje: `Ya completó su anexo asignado. Anexos pendientes del equipo: ${resumenFaltantes}. Recuerde verificar que existan respaldos documentales en "Gestor de Evidencias".`,
+              siguientePaso: 'Cargar evidencias faltantes en el repositorio mientras el resto del ERR concluye sus anexos.',
+              accionTexto: 'Ir a Gestor de Evidencias',
+              accionFn: () => setTabIndex(1),
+            };
+          }
+
+          return {
+            esMiTurno: false,
+            esFinalizado: false,
+            rolResponsable: 'Equipo de Respuesta Rápida (ERR Local)',
+            titulo: 'Su Anexo está Completo — En Espera del Equipo ERR',
+            mensaje: `Ya completó su anexo asignado y el repositorio ya cuenta con evidencias. Quedan pendientes: ${resumenFaltantes}.`,
+            siguientePaso: !tieneReunionFase4
+              ? 'Esperar los anexos restantes; al concluir podrán agendar la reunión y notas de cierre de campo (Fase 4).'
+              : 'Esperar la finalización de los anexos restantes para iniciar la Fase 5.',
+            accionTexto: !tieneReunionFase4 ? 'Agendar Reunión Fase 4' : undefined,
+            accionFn: !tieneReunionFase4 ? () => abrirModalAgenda('Fase 4', 'Reunión de Cierre de Investigación de Campo') : undefined,
+          };
+        }
 
         return {
-          esMiTurno,
+          esMiTurno: false,
           esFinalizado: false,
           rolResponsable: 'Equipo de Respuesta Rápida (ERR Local)',
-          titulo: esMiTurno ? 'Tu Turno: Investigación de Campo (Fase 4)' : 'En Espera: Investigación de Campo por Equipo ERR',
-          mensaje: esMiTurno
-            ? `Como miembro asignado del ERR, le corresponde ${detalleAnexo}. Ingrese a los anexos correspondientes a su perfil.`
-            : 'Los profesionales del ERR local se encuentran recolectando información de campo y llenando los anexos normativos.',
-          siguientePaso: 'Llenar y finalizar los Anexos III, V, VI y VII de la Fase 4.',
+          titulo: 'En Espera: Investigación de Campo por Equipo ERR',
+          mensaje: `Los profesionales asignados del ERR local se encuentran completando los anexos de campo (${resumenFaltantes}) y cargando evidencias.`,
+          siguientePaso: 'Esperar a que el ERR complete los Anexos III, V, VI y VII y las evidencias de respaldo.',
         };
       }
     }
@@ -428,21 +621,48 @@ export default function CaseDetail() {
     }
 
     if (estado === 'DEVUELTO_A_ERR') {
-      const esMiTurno = isLocalOperativo && isUserAssignedToERR;
+      const rechazado = casoActual.anexoRechazado || '';
+      const puedeIII = isEsaviLocal || isAssignedToIII;
+      const puedeVII = isEsaviLocal || isAssignedToVII;
+      const puedeV = isInmunoLocal || isAssignedToV;
+      const puedeVI = isEpidemioLocal || isAssignedToVI;
+
+      let accionTexto: string | undefined;
+      let accionFn: (() => void) | undefined;
+
+      if (!isAuditorOrObserver && isLocalOperativo) {
+        if (puedeIII && rechazado.includes('Anexo III')) {
+          accionTexto = 'Corregir Anexo III';
+          accionFn = () => navigate(`/anexo-logistica/${id}`);
+        } else if (puedeVII && rechazado.includes('Anexo VII')) {
+          accionTexto = 'Corregir Anexo VII';
+          accionFn = () => navigate(`/anexo-clinico/${id}`);
+        } else if (puedeV && rechazado.includes('Anexo V')) {
+          accionTexto = 'Corregir Anexo V';
+          accionFn = () => navigate(`/anexo-puesto/${id}`);
+        } else if (puedeVI && rechazado.includes('Anexo VI')) {
+          accionTexto = 'Corregir Anexo VI';
+          accionFn = () => navigate(`/anexo-domicilio/${id}`);
+        }
+      }
+
+      const esMiTurno = Boolean(accionFn) || (!rechazado && isLocalOperativo && isUserAssignedToERR);
       return {
         esMiTurno,
         esFinalizado: false,
         rolResponsable: 'Equipo ERR Local',
         titulo: esMiTurno ? 'Tu Turno: Corrección de Anexo de Campo' : 'En Espera: Corrección por Equipo ERR Local',
         mensaje: esMiTurno
-          ? `Se requiere corrección en: ${casoActual.anexoRechazado || 'Anexo'}. Ingrese al anexo indicado, aplique los ajustes requeridos y vuelva a guardarlo.`
-          : 'El equipo local se encuentra corrigiendo las observaciones señaladas por la auditoría.',
-        siguientePaso: 'Modificar el anexo rechazado en la tarjeta de Fase 4.',
+          ? `Se requiere corrección en: ${rechazado || 'Anexo'}. Ingrese al anexo indicado, aplique los ajustes requeridos y vuelva a guardarlo.`
+          : `El responsable del anexo observado (${rechazado || 'Anexo'}) se encuentra aplicando las correcciones señaladas por la auditoría.`,
+        siguientePaso: 'Modificar y guardar el anexo rechazado en la tarjeta de Fase 4.',
+        accionTexto,
+        accionFn,
       };
     }
 
     if (estado === 'EN_REVISION_INSTITUCIONAL') {
-      const esMiTurno = isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL';
+      const esMiTurno = isJefeAuditorAsignado;
       return {
         esMiTurno,
         esFinalizado: false,
@@ -450,7 +670,7 @@ export default function CaseDetail() {
         titulo: esMiTurno ? 'Tu Turno: Auditoría y Control de Calidad Institucional (Fase 5.1)' : 'En Espera: Control de Calidad Institucional',
         mensaje: esMiTurno
           ? 'Todos los anexos de campo han sido completados. Debe realizar la auditoría institucional y aprobar el expediente para su revisión por el Secretariado SRS.'
-          : 'Los anexos de campo están completos. El equipo coordinador institucional está realizando la auditoría de calidad.',
+          : 'Los anexos de campo están completos. Los referentes institucionales designados en Fase 3 están realizando la auditoría de calidad.',
         siguientePaso: 'Hacer clic en "Auditoría Institucional" en la tarjeta de Fase 5.',
         accionTexto: esMiTurno ? 'Auditoría Institucional' : undefined,
         accionFn: esMiTurno ? () => setOpenAuditoria(true) : undefined,
@@ -477,15 +697,46 @@ export default function CaseDetail() {
     if (estado === 'APROBADO_PARA_COMITE') {
       const isCoordinadorSRS = isSecretariado && (!casoActual.equipoRegulatorio || casoActual.equipoRegulatorio.coordinador === userEmail);
       const esMiTurno = isCoordinadorSRS;
+
+      if (!tieneEvidenciasRepositorio) {
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Secretariado Coordinador (SRS)',
+          titulo: esMiTurno ? 'Requisito Pendiente: Cargar Evidencias antes del Comité' : 'En Espera: Carga de Evidencias Documentales',
+          mensaje: esMiTurno
+            ? 'El repositorio del expediente tiene 0 documentos cargados. Es obligatorio adjuntar al menos un documento de respaldo en el Gestor de Evidencias antes de enviar el caso al Comité de Expertos.'
+            : 'Se requiere adjuntar al menos un documento en el Gestor de Evidencias antes de convocar al Comité de Expertos.',
+          siguientePaso: 'Ir a la pestaña "Gestor de Evidencias" y cargar la documentación pertinente.',
+          accionTexto: (esMiTurno || isSecretariadoAnalista) ? 'Ir a Gestor de Evidencias' : undefined,
+          accionFn: (esMiTurno || isSecretariadoAnalista) ? () => setTabIndex(1) : undefined,
+        };
+      }
+
+      if (!tieneReunionCierre) {
+        return {
+          esMiTurno,
+          esFinalizado: false,
+          rolResponsable: 'Secretariado Coordinador (SRS)',
+          titulo: esMiTurno ? 'Tu Turno: Agendar Reunión de Cierre / Comité (Paso 1 de 2)' : 'En Espera: Programación de Sesión de Comité',
+          mensaje: esMiTurno
+            ? 'El expediente está aprobado para deliberación. Primero debe programar la reunión del Comité (Fase 6) en la agenda del caso para habilitar el envío.'
+            : 'El expediente superó la auditoría de calidad. El Secretariado Coordinador está programando la fecha de sesión para el Comité de Expertos.',
+          siguientePaso: 'Hacer clic en "Agendar Reunión" para programar la sesión de Fase 6.',
+          accionTexto: esMiTurno ? 'Agendar Reunión' : undefined,
+          accionFn: esMiTurno ? () => abrirModalAgenda('Fase 6', 'Sesión de Deliberación Comité de Expertos') : undefined,
+        };
+      }
+
       return {
         esMiTurno,
         esFinalizado: false,
         rolResponsable: 'Secretariado Coordinador (SRS)',
-        titulo: esMiTurno ? 'Tu Turno: Convocatoria del Comité de Expertos (Fase 5)' : 'En Espera: Convocatoria de Comité por Secretariado',
+        titulo: esMiTurno ? 'Tu Turno: Enviar Expediente al Comité de Expertos (Paso 2 de 2)' : 'En Espera: Envío al Comité por Secretariado',
         mensaje: esMiTurno
-          ? 'El expediente está aprobado para deliberación. Debe programar la reunión de cierre y habilitar el caso para el Comité de Expertos.'
-          : 'El expediente superó la auditoría de calidad. El Secretariado Coordinador está agendando la sesión deliberativa con el Comité de Expertos.',
-        siguientePaso: 'Agendar la sesión en "Agendar para Comité".',
+          ? 'La reunión de Comité ya está agendada y el expediente cuenta con evidencias en el repositorio. Puede confirmar el envío a la bandeja del Comité de Expertos.'
+          : 'La sesión fue programada. El Secretariado Coordinador habilitará el caso en la bandeja del Comité de Expertos.',
+        siguientePaso: 'Hacer clic en "Agendar para Comité" y confirmar el envío.',
         accionTexto: esMiTurno ? 'Agendar para Comité' : undefined,
         accionFn: esMiTurno ? () => setOpenEnvioComitéeModal(true) : undefined,
       };
@@ -727,7 +978,7 @@ export default function CaseDetail() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabIndex} onChange={(_, val) => setTabIndex(val)} aria-label="expediente tabs" variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
           <Tab label="Gestión del Expediente" />
-          <Tab label="Gestor de Evidencias" />
+          <Tab label={`Gestor de Evidencias (${totalEvidencias})`} />
           <Tab label="Historial de Cambios" iconPosition="start" icon={<HistoryIcon fontSize="small" />} />
           <Tab label="Agenda y Reuniones" />
         </Tabs>
@@ -780,7 +1031,7 @@ export default function CaseDetail() {
                     if (casoActual.estadoFlujo === 'NUEVO') {
                       useCasesStore.getState().avanzarCaso(casoActual.id, 'EN_EVALUACION', 'Fase 2: Evaluación', 'El caso ha entrado en fase de evaluación y triaje.', 'Sin clasificar');
                     }
-                    setOpenAgendaModal(true);
+                    abrirModalAgenda('Fase 2', 'Reunión de Evaluación y Triaje Inicial');
                   }}
                   disabled={!isJefe || (casoActual.estadoFlujo !== 'NUEVO' && tieneReunionFase2)}
                   tooltipText={!isJefe ? "Requiere rol de Jefatura." : ((casoActual.estadoFlujo !== 'NUEVO' && tieneReunionFase2) ? "El caso ya está oficializado y agendado." : "Oficializar expediente y agendar reunión.")}
@@ -790,6 +1041,16 @@ export default function CaseDetail() {
                 {casoActual.estadoFlujo !== 'NUEVO' && (
                   <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #e0e0e0' }}>
                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Equipo Coordinador)</Typography>
+
+                    {!casoActual.notasOficializacion && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        <strong>Guía de Fase 2:</strong> Registre los acuerdos de la reunión inicial de triaje y verifique en la pestaña{' '}
+                        <Button size="small" variant="text" onClick={() => setTabIndex(1)} sx={{ p: 0, minWidth: 'auto', fontWeight: 'bold', textDecoration: 'underline', verticalAlign: 'baseline' }}>
+                          Gestor de Evidencias
+                        </Button>{' '}
+                        si requiere cargar documentación clínica inicial (ej. hoja FACEDRA, epicrisis o referencias).
+                      </Alert>
+                    )}
 
                     {casoActual.notasOficializacion && (
                       <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
@@ -804,10 +1065,18 @@ export default function CaseDetail() {
                       placeholder="Escriba una nueva observación o acuerdo..."
                       value={nuevaNotaOficializacion}
                       onChange={(e) => setNuevaNotaOficializacion(e.target.value)}
-                      disabled={(isObserver || isComitée) || !tieneReunionFase2 || !f2Completado}
+                      disabled={(isObserver || isComitée) || !tieneReunionFase2}
                     />
-                    {!tieneReunionFase2 && <Typography variant="caption" color="error">Debe programar la reunión de Fase 2 en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>}
-                    {tieneReunionFase2 && !f2Completado && <Typography variant="caption" color="error">Debe llenar la Matriz de Riesgo antes de redactar los acuerdos.</Typography>}
+                    {!tieneReunionFase2 && (
+                      <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Typography variant="caption" color="error">Debe programar la reunión de Fase 2 en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>
+                        {isJefe && (
+                          <Button size="small" variant="outlined" color="primary" onClick={() => abrirModalAgenda('Fase 2', 'Reunión de Evaluación y Triaje Inicial')}>
+                            Agendar Reunión Fase 2
+                          </Button>
+                        )}
+                      </Box>
+                    )}
                     {(!isObserver && !isComitée) && tieneReunionFase2 && (
                       <Button
                         variant="contained"
@@ -843,8 +1112,16 @@ export default function CaseDetail() {
                   chipStatus={f3Completado ? 'Completado' : 'Pendiente'}
                   btnText={f3Completado ? "Ver / Reasignar Equipo" : "Asignar Equipo"}
                   onClick={() => navigate('/asignar-equipo/' + id)}
-                  disabled={!isJefe && !f3Completado}
-                  tooltipText={isJefe ? "Puede reasignar el equipo en cualquier momento durante la investigación." : "Acceso exclusivo para Jefaturas."}
+                  disabled={!isJefe || ['NUEVO', 'NOTIFICADO', 'PENDIENTE_OFICIALIZAR'].includes(casoActual.estadoFlujo) || !f2Completado}
+                  tooltipText={
+                    !isJefe
+                      ? "Acceso exclusivo para Jefaturas."
+                      : ['NUEVO', 'NOTIFICADO', 'PENDIENTE_OFICIALIZAR'].includes(casoActual.estadoFlujo)
+                        ? "Debe oficializar el expediente primero (Fase 2)."
+                        : !f2Completado
+                          ? "Debe completar la Matriz de Riesgo (Fase 2) antes de asignar al Equipo ERR."
+                          : "Puede asignar o reasignar el equipo durante la investigación."
+                  }
                 />
               </Box>
             </CardContent>
@@ -877,7 +1154,7 @@ export default function CaseDetail() {
 
               <Box sx={{ p: 2 }}>
 
-                {(casoActual.notasPreFase4 || ['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo)) && (
+                {(casoActual.notasPreFase4 || ['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo)) && (
                   <Box sx={{ mb: 3, p: 2, bgcolor: '#f9f9f9', borderRadius: 1, border: '1px solid #e0e0e0' }}>
                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Notas y Acuerdos de Reunión (Pre-Fase 4)</Typography>
 
@@ -887,7 +1164,7 @@ export default function CaseDetail() {
                       </Paper>
                     )}
 
-                    {['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) && (
+                    {['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) && (
                       <>
                         <TextField
                           fullWidth
@@ -898,7 +1175,16 @@ export default function CaseDetail() {
                           onChange={(e) => setNuevaNotaPreFase4(e.target.value)}
                           disabled={(isObserver || isComitée) || !tieneReunionFase3 || !f2Completado}
                         />
-                        {!tieneReunionFase3 && <Typography variant="caption" color="error">Debe programar la reunión Pre-Fase 4 (Fase 3) en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>}
+                        {!tieneReunionFase3 && (
+                          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                            <Typography variant="caption" color="error">Debe programar la reunión Pre-Fase 4 (Fase 3) en la pestaña "Agenda" antes de redactar los acuerdos.</Typography>
+                            {(!isObserver && !isComitée) && (
+                              <Button size="small" variant="outlined" color="primary" onClick={() => abrirModalAgenda('Fase 3', 'Reunión de Inducción Pre-Fase 4')}>
+                                Agendar Reunión Pre-Fase 4
+                              </Button>
+                            )}
+                          </Box>
+                        )}
                         {tieneReunionFase3 && !f2Completado && <Typography variant="caption" color="error">Debe llenar la Matriz de Riesgo antes de redactar los acuerdos.</Typography>}
                         {(!isObserver && !isComitée) && tieneReunionFase3 && (
                           <Button
@@ -940,7 +1226,7 @@ export default function CaseDetail() {
                           if (a3Status === 'Completado') navigate(`/anexo-logistica/${id}?mode=view`);
                           else navigate('/anexo-logistica/' + id);
                         }}
-                        disabled={a3Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToIII) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
+                        disabled={a3Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToIII) || !['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'CORREGIDO_POR_ERR', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
                         tooltipText={a3Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 (Notas) primero." : isAuditorOrObserver ? "Acceso exclusivo para el Equipo ERR Local (Referente Clínico Local). Como nivel institucional/auditor, su función es de consulta y posterior auditoría en Fase 5." : (!(isEsaviLocal || isAssignedToIII) ? "Acceso exclusivo para Coordinador Local o Clínico." : "Habilitado para completar."))}
                         color={a3Status === 'Completado' ? 'primary' : a3Status === 'Corrección' ? 'error' : 'secondary'}
                       />
@@ -953,7 +1239,7 @@ export default function CaseDetail() {
                           if (a7Status === 'Completado') navigate(`/anexo-clinico/${id}?mode=view`);
                           else navigate(`/anexo-clinico/${id}`);
                         }}
-                        disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToVII) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))}
+                        disabled={a7Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEsaviLocal || isAssignedToVII) || !['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'CORREGIDO_POR_ERR', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a7Status !== 'Corrección' && !casoActual.anexoIII_completado))}
                         tooltipText={a7Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a7Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : isAuditorOrObserver ? "Acceso exclusivo para el Referente Clínico Local (ERR). El nivel institucional audita en Fase 5.1." : (!(isEsaviLocal || isAssignedToVII) ? "Acceso exclusivo para Referente Clínico o ERR." : "Habilitado para completar.")))}
                         color={a7Status === 'Completado' ? 'primary' : a7Status === 'Corrección' ? 'error' : 'secondary'}
                       />
@@ -966,7 +1252,7 @@ export default function CaseDetail() {
                           if (a5Status === 'Completado') navigate(`/anexo-puesto/${id}?mode=view`);
                           else navigate(`/anexo-puesto/${id}`);
                         }}
-                        disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || isAssignedToV) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))}
+                        disabled={a5Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isInmunoLocal || isAssignedToV) || !['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'CORREGIDO_POR_ERR', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a5Status !== 'Corrección' && !casoActual.anexoIII_completado))}
                         tooltipText={a5Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a5Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : isAuditorOrObserver ? "Acceso exclusivo para Inmunizaciones Local (ERR). El nivel institucional audita en Fase 5.1." : (!(isInmunoLocal || isAssignedToV) ? "Acceso exclusivo para Inmunizaciones o ERR." : "Habilitado para completar.")))}
                         color={a5Status === 'Completado' ? 'primary' : a5Status === 'Corrección' ? 'error' : 'secondary'}
                       />
@@ -979,13 +1265,35 @@ export default function CaseDetail() {
                           if (a6Status === 'Completado') navigate(`/anexo-domicilio/${id}?mode=view`);
                           else navigate(`/anexo-domicilio/${id}`);
                         }}
-                        disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || isAssignedToVI) || !['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}
+                        disabled={a6Status === 'Completado' ? !isViewer : (!casoActual.notasPreFase4 || !(isEpidemioLocal || isAssignedToVI) || !['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'CORREGIDO_POR_ERR', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL'].includes(casoActual.estadoFlujo) || (a6Status !== 'Corrección' && !casoActual.anexoIII_completado))}
                         tooltipText={a6Status === 'Completado' ? "Ver Anexo" : (!casoActual.notasPreFase4 ? "Debe completarse la reunión Pre-Fase 4 primero." : ((a6Status !== 'Corrección' && !casoActual.anexoIII_completado) ? "Debe completar Logística (Anexo III) primero." : isAuditorOrObserver ? "Acceso exclusivo para Epidemiología Local (ERR). El nivel institucional audita en Fase 5.1." : (!(isEpidemioLocal || isAssignedToVI) ? "Acceso exclusivo para Epidemiólogo o ERR." : "Habilitado para completar.")))}
                         color={a6Status === 'Completado' ? 'primary' : a6Status === 'Corrección' ? 'error' : 'secondary'}
                       />
                     </>
                   );
                 })()}
+
+                {/* INDICADOR GUIADO DEL REPOSITORIO DOCUMENTAL (FASE 4) */}
+                <Alert
+                  severity={tieneEvidenciasRepositorio ? 'success' : 'warning'}
+                  sx={{ mt: 3, mb: 1 }}
+                  action={
+                    (!isObserver && !isSecretariadoApoyo) && (
+                      <Button size="small" color="inherit" variant="outlined" onClick={() => setTabIndex(1)} sx={{ fontWeight: 'bold' }}>
+                        Subir Documentos al Repositorio
+                      </Button>
+                    )
+                  }
+                >
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                    Repositorio Documental de Evidencias: {totalEvidencias} {totalEvidencias === 1 ? 'archivo cargado' : 'archivos cargados'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Durante la Fase 4 el equipo debe respaldar la investigación en la pestaña <strong>Gestor de Evidencias</strong> según su área:{' '}
+                    <strong>Clínica / General</strong> (ESAVI Local: epicrisis, labs, DUI), <strong>PNI</strong> (Inmuno Local: carné y cadena de frío) y{' '}
+                    <strong>Epidemiológica</strong> (Epidemio Local: fichas y croquis). Sin evidencias cargadas no se permitirá el pase al Comité.
+                  </Typography>
+                </Alert>
 
                 {/* NUEVO BLOQUE: NOTAS POST-CAMPO (FASE 4) */}
                 {(casoActual.notasFase4 || ['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo)) && (
@@ -1000,6 +1308,14 @@ export default function CaseDetail() {
 
                     {['EN_INVESTIGACION', 'DEVUELTO_A_ERR', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo) && (
                       <>
+                        {!casoActual.notasFase4 && (
+                          <Alert severity="info" sx={{ mb: 2 }}>
+                            <strong>Guía de Cierre de Campo:</strong> Al concluir los anexos, recuerde cargar las evidencias recolectadas en{' '}
+                            <Button size="small" variant="text" onClick={() => setTabIndex(1)} sx={{ p: 0, minWidth: 'auto', fontWeight: 'bold', textDecoration: 'underline', verticalAlign: 'baseline' }}>
+                              Gestor de Evidencias
+                            </Button>, agendar la reunión de cierre de Fase 4 y registrar aquí los acuerdos del equipo.
+                          </Alert>
+                        )}
                         <TextField
                           fullWidth
                           multiline
@@ -1009,7 +1325,16 @@ export default function CaseDetail() {
                           onChange={(e) => setNuevaNotaFase4(e.target.value)}
                           disabled={(isObserver || isComitée) || !tieneReunionFase4}
                         />
-                        {!tieneReunionFase4 && <Typography variant="caption" color="error">Debe programar la reunión de Cierre de Campo (Fase 4) en la pestaña "Agenda" para ingresar las notas.</Typography>}
+                        {!tieneReunionFase4 && (
+                          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                            <Typography variant="caption" color="error">Debe programar la reunión de Cierre de Campo (Fase 4) en la pestaña "Agenda" para ingresar las notas.</Typography>
+                            {(!isObserver && !isComitée) && (
+                              <Button size="small" variant="outlined" color="secondary" onClick={() => abrirModalAgenda('Fase 4', 'Reunión de Cierre de Investigación de Campo')}>
+                                Agendar Reunión Fase 4
+                              </Button>
+                            )}
+                          </Box>
+                        )}
                         {(!isObserver && !isComitée) && tieneReunionFase4 && (
                           <Button
                             variant="contained"
@@ -1051,8 +1376,14 @@ export default function CaseDetail() {
                   btnText="Auditoría Institucional"
                   color="warning"
                   onClick={() => setOpenAuditoria(true)}
-                  disabled={!((isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL') && casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && ['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
-                  tooltipText={!(isJefe || currentRole === 'INMUNO_INSTITUCIONAL' || currentRole === 'EPIDEMIO_INSTITUCIONAL') ? "Exclusivo para Equipo Coordinador (Nivel Institucional)." : "Requiere todos los anexos completados."}
+                  disabled={!(isJefeAuditorAsignado && casoActual.anexoIII_completado && casoActual.anexoV_completado && casoActual.anexoVI_completado && casoActual.anexoVII_completado && ['ASIGNADO_A_ERR', 'EN_INVESTIGACION', 'DEVUELTO_A_INSTITUCIONAL', 'EN_REVISION_INSTITUCIONAL'].includes(casoActual.estadoFlujo))}
+                  tooltipText={
+                    !isJefe
+                      ? "Exclusivo para Equipo Coordinador (Nivel Institucional)."
+                      : !isJefeAuditorAsignado
+                      ? "Solo los referentes institucionales designados en la Fase 3 para este caso pueden auditar en Fase 5.1."
+                      : "Requiere todos los anexos completados."
+                  }
                 />
                 <ActionRow
                   title="Auditoría Secretariado (Fase 5.2)"
@@ -1075,6 +1406,19 @@ export default function CaseDetail() {
                       : "Realizar auditoría regulatoria y pase a comité."
                   }
                 />
+                {isSecretariado && esRiesgoAlto && !tieneDocRegulatorio && (isSecretariadoAnalista || isSecretariadoCoordinador) && ['EN_REVISION_SECRETARIADO', 'APROBADO_PARA_COMITE'].includes(casoActual.estadoFlujo) && (
+                  <Alert
+                    severity="info"
+                    sx={{ mt: 2 }}
+                    action={
+                      <Button size="small" color="inherit" variant="outlined" onClick={() => setTabIndex(1)} sx={{ fontWeight: 'bold' }}>
+                        Ir a [REGULATORIO]
+                      </Button>
+                    }
+                  >
+                    <strong>Espacio Regulatorio SRS:</strong> Este caso de riesgo Alto/Crítico aún no cuenta con documentos regulatorios adjuntos en la pestaña <strong>[REGULATORIO]</strong> del Gestor de Evidencias.
+                  </Alert>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -1101,17 +1445,33 @@ export default function CaseDetail() {
                 />
                 <ActionRow
                   title="Sala de Espera (Fase 5)"
-                  chipStatus={['EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
-                  btnText="Agendar para Comité"
-                  color="secondary"
-                  onClick={() => setOpenEnvioComitéeModal(true)}
-                  disabled={!isSecretariado || casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE' || !tieneReunionCierre}
+                  chipStatus={['EN_EVALUACION_COMITE', 'DICTAMINADO', 'CERRADO_DICTAMINADO', 'CERRADO'].includes(casoActual.estadoFlujo) ? 'Completado' : 'Pendiente'}
+                  btnText={!tieneReunionCierre && casoActual.estadoFlujo === 'APROBADO_PARA_COMITE' ? "Agendar Reunión" : "Agendar para Comité"}
+                  color={!tieneReunionCierre && casoActual.estadoFlujo === 'APROBADO_PARA_COMITE' ? "primary" : "secondary"}
+                  onClick={() => {
+                    if (!tieneReunionCierre) {
+                      abrirModalAgenda('Fase 6', 'Sesión de Deliberación Comité de Expertos');
+                    } else {
+                      setOpenEnvioComitéeModal(true);
+                    }
+                  }}
+                  disabled={
+                    !isSecretariadoCoordinador ||
+                    casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE' ||
+                    (tieneReunionCierre && !tieneEvidenciasRepositorio)
+                  }
                   tooltipText={
                     !isSecretariado
                       ? "Solo Secretariado."
-                      : !tieneReunionCierre
-                        ? "Bloqueado: ESAVI Institucional debe programar la Reunión de Cierre en la pestaña de Agenda primero."
-                        : ""
+                      : !isSecretariadoCoordinador
+                        ? "Exclusivo para el Secretariado Coordinador asignado."
+                        : casoActual.estadoFlujo !== 'APROBADO_PARA_COMITE'
+                          ? "Disponible una vez aprobada la Auditoría Secretariado (Fase 5.2)."
+                          : !tieneReunionCierre
+                            ? ""
+                            : !tieneEvidenciasRepositorio
+                              ? "Bloqueado: Debe adjuntar al menos un documento de respaldo en el Gestor de Evidencias antes de enviar al Comité."
+                              : ""
                   }
                 />
                 <ActionRow
@@ -1229,7 +1589,17 @@ export default function CaseDetail() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" color="primary">Agenda de Reuniones</Typography>
             {(!isObserver && !isComitée) && (
-              <Button variant="contained" color="primary" onClick={() => setOpenAgendaModal(true)}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  const faseSugerida =
+                    casoActual.estadoFlujo === 'APROBADO_PARA_COMITE' ? 'Fase 6' :
+                    casoActual.estadoFlujo === 'ASIGNADO_A_ERR' ? 'Fase 3' :
+                    casoActual.estadoFlujo === 'EN_INVESTIGACION' ? 'Fase 4' : 'Fase 2';
+                  abrirModalAgenda(faseSugerida);
+                }}
+              >
                 + Agendar Reunión
               </Button>
             )}
@@ -1295,7 +1665,7 @@ export default function CaseDetail() {
             <MenuItem value="Fase 2">Fase 2: Evaluación</MenuItem>
             <MenuItem value="Fase 3">Fase 3: Asignación ERR</MenuItem>
             <MenuItem value="Fase 4">Fase 4: Investigación (Cierre)</MenuItem>
-            <MenuItem value="Fase 6">Fase 6: Comitéé Externo</MenuItem>
+            <MenuItem value="Fase 6">Fase 6: Comité Externo</MenuItem>
           </TextField>
           <TextField
             select
@@ -1464,16 +1834,22 @@ export default function CaseDetail() {
 
       {/* MODAL: AGENDAR COMITÃ‰ (Fase 5 -> 6) */}
       <Dialog open={openEnvioComitéeModal} onClose={() => setOpenEnvioComitéeModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 0 }}>Agendar Sesión de Comitéé</DialogTitle>
+        <DialogTitle sx={{ bgcolor: 'secondary.main', color: 'white', mb: 0 }}>Agendar Sesión de Comité</DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            El expediente <strong>{casoActual.id}</strong> será enviado a la bandeja del Comitéé Externo de Vacunación Segura para su dictamen final.
+            El expediente <strong>{casoActual.id}</strong> será enviado a la bandeja del Comité Externo de Vacunación Segura para su dictamen final.
           </Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>Reuniones Programadas para el Comitéé (Fase 6)</Typography>
-          {casoActual.reuniones && casoActual.reuniones.filter(r => r.faseRelacionada === 'Fase 6').length > 0 ? (
+          {!tieneEvidenciasRepositorio && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <strong>Documentación Obligatoria Faltante:</strong> El Gestor de Evidencias tiene 0 archivos cargados. Debe subir al menos un respaldo documental antes de enviar este expediente al Comité.
+            </Alert>
+          )}
+
+          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>Reuniones Programadas para el Comité (Fase 6)</Typography>
+          {casoActual.reuniones && casoActual.reuniones.filter(r => r.faseRelacionada === 'Fase 6' || r.faseRelacionada === 'Fase 5').length > 0 ? (
             <Grid container spacing={2}>
-              {casoActual.reuniones.filter(r => r.faseRelacionada === 'Fase 6').map(reunion => (
+              {casoActual.reuniones.filter(r => r.faseRelacionada === 'Fase 6' || r.faseRelacionada === 'Fase 5').map(reunion => (
                 <Grid size={{ xs: 12 }} key={reunion.id}>
                   <Card variant="outlined" sx={{ bgcolor: '#f9f9f9' }}>
                     <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -1498,14 +1874,15 @@ export default function CaseDetail() {
           <Button onClick={() => setOpenEnvioComitéeModal(false)} variant="outlined">Cancelar</Button>
           <Button
             onClick={() => {
-              avanzarCaso(casoActual.id, 'EN_EVALUACION_COMITE', 'Fase 6: Evaluación de Comitéé', 'Caso agendado y enviado al Comitéé Externo.');
+              avanzarCaso(casoActual.id, 'EN_EVALUACION_COMITE', 'Fase 6: Evaluación de Comité', 'Caso agendado y enviado al Comité Externo.');
               setOpenEnvioComitéeModal(false);
               navigate('/');
             }}
             variant="contained"
             color="secondary"
+            disabled={!tieneReunionCierre || !tieneEvidenciasRepositorio}
           >
-            Confirmar y Enviar al Comitéé
+            Confirmar y Enviar al Comité
           </Button>
         </DialogActions>
       </Dialog>

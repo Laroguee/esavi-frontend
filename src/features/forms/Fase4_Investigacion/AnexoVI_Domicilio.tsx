@@ -17,6 +17,9 @@ import { useReactToPrint } from 'react-to-print';
 import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { VoiceTextField } from '../../../components/common/VoiceTextField';
+import { useFormAutoSave } from '../../../hooks/useFormAutoSave';
+import AutoSaveBadge from '../../../components/common/AutoSaveBadge';
+import DraftRecoveryModal from '../../../components/common/DraftRecoveryModal';
 import * as z from 'zod';
 
 // =======================================================
@@ -161,10 +164,13 @@ export default function AnexoVI_Domicilio() {
   const isComitée = currentRole === 'COMITE_EXTERNO';
   const isObserver = ['OBSERVADOR_EPIDEMIO', 'OBSERVADOR_INMUNO'].includes(currentRole as string);
 
+  const userEmailClean = (userEmail || '').trim().toLowerCase();
+  const sameEmail = (a?: string, b?: string) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
   const canEdit = !isJefe && !isSecretariado && !isComitée && !isObserver && (
     currentRole === 'EPIDEMIO_LOCAL' ||
-    casoActual?.equipoERR?.idLocalEpidemio === userEmail ||
-    casoActual?.equipoERR?.apoyosSistema?.some((a: any) => a.email === userEmail && a.areaApoyo === 'EPIDEMIO' && a.permiso === 'LLENAR')
+    sameEmail(casoActual?.equipoERR?.idLocalEpidemio, userEmailClean) ||
+    !!casoActual?.equipoERR?.apoyosSistema?.some((a: any) => sameEmail(a.email, userEmailClean) && ['EPIDEMIO', 'GENERAL'].includes(String(a.areaApoyo || '')) && a.permiso === 'LLENAR')
   );
 
   const effectiveViewMode = isViewMode || !canEdit;
@@ -176,7 +182,7 @@ export default function AnexoVI_Domicilio() {
     documentTitle: `Anexo_VI_Domicilio_${id}`,
   });
 
-  const { control, handleSubmit, reset } = useForm<AnexoVIFormValues>({
+  const { control, handleSubmit, reset, watch, getValues } = useForm<AnexoVIFormValues>({
     resolver: zodResolver(anexoVISchema),
     defaultValues: {
       idUnico: id || '', horaInicio: '', horaFin: '', fechaVisita: new Date().toISOString().split('T')[0],
@@ -198,6 +204,24 @@ export default function AnexoVI_Domicilio() {
       entrevista_evolucion: '', entrevista_antecedentes: '', entrevista_vacunacion: '', entrevista_laboral: '', entrevista_extraLaboral: '', entrevista_exposicion: '', entrevista_casosAdicionales: '',
       dom_vivienda: '', dom_higiene: '', dom_familiar: '', dom_ambiental: '', dom_acceso: '', dom_evidencia: '', dom_almacenMedicina: '', dom_percepcionFamilia: ''
     }
+  });
+
+  const {
+    isSaving,
+    lastSavedAt,
+    hasDraftAvailable,
+    draftTimestamp,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+  } = useFormAutoSave<AnexoVIFormValues>({
+    idCaso: id,
+    tipoAnexo: 'ANEXO_CAMPO',
+    watch,
+    reset,
+    getValues,
+    enabled: !effectiveViewMode && !!id,
+    debounceMs: 2500,
   });
 
   useEffect(() => {
@@ -271,6 +295,7 @@ export default function AnexoVI_Domicilio() {
         }
       }
       
+      await clearDraft();
       alert("Guía Domiciliaria (Anexo VI) guardada exitosamente.");
       navigate(-1);
     } catch (error) {
@@ -319,6 +344,7 @@ export default function AnexoVI_Domicilio() {
         const base64 = reader.result as string;
         const res = await subirArchivoEvidencia(id, 'epidemiologica', base64, file.type, file.name);
         if (res.success) {
+          useCasesStore.getState().cargarDatosBackend();
           alert('Archivo subido exitosamente a la carpeta Epidemiológica del caso.');
         } else {
           alert('Error al subir el archivo: ' + res.error);
@@ -377,13 +403,28 @@ export default function AnexoVI_Domicilio() {
         <Typography variant="h5" color="primary" sx={{ fontWeight: 'bold' }}>
           Anexo VI: Guía Domiciliaria y Comunitaria <Typography component="span" variant="subtitle1" color="text.secondary">(Llenado por: Epidemiólogo)</Typography>
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 1 }}>
+          {canEdit && <AutoSaveBadge isSaving={isSaving} lastSavedAt={lastSavedAt} />}
           <Button variant="outlined" color="secondary" onClick={() => handlePrint()}>
             Descargar PDF
           </Button>
           <Button variant="outlined" onClick={() => navigate(-1)}>Cancelar</Button>
         </Box>
       </Box>
+
+      <DraftRecoveryModal
+        open={hasDraftAvailable}
+        draftTimestamp={draftTimestamp}
+        onRestore={restoreDraft}
+        onDiscard={discardDraft}
+        tipoAnexoNombre="Anexo VI (Guía Domiciliaria y Comunitaria)"
+      />
+
+      {canEdit && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <strong>Guardado automático de borrador activo:</strong> Si no puede concluir el llenado en este momento, puede salir del formulario con tranquilidad; su avance queda guardado como borrador local en este dispositivo y podrá retomarlo al regresar.
+        </Alert>
+      )}
 
       {!canEdit && (
         <Alert severity="info" sx={{ mb: 3 }}>

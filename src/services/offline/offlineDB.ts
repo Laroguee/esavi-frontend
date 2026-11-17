@@ -217,3 +217,21 @@ export async function obtenerDetallePendientes(): Promise<{
   const evidencias = await dbLocal.evidenciasLocales.where('estado').equals('PENDIENTE_SYNC').toArray();
   return { anexos, evidencias };
 }
+
+/**
+ * Limpia la caché de consulta clínica al cerrar sesión, protegiendo los
+ * borradores y archivos pendientes de sincronizar en la cola offline.
+ */
+export async function limpiarCacheSeguraEnLogout(): Promise<void> {
+  await dbLocal.transaction(
+    'rw',
+    dbLocal.casosCache,
+    dbLocal.anexosLocales,
+    dbLocal.evidenciasLocales,
+    async () => {
+      await dbLocal.casosCache.clear();
+      await dbLocal.anexosLocales.where('estado').equals('SINCRONIZADO').delete();
+      await dbLocal.evidenciasLocales.where('estado').equals('SINCRONIZADO').delete();
+    }
+  );
+}

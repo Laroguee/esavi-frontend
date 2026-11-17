@@ -176,8 +176,11 @@ export async function obtenerExpediente(id_caso: string) {
 
 export async function subirArchivoEvidencia(id_caso: string, categoria: string, base64: string, mimeType: string, filename: string, usuario: string = 'Desconocido') {
   try {
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dowejnpvd';
-    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'esavi_docs';
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) {
+      return { success: false, error: 'Falta configurar VITE_CLOUDINARY_CLOUD_NAME o VITE_CLOUDINARY_UPLOAD_PRESET en el entorno.' };
+    }
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
     
     // Cloudinary expects file as a data URI
@@ -603,47 +606,81 @@ export async function apiRequest(payload: any) {
   return { success: false, error: "Migrado a Firebase" };
 }
 
-export async function verificarDuplicado(pacienteDUI: string, nombrePaciente: string, nombreVacuna: string, fechaAplicacion: string, nombreNotificador: string) {
+export async function verificarDuplicado(
+  pacienteDUI: string,
+  nombrePaciente: string,
+  nombreVacuna: string,
+  fechaAplicacion: string,
+  nombreNotificador: string,
+  numeroNotificacionFacedra: string = '',
+  esSeguimiento: boolean = false
+) {
   try {
+    // Los registros de seguimiento complementan un caso previo y no deben bloquearse como duplicados
+    if (esSeguimiento) {
+      return { success: true, isDuplicado: false };
+    }
+
+    const normStr = (val?: string) =>
+      String(val || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const normDUI = (val?: string) =>
+      String(val || '').replace(/[-\s]/g, '').trim();
+
+    const normFecha = (val?: string) => String(val || '').trim();
+
+    const duiNuevo = normDUI(pacienteDUI);
+    const facedraNuevo = normStr(numeroNotificacionFacedra);
+    const pacNuevo = normStr(nombrePaciente);
+    const vacNuevo = normStr(nombreVacuna);
+    const fechaNuevo = normFecha(fechaAplicacion);
+    const notifNuevo = normStr(nombreNotificador);
+
     const casosRef = collection(db, 'casos');
-    
-    // As in Firebase we cannot do complex OR/AND queries easily on multiple full-text fields without compound indexes,
-    // we fetch all active cases (not closed) and filter in memory, since this is a relatively small dataset per year.
     const querySnapshot = await getDocs(casosRef);
+
     const duplicados = querySnapshot.docs.filter(doc => {
       let data = doc.data();
-      // Only check active cases
-      if (data.estado_flujo === 'CERRADO' || data.estado_flujo === 'CERRADO_DICTAMINADO') return false;
-      
+
       // Retrocompatibilidad: Extraer de datos_fase1_json si las columnas nativas no existen en un caso antiguo
-      if (!data.nombre_paciente && data.datos_fase1_json) {
+      if ((!data.nombre_paciente || !data.numero_notificacion) && data.datos_fase1_json) {
         try {
           const jsonParsed = JSON.parse(data.datos_fase1_json);
           data = {
             ...data,
-            nombre_paciente: jsonParsed.nombrePaciente || '',
-            nombre_vacuna: jsonParsed.nombreVacuna || '',
-            fecha_vacunacion: jsonParsed.fechaAdministracion || '',
-            nombre_notificador: jsonParsed.nombreNotificador || '',
-            paciente_dui: jsonParsed.pacienteDUI || ''
+            nombre_paciente: data.nombre_paciente || jsonParsed.nombrePaciente || '',
+            nombre_vacuna: data.nombre_vacuna || jsonParsed.nombreVacuna || '',
+            fecha_vacunacion: data.fecha_vacunacion || jsonParsed.fechaAdministracion || '',
+            nombre_notificador: data.nombre_notificador || jsonParsed.nombreNotificador || '',
+            paciente_dui: data.paciente_dui || jsonParsed.pacienteDUI || '',
+            numero_notificacion: data.numero_notificacion || jsonParsed.numeroNotificacionFacedra || ''
           };
-        } catch (e) {
+        } catch {
           // Silencioso en caso de error de parseo
         }
       }
 
-      // El DUI se evalúa contra la columna correcta (paciente_dui). Si no se ingresó, no rompe la cadena pero exige que los otros 4 coincidan.
-      const matchDUI = pacienteDUI ? data.paciente_dui?.trim() === pacienteDUI.trim() : true; 
-      
-      // Se utiliza trim() y toLowerCase() para evitar que espacios invisibles pasen la validación
-      const matchPaciente = nombrePaciente && data.nombre_paciente?.trim().toLowerCase() === nombrePaciente.trim().toLowerCase();
-      const matchVacuna = nombreVacuna && data.nombre_vacuna?.trim().toLowerCase() === nombreVacuna.trim().toLowerCase();
-      const matchFecha = fechaAplicacion && data.fecha_vacunacion?.trim() === fechaAplicacion.trim();
-      const matchNotificador = nombreNotificador && data.nombre_notificador?.trim().toLowerCase() === nombreNotificador.trim().toLowerCase();
+      // 1. Coincidencia directa por código de notificación FACEDRA (cuando ambos están presentes)
+      const facedraExistente = normStr(data.numero_notificacion);
+      if (facedraNuevo && facedraExistente && facedraNuevo === facedraExistente) {
+        return true;
+      }
 
-      // Criterio de duplicidad estricto (5 variables)
-      const isDuplicado = matchDUI && matchPaciente && matchVacuna && matchFecha && matchNotificador;
-      return isDuplicado;
+      // 2. Criterio de duplicidad estricto normalizado (DUI + Paciente + Vacuna + Fecha + Notificador)
+      const duiExistente = normDUI(data.paciente_dui);
+      const matchDUI = duiNuevo && duiExistente ? duiExistente === duiNuevo : true;
+
+      const matchPaciente = !!pacNuevo && normStr(data.nombre_paciente) === pacNuevo;
+      const matchVacuna = !!vacNuevo && normStr(data.nombre_vacuna) === vacNuevo;
+      const matchFecha = !!fechaNuevo && normFecha(data.fecha_vacunacion) === fechaNuevo;
+      const matchNotificador = !!notifNuevo && normStr(data.nombre_notificador) === notifNuevo;
+
+      return matchDUI && matchPaciente && matchVacuna && matchFecha && matchNotificador;
     });
 
     if (duplicados.length > 0) {
@@ -653,6 +690,6 @@ export async function verificarDuplicado(pacienteDUI: string, nombrePaciente: st
     return { success: true, isDuplicado: false };
   } catch (error: any) {
     console.error("Error verificando duplicado:", error);
-    return { success: false, error: error.message };
+    return { success: false, isDuplicado: false, error: error.message };
   }
 }
